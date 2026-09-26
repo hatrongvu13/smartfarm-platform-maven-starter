@@ -1,18 +1,45 @@
 #!/usr/bin/env bash
+#
+# bootstrap.sh — one-time setup for the SmartFarm monorepo.
+#
+# This is now a SINGLE Git repository (a Maven multi-module monorepo). There are
+# no sub-repositories to clone: every module lives in this tree and is built by
+# the reactor from the root POM. This script just verifies the toolchain and
+# does a first full build so downstream `spring-boot:run` commands work.
+#
+# Usage:
+#   ./scripts/bootstrap.sh            # verify tools + full clean install
+#   ./scripts/bootstrap.sh --skip-build   # verify tools only
+#
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BASE="${SMARTFARM_GIT_BASE:-git@github.com:YOUR_ORG}"
-MODE="${1:-missing}"
-python3 - "$ROOT" "$BASE" "$MODE" <<'PY'
-import json, pathlib, subprocess, sys, os
-root, base, mode = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-data=json.loads((root/'repositories.json').read_text())
-for repo in data['repositories']:
-    path=root/repo['path']; url=f"{base}/{repo['name']}.git"
-    if path.exists() and any(path.iterdir()):
-        if mode == 'pull' and (path/'.git').exists(): subprocess.run(['git','-C',str(path),'pull','--ff-only'],check=True)
-        else: print(f"SKIP {repo['path']}")
-        continue
-    path.parent.mkdir(parents=True,exist_ok=True)
-    subprocess.run(['git','clone','--branch',repo['branch'],url,str(path)],check=True)
-PY
+cd "$ROOT"
+
+echo "==> SmartFarm monorepo bootstrap"
+echo "    root: $ROOT"
+
+# --- toolchain checks ---
+command -v java >/dev/null 2>&1 || { echo "ERROR: java not found (need JDK 17+)"; exit 1; }
+command -v mvn  >/dev/null 2>&1 || { echo "ERROR: mvn not found (need Maven 3.9+)"; exit 1; }
+java -version
+mvn -version | head -1
+
+if [[ "${1:-}" == "--skip-build" ]]; then
+    echo "==> --skip-build given; toolchain OK, skipping build."
+    exit 0
+fi
+
+# --- first full build (installs internal modules into the local repo) ---
+echo "==> Building the full reactor (mvn clean install)…"
+mvn -B clean install
+
+cat <<'EOF'
+
+==> Bootstrap complete.
+
+Run individual services after this install, e.g.:
+  mvn -f services/smartfarm-livestock-service/pom.xml spring-boot:run
+  mvn -f apps/smartfarm-gateway/pom.xml spring-boot:run
+
+See the root README.md for ports and the full run guide.
+EOF

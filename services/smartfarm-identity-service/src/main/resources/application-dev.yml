@@ -7,8 +7,33 @@ spring:
     hibernate:
       ddl-auto: update
 
+# Identity is an INTERNAL service: bind to loopback so external clients cannot reach
+# it directly. All external auth traffic must enter through the gateway (port 8080).
+server:
+  address: 127.0.0.1
+
 smartfarm:
   identity:
     issuer: http://localhost:8092
     private-key-path: classpath:.local/identity-private.pem
     public-key-path: classpath:.local/identity-public.pem
+    # Machine-to-machine (service) tokens — client-credentials flow (Hướng A).
+    # DEV secret only; in prod inject a real secret hash via env and keep this out of VCS.
+    service-token:
+      ttl: 5m
+      clients:
+        gateway:
+          # bcrypt("dev-gateway-service-secret"); dev-only, override in prod.
+          secret: "$2a$12$YGIvX6qteWbknC9owzIGueP9fk7sgtyuOo9phPNEChG2TQ3UUuv1q"
+          audiences:
+            - smartfarm-livestock
+            - smartfarm-health
+            - smartfarm-inventory
+          scopes-by-audience:
+            smartfarm-livestock:
+              - "tasks:write"
+              - "farm:read"
+            smartfarm-health:
+              - "farm:read"
+            smartfarm-inventory:
+              - "farm:read"

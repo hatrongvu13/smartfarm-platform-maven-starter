@@ -2,11 +2,30 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      SmartFarm platform parent + aggregator (single-repo monorepo).
+
+      This POM is BOTH the Maven parent (every module inherits from it) and the
+      reactor aggregator (it lists every module). All shared configuration lives
+      here exactly once: Spring Boot version, Java version, Spring gRPC BOM, the
+      internal-module versions, third-party pins, and plugin management. Modules
+      declare only what is specific to them.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath/>
+    </parent>
+
     <groupId>com.htv.smartfarm</groupId>
     <artifactId>smartfarm-platform</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>SmartFarm Reactor Workspace</name>
+    <name>SmartFarm Platform</name>
+    <description>Single-repo Maven monorepo for the SmartFarm microservices platform.</description>
+
     <modules>
         <module>libs/smartfarm-common-kernel</module>
         <module>libs/smartfarm-security</module>
@@ -21,4 +40,83 @@
         <module>services/smartfarm-reporting-service</module>
         <module>apps/smartfarm-gateway</module>
     </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Shared third-party versions (single source of truth) -->
+        <spring-grpc.version>1.1.1</spring-grpc.version>
+        <!-- protoc-gen-grpc-java version for code generation only; runtime grpc
+             artifacts are governed by the spring-grpc BOM. Keep this aligned with
+             the BOM's grpc version to avoid codegen/runtime drift. -->
+        <grpc.version>1.83.1</grpc.version>
+        <paho.version>1.2.5</paho.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring gRPC BOM -->
+            <dependency>
+                <groupId>org.springframework.grpc</groupId>
+                <artifactId>spring-grpc-dependencies</artifactId>
+                <version>${spring-grpc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Internal modules: managed here so modules omit <version> -->
+            <dependency>
+                <groupId>com.htv.smartfarm</groupId>
+                <artifactId>smartfarm-common-kernel</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.htv.smartfarm</groupId>
+                <artifactId>smartfarm-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.htv.smartfarm</groupId>
+                <artifactId>smartfarm-proto</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Third-party pins -->
+            <!--
+              NOTE: do NOT pin grpc-api here. The spring-grpc-dependencies BOM above
+              already manages the entire io.grpc group (api/core/netty/stub/protobuf)
+              at one coherent version. A manual grpc-api pin wins over the BOM and
+              desynchronises it from grpc-core, causing NoClassDefFoundError
+              (e.g. io/grpc/InternalFeatureFlags) at runtime.
+            -->
+            <dependency>
+                <groupId>org.eclipse.paho</groupId>
+                <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+                <version>${paho.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!--
+                  Managed here so service/app modules enable repackage with an
+                  empty <plugin> entry, while library modules simply do not list
+                  it (libraries are dependencies, never runnable fat-jars).
+                -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

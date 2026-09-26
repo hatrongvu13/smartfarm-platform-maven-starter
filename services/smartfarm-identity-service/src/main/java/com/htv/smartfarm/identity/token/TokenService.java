@@ -145,4 +145,35 @@ public class TokenService {
                 .claim("roles", List.copyOf(roles)).build();
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(SignatureAlgorithm.RS256).keyId(settings.keyId()).build(), claims)).getTokenValue();
     }
+
+    /**
+     * Mint a short-lived machine-to-machine (service) token for the client-credentials
+     * flow (Hướng A). The subject is {@code svc:<clientId>} so audit logs can distinguish
+     * a machine caller from a human user, and the audience is the SPECIFIC downstream
+     * service the caller is allowed to reach — so this token cannot be replayed against a
+     * different service. The human actor that triggered the call is NOT embedded here; it
+     * rides in {@code RequestContext.actor_id}, set by the gateway after verifying the
+     * user's JWT, and is logged at each hop for end-to-end traceability.
+     *
+     * @param clientId caller identity (e.g. {@code gateway})
+     * @param audience downstream service audience (e.g. {@code smartfarm-livestock})
+     * @param tenantId tenant the call operates within
+     * @param scopes   least-privilege scopes granted for this audience
+     * @param ttl      token lifetime (capped by config; must not exceed 15 minutes)
+     */
+    public String issueServiceToken(String clientId, String audience, String tenantId,
+                                    java.util.Collection<String> scopes, java.time.Duration ttl) {
+        if (clientId == null || clientId.isBlank() || audience == null || audience.isBlank()
+                || tenantId == null || tenantId.isBlank())
+            throw new IllegalArgumentException("clientId, audience and tenantId required");
+        if (ttl == null || ttl.isNegative() || ttl.isZero() || ttl.compareTo(java.time.Duration.ofMinutes(15)) > 0)
+            throw new IllegalArgumentException("service token ttl must be between 1 second and 15 minutes");
+        Instant now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder().issuer(settings.issuer()).subject("svc:" + clientId)
+                .audience(List.of(audience)).issuedAt(now).notBefore(now).expiresAt(now.plus(ttl))
+                .id(UUID.randomUUID().toString()).claim("tenant_id", tenantId)
+                .claim("scope", String.join(" ", scopes == null ? List.of() : scopes))
+                .claim("client_id", clientId).build();
+        return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(SignatureAlgorithm.RS256).keyId(settings.keyId()).build(), claims)).getTokenValue();
+    }
 }

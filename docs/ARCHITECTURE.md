@@ -2,10 +2,10 @@
 
 ## 1. Quyết định nền
 
-- Java 21, Spring Boot 4.1.1, Spring gRPC 1.1.1, package gốc `com.htv.smartfarm`.
-- Maven Reactor aggregator cho mô hình nhiều repository. Dependency Java dùng tọa độ
-  `com.htv.smartfarm:*:0.1.0-SNAPSHOT`; khi các repo được checkout vào workspace, Maven Reactor build dependency nội bộ
-  theo đúng thứ tự.
+- Java 17, Spring Boot 4.1.1, Spring gRPC 1.1.1, package gốc `com.htv.smartfarm`.
+- Maven monorepo: root `pom.xml` vừa là parent POM (module kế thừa cấu hình chung) vừa là reactor aggregator. Dependency
+  Java nội bộ dùng tọa độ `com.htv.smartfarm:*` theo `${project.version}`; Maven Reactor build dependency nội bộ theo
+  đúng thứ tự trong cùng một cây nguồn.
 - Đồng bộ: gRPC cho command/query nội bộ có payload lớn hoặc cần độ trễ thấp.
 - Bất đồng bộ: MQTT cho domain integration event, trạng thái quy trình và telemetry IoT. MQTT không thay thế database
   transaction.

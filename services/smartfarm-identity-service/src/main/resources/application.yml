@@ -22,6 +22,11 @@ smartfarm:
     bootstrap-tenant: ${IDENTITY_BOOTSTRAP_TENANT:farm-demo}
     bootstrap-email: ${IDENTITY_BOOTSTRAP_EMAIL:admin@example.test}
     bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:replace-with-a-long-random-password}
+    # Machine-to-machine service tokens. Default has NO clients — a profile (dev/prod)
+    # must whitelist each caller before any service token can be minted.
+    service-token:
+      ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
+      clients: {}
 management:
   endpoints:
     web:

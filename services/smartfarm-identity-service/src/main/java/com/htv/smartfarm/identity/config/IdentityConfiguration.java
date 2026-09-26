@@ -13,7 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.http.HttpMethod;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(IdentitySettings.class)
+@EnableConfigurationProperties({IdentitySettings.class, ServiceTokenSettings.class})
 @EnableMethodSecurity
 public class IdentityConfiguration {
     @Bean
@@ -32,6 +32,9 @@ public class IdentityConfiguration {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.GET, "/.well-known/jwks.json", "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        // Internal machine-to-machine grant: authenticates by client_id+secret and is only reachable
+                        // on the loopback binding (never proxied by the gateway), so no user JWT is required here.
+                        .requestMatchers(HttpMethod.POST, "/internal/service-token").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("SCOPE_identity:admin")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> j.decoder(decoder)));

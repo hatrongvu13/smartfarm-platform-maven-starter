@@ -4,6 +4,13 @@ smartfarm:
     jwk-set-uri: http://localhost:8092/.well-known/jwks.json
     audience: smartfarm-gateway
     allow-local-http: true
+  identity:
+    base-url: http://localhost:8092
+  gateway:
+    service-client:
+      id: gateway
+      # Must match the bcrypt hash whitelisted in identity dev config. DEV ONLY.
+      secret: dev-gateway-service-secret
   livestock:
     grpc-host: localhost
     grpc-port: 9091
