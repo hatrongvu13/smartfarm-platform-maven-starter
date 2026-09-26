@@ -1,0 +1,23 @@
+server:
+  address: 127.0.0.1
+spring:
+  grpc:
+    server:
+      address: 127.0.0.1
+smartfarm:
+  security:
+    issuer: http://localhost:8092
+    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+    audience: smartfarm-gateway
+    allow-local-http: true
+  readiness:
+    allow-local-http: true
+    targets:
+      - name: identity
+        url: http://localhost:8092/actuator/health
+      - name: gateway
+        url: http://localhost:8080/actuator/health
+      - name: livestock
+        url: http://localhost:8081/actuator/health
+      - name: inventory
+        url: http://localhost:8083/actuator/health

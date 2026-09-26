@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${HEALTH_DB_URL}
+    username: ${HEALTH_DB_USER}
+    password: ${HEALTH_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI}
+    audience: smartfarm-health
+    allow-local-http: false

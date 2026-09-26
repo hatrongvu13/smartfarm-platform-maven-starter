@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.htv.smartfarm</groupId>
+    <artifactId>smartfarm-platform</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>SmartFarm Reactor Workspace</name>
+    <modules>
+        <module>libs/smartfarm-common-kernel</module>
+        <module>libs/smartfarm-security</module>
+        <module>libs/smartfarm-proto</module>
+        <module>platform/smartfarm-readiness-service</module>
+        <module>platform/smartfarm-farm-simulator</module>
+        <module>services/smartfarm-livestock-service</module>
+        <module>services/smartfarm-health-service</module>
+        <module>services/smartfarm-inventory-service</module>
+        <module>services/smartfarm-identity-service</module>
+        <module>services/smartfarm-finance-service</module>
+        <module>services/smartfarm-reporting-service</module>
+        <module>apps/smartfarm-gateway</module>
+    </modules>
+</project>

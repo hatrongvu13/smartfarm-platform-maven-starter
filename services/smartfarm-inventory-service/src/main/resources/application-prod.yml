@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${INVENTORY_DB_URL}
+    username: ${INVENTORY_DB_USER}
+    password: ${INVENTORY_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  grpc:
+    server:
+      port: 9093
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI}
+    audience: smartfarm-inventory
+    allow-local-http: false
+  inventory:
+    mqtt:
+      enabled: false

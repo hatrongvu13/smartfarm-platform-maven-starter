@@ -1,0 +1,33 @@
+package com.htv.smartfarm.inventory.domain;
+
+import java.math.BigDecimal;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+/**
+ * Spring Data JPA access to {@link BalanceEntity}. The increment/decrement are
+ * atomic conditional UPDATEs (row count == 1 signals success), preserving the
+ * {@code on_hand >= delta} guard from the original JDBC decrement so stock never
+ * goes negative under concurrent issue.
+ */
+public interface BalanceJpaRepository extends JpaRepository<BalanceEntity, BalanceEntity.Key> {
+
+    @Modifying
+    @Query("update BalanceEntity b set b.onHand = b.onHand + :delta "
+            + "where b.tenantId = :tenant and b.lotId = :lot")
+    int increment(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
+
+    @Modifying
+    @Query("update BalanceEntity b set b.onHand = b.onHand - :delta "
+            + "where b.tenantId = :tenant and b.lotId = :lot and b.onHand >= :delta")
+    int decrement(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
+
+    @Query("select coalesce(sum(b.onHand), 0) from BalanceEntity b, LotEntity l "
+            + "where l.id = b.lotId and l.tenantId = b.tenantId "
+            + "and b.tenantId = :tenant and l.itemId = :item and l.warehouseId = :warehouse")
+    BigDecimal sumBalance(@Param("tenant") String tenant, @Param("item") String item,
+                          @Param("warehouse") String warehouse);
+}

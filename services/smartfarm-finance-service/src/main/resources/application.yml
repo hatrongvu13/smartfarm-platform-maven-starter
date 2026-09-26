@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: smartfarm-finance-service
+  profiles:
+    default: dev
+server:
+  port: 8084
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+  endpoint.health.probes.enabled: true
+spring.grpc.server.port: 9094
+smartfarm:
+  grpc:
+    tls:
+      enabled: false
+      cert-chain: ${GRPC_CERT_CHAIN:}
+      private-key: ${GRPC_PRIVATE_KEY:}
+  mqtt:
+    url: ${MQTT_URL:tcp://localhost:1883}

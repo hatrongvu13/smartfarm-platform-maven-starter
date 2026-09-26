@@ -1,0 +1,13 @@
+syntax = "proto3";
+package smartfarm.identity.v1;
+option java_package = "com.htv.smartfarm.proto.identity.v1";
+option java_multiple_files = true;
+option java_outer_classname = "IdentityProto";
+import "smartfarm/common/v1/common.proto";
+// Internal directory/authorization contract only. OAuth/OIDC token issuance is NOT a gRPC RPC here.
+service IdentityDirectoryService { rpc GetPrincipal(GetPrincipalRequest) returns (PrincipalResponse); rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse); }
+message Principal { string subject_id = 1; string tenant_id = 2; repeated string roles = 3; bool active = 4; repeated string farm_ids = 5; }
+message GetPrincipalRequest { smartfarm.common.v1.RequestContext context = 1; string subject_id = 2; }
+message PrincipalResponse { Principal principal = 1; }
+message CheckPermissionRequest { smartfarm.common.v1.RequestContext context = 1; string subject_id = 2; string resource_type = 3; string resource_id = 4; string action = 5; }
+message CheckPermissionResponse { bool allowed = 1; string reason_code = 2; }

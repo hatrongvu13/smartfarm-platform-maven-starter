@@ -1,0 +1,11 @@
+server:
+  port: 8092
+  ssl:
+    enabled: false
+    certificate: classpath:.local/identity-tls.crt
+    certificate-private-key: classpath:.local/identity-tls.key
+
+smartfarm:
+  identity:
+    private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
+    public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}

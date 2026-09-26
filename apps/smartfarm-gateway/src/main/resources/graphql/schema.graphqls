@@ -1,0 +1,9 @@
+type Query {
+  platformStatus: PlatformStatus!
+}
+
+type PlatformStatus {
+  name: String!
+  status: String!
+  tenantId: String!
+}

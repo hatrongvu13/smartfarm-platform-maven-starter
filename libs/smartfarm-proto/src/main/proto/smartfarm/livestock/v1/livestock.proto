@@ -1,0 +1,47 @@
+syntax = "proto3";
+package smartfarm.livestock.v1;
+option java_package = "com.htv.smartfarm.proto.livestock.v1";
+option java_multiple_files = true;
+option java_outer_classname = "LivestockProto";
+import "smartfarm/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+service LivestockTaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc Ping(smartfarm.common.v1.PingRequest) returns (smartfarm.common.v1.PingResponse);
+  rpc GetTask(GetTaskRequest) returns (TaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc AssignTask(AssignTaskRequest) returns (TaskResponse);
+  rpc CompleteTask(CompleteTaskRequest) returns (TaskResponse);
+  rpc CancelTask(CancelTaskRequest) returns (TaskResponse);
+  rpc CreateSchedule(CreateScheduleRequest) returns (ScheduleResponse);
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  rpc RegisterAnimal(RegisterAnimalRequest) returns (AnimalResponse);
+  rpc GetAnimal(GetAnimalRequest) returns (AnimalResponse);
+  rpc ListAnimals(ListAnimalsRequest) returns (ListAnimalsResponse);
+}
+enum TaskStatus { TASK_STATUS_UNSPECIFIED = 0; TASK_STATUS_CREATED = 1; TASK_STATUS_ASSIGNED = 2; TASK_STATUS_IN_PROGRESS = 3; TASK_STATUS_COMPLETED = 4; TASK_STATUS_CANCELLED = 5; TASK_STATUS_FAILED = 6; }
+enum TaskType { TASK_TYPE_UNSPECIFIED = 0; TASK_TYPE_FEEDING = 1; TASK_TYPE_CLEANING = 2; TASK_TYPE_INSPECTION = 3; TASK_TYPE_MEDICATION = 4; TASK_TYPE_OTHER = 5; }
+enum AnimalStatus { ANIMAL_STATUS_UNSPECIFIED = 0; ANIMAL_STATUS_ACTIVE = 1; ANIMAL_STATUS_SICK = 2; ANIMAL_STATUS_SOLD = 3; ANIMAL_STATUS_DECEASED = 4; }
+message Animal { string animal_id = 1; string farm_id = 2; string barn_id = 3; string batch_id = 4; string tag_code = 5; string species = 6; google.protobuf.Timestamp birth_date = 7; AnimalStatus status = 8; }
+message LivestockTask { string task_id = 1; string farm_id = 2; string barn_id = 3; string animal_id = 4; string batch_id = 5; string title = 6; TaskType type = 7; TaskStatus status = 8; string assignee_id = 9; google.protobuf.Timestamp due_at = 10; google.protobuf.Timestamp completed_at = 11; string schedule_id = 12; string note = 13; }
+// cron_expression must be validated with farm time_zone; avoid DST assumptions.
+message TaskSchedule { string schedule_id = 1; string farm_id = 2; string title = 3; TaskType type = 4; string cron_expression = 5; string time_zone = 6; string assignee_id = 7; bool enabled = 8; google.protobuf.Timestamp next_run_at = 9; }
+// Fields 1-3 and response fields 1-2 are retained from the starter for source compatibility.
+message CreateTaskRequest { smartfarm.common.v1.RequestContext context = 1; string title = 2; string assignee_id = 3; string farm_id = 4; string barn_id = 5; string animal_id = 6; string batch_id = 7; TaskType type = 8; google.protobuf.Timestamp due_at = 9; string schedule_id = 10; }
+message CreateTaskResponse { string task_id = 1; string status = 2; LivestockTask task = 3; }
+message GetTaskRequest { smartfarm.common.v1.RequestContext context = 1; string task_id = 2; }
+message TaskResponse { LivestockTask task = 1; }
+message ListTasksRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; TaskStatus status = 3; string assignee_id = 4; smartfarm.common.v1.PageRequest page = 5; }
+message ListTasksResponse { repeated LivestockTask tasks = 1; smartfarm.common.v1.PageResponse page = 2; }
+message AssignTaskRequest { smartfarm.common.v1.RequestContext context = 1; string task_id = 2; string assignee_id = 3; }
+message CompleteTaskRequest { smartfarm.common.v1.RequestContext context = 1; string task_id = 2; string completion_note = 3; }
+message CancelTaskRequest { smartfarm.common.v1.RequestContext context = 1; string task_id = 2; string reason = 3; }
+message CreateScheduleRequest { smartfarm.common.v1.RequestContext context = 1; TaskSchedule schedule = 2; }
+message ScheduleResponse { TaskSchedule schedule = 1; }
+message ListSchedulesRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; smartfarm.common.v1.PageRequest page = 3; }
+message ListSchedulesResponse { repeated TaskSchedule schedules = 1; smartfarm.common.v1.PageResponse page = 2; }
+message RegisterAnimalRequest { smartfarm.common.v1.RequestContext context = 1; Animal animal = 2; }
+message GetAnimalRequest { smartfarm.common.v1.RequestContext context = 1; string animal_id = 2; }
+message AnimalResponse { Animal animal = 1; }
+message ListAnimalsRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; string batch_id = 3; smartfarm.common.v1.PageRequest page = 4; }
+message ListAnimalsResponse { repeated Animal animals = 1; smartfarm.common.v1.PageResponse page = 2; }

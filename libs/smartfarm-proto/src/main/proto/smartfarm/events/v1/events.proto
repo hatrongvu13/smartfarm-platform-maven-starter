@@ -1,0 +1,28 @@
+syntax = "proto3";
+package smartfarm.events.v1;
+option java_package = "com.htv.smartfarm.proto.events.v1";
+option java_multiple_files = true;
+option java_outer_classname = "EventsProto";
+import "smartfarm/common/v1/common.proto";
+import "smartfarm/livestock/v1/livestock.proto";
+import "smartfarm/health/v1/health.proto";
+import "smartfarm/inventory/v1/inventory.proto";
+import "smartfarm/finance/v1/finance.proto";
+import "smartfarm/order/v1/order.proto";
+import "smartfarm/reporting/v1/reporting.proto";
+import "google/protobuf/timestamp.proto";
+// MQTT binary payload. Schema version is encoded by package/topic; event_id enables deduplication.
+message EventMetadata { string event_id = 1; string tenant_id = 2; string farm_id = 3; string aggregate_id = 4; string correlation_id = 5; string causation_id = 6; string producer = 7; google.protobuf.Timestamp occurred_at = 8; string trace_id = 9; }
+message TaskChanged { smartfarm.livestock.v1.LivestockTask task = 1; }
+message AnimalChanged { smartfarm.livestock.v1.Animal animal = 1; }
+message ObservationRecorded { smartfarm.health.v1.HealthObservation observation = 1; }
+message VaccinationRecorded { smartfarm.health.v1.Vaccination vaccination = 1; }
+message HealthAlertRaised { smartfarm.health.v1.HealthAlert alert = 1; }
+message StockMovementRecorded { smartfarm.inventory.v1.StockMovement movement = 1; }
+message StockReservationChanged { smartfarm.inventory.v1.StockReservation reservation = 1; string reason = 2; }
+message LowStockDetected { smartfarm.inventory.v1.StockBalance balance = 1; }
+message FinanceTransactionRecorded { smartfarm.finance.v1.FinanceTransaction transaction = 1; }
+message DebtChanged { smartfarm.finance.v1.Debt debt = 1; }
+message OrderChanged { smartfarm.order.v1.FarmOrder order = 1; }
+message ExportJobChanged { smartfarm.reporting.v1.ExportJob job = 1; }
+message DomainEvent { EventMetadata metadata = 1; oneof payload { TaskChanged task_changed = 10; AnimalChanged animal_changed = 11; ObservationRecorded observation_recorded = 12; VaccinationRecorded vaccination_recorded = 13; HealthAlertRaised health_alert_raised = 14; StockMovementRecorded stock_movement_recorded = 15; StockReservationChanged stock_reservation_changed = 16; LowStockDetected low_stock_detected = 17; FinanceTransactionRecorded finance_transaction_recorded = 18; DebtChanged debt_changed = 19; OrderChanged order_changed = 20; ExportJobChanged export_job_changed = 21; } }

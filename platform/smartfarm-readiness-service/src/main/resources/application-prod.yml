@@ -1,0 +1,21 @@
+spring:
+  grpc:
+    server:
+      port: 9100
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI}
+    audience: smartfarm-readiness
+    allow-local-http: false
+  readiness:
+    allow-local-http: false
+    targets:
+      - name: identity
+        url: ${IDENTITY_HEALTH_URL}
+      - name: gateway
+        url: ${GATEWAY_HEALTH_URL}
+      - name: livestock
+        url: ${LIVESTOCK_HEALTH_URL}
+      - name: inventory
+        url: ${INVENTORY_HEALTH_URL}

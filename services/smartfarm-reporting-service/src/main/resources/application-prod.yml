@@ -1,0 +1,6 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/smartfarm}
+    username: ${DB_USERNAME:smartfarm}
+    password: ${DB_PASSWORD}
+  h2.console.enabled: false

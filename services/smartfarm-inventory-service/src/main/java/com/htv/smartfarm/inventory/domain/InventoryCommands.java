@@ -1,0 +1,114 @@
+package com.htv.smartfarm.inventory.domain;
+
+import com.htv.smartfarm.proto.inventory.v1.*;
+import com.htv.smartfarm.proto.common.v1.RequestContext;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class InventoryCommands {
+    private final InventoryRepository repo;
+
+    public InventoryCommands(InventoryRepository repo) {
+        this.repo = repo;
+    }
+
+    private static void require(boolean ok, String message) {
+        if (!ok) throw new IllegalArgumentException(message);
+    }
+
+    private static String key(RequestContext ctx, String tenant) {
+        require(ctx != null, "context required");
+        require(ctx.getTenantId().isBlank() || tenant.equals(ctx.getTenantId()), "tenant mismatch");
+        String k = ctx.getIdempotencyKey();
+        require(!k.isBlank() && k.length() <= 128, "idempotency_key required (max 128)");
+        return k;
+    }
+
+    private static BigDecimal quantity(com.htv.smartfarm.proto.common.v1.Quantity q, String unit) {
+        require(q != null && q.getUnit().equals(unit), "quantity unit mismatch");
+        try {
+            BigDecimal n = new BigDecimal(q.getDecimalValue());
+            require(n.signum() > 0 && n.precision() <= 18 && n.scale() <= 3, "quantity must be positive, max 3 decimals/18 digits");
+            return n;
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("invalid decimal quantity", ex);
+        }
+    }
+
+    @Transactional
+    public InventoryRepository.Item createItem(String tenant, CreateItemRequest req) {
+        require(req.hasContext() && req.hasItem(), "item/context required");
+        key(req.getContext(), tenant);
+        var v = req.getItem();
+        require(!v.getSku().isBlank() && !v.getName().isBlank() && !v.getUnit().isBlank(), "sku/name/unit required");
+        require(v.getSku().length() <= 80 && v.getName().length() <= 200 && v.getUnit().length() <= 20, "item field too long");
+        var old = repo.itemBySku(tenant, v.getSku());
+        if (old != null) {
+            require(old.name().equals(v.getName()) && old.unit().equals(v.getUnit()) && old.category().equals(v.getCategory().name()), "SKU already exists with different details");
+            return old;
+        }
+        var item = new InventoryRepository.Item(UUID.randomUUID().toString(), tenant, v.getSku(), v.getName(), v.getUnit(), v.getCategory().name());
+        repo.createItem(item);
+        return item;
+    }
+
+    @Transactional
+    public InventoryRepository.Movement receive(String tenant, ReceiveStockRequest req) {
+        require(req.hasContext() && req.hasLot() && req.hasQuantity(), "context/lot/quantity required");
+        String k = key(req.getContext(), tenant);
+        var v = req.getLot();
+        var item = repo.item(tenant, v.getItemId());
+        require(item != null, "unknown item");
+        require(!v.getFarmId().isBlank() && !v.getWarehouseId().isBlank() && v.getFarmId().length() <= 100 && v.getWarehouseId().length() <= 100, "farm/warehouse required (max 100)");
+        BigDecimal n = quantity(req.getQuantity(), item.unit());
+        require(req.getReferenceId().length() <= 128, "reference too long");
+        var prior = repo.movement(tenant, k);
+        if (prior != null) {
+            require(prior.kind().equals("RECEIPT") && prior.lotId().equals(v.getLotId()) && prior.quantity().compareTo(n) == 0 && prior.referenceId().equals(req.getReferenceId()), "idempotency conflict");
+            return prior;
+        }
+        String lotId = v.getLotId().isBlank() ? UUID.randomUUID().toString() : v.getLotId();
+        var lot = repo.lot(tenant, lotId);
+        if (lot == null) {
+            repo.createLot(new InventoryRepository.Lot(lotId, tenant, item.id(), v.getFarmId(), v.getWarehouseId()));
+            repo.createBalance(tenant, lotId);
+        } else
+            require(lot.itemId().equals(item.id()) && lot.farmId().equals(v.getFarmId()) && lot.warehouseId().equals(v.getWarehouseId()), "lot mismatch");
+        var m = new InventoryRepository.Movement(UUID.randomUUID().toString(), tenant, lotId, "RECEIPT", n, req.getReferenceId());
+        repo.addMovement(m, k);
+        require(repo.increment(tenant, lotId, n), "balance missing");
+        return m;
+    }
+
+    @Transactional
+    public InventoryRepository.Movement issue(String tenant, IssueStockRequest req) {
+        require(req.hasContext() && req.hasQuantity(), "context/quantity required");
+        String k = key(req.getContext(), tenant);
+        var lot = repo.lot(tenant, req.getLotId());
+        require(lot != null, "unknown lot");
+        var item = repo.item(tenant, lot.itemId());
+        BigDecimal n = quantity(req.getQuantity(), item.unit());
+        require(req.getReferenceId().length() <= 128, "reference too long");
+        var prior = repo.movement(tenant, k);
+        if (prior != null) {
+            require(prior.kind().equals("ISSUE") && prior.lotId().equals(lot.id()) && prior.quantity().compareTo(n) == 0 && prior.referenceId().equals(req.getReferenceId()), "idempotency conflict");
+            return prior;
+        }
+        require(repo.decrement(tenant, lot.id(), n), "insufficient stock");
+        var m = new InventoryRepository.Movement(UUID.randomUUID().toString(), tenant, lot.id(), "ISSUE", n, req.getReferenceId());
+        repo.addMovement(m, k);
+        return m;
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal balance(String tenant, String itemId, String warehouse) {
+        require(repo.item(tenant, itemId) != null, "unknown item");
+        require(warehouse != null && !warehouse.isBlank(), "warehouse required");
+        return repo.balance(tenant, itemId, warehouse);
+    }
+}

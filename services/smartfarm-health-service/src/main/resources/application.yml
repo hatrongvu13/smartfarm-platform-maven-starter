@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: smartfarm-health-service
+  profiles:
+    default: dev
+  grpc:
+    server:
+      port: 9094
+server:
+  port: 8084
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER:}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI:}
+    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-health}
+    allow-local-http: false

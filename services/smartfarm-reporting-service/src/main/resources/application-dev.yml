@@ -1,0 +1,6 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:smartfarm;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  h2.console.enabled: true

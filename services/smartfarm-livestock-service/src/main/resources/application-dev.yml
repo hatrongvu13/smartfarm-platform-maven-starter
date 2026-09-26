@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:livestock;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+smartfarm:
+  security:
+    issuer: http://localhost:8092
+    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+    audience: smartfarm-gateway
+    allow-local-http: true
+  mqtt:
+    url: tcp://localhost:1883
+  outbox:
+    enabled: true
+    poll-ms: 2000

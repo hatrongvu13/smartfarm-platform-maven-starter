@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${LIVESTOCK_DB_URL}
+    username: ${LIVESTOCK_DB_USER}
+    password: ${LIVESTOCK_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI}
+    audience: smartfarm-livestock
+    allow-local-http: false
+  outbox:
+    enabled: false

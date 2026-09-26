@@ -1,0 +1,24 @@
+package com.htv.smartfarm.security.web;
+import com.htv.smartfarm.security.config.SecurityProperties;
+import com.htv.smartfarm.security.jwt.*;
+import org.springframework.context.annotation.*;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.web.SecurityFilterChain;
+/** Explicitly @Import in servlet services only. No auto-configuration side effects. */
+@Configuration(proxyBeanMethods=false)
+public class ServletResourceSecurity {
+ @Bean JwtDecoder smartFarmJwtDecoder(SecurityProperties p) { return JwtSecurityFactory.servletDecoder(p); }
+ @Bean SecurityFilterChain smartFarmServletChain(HttpSecurity http, JwtDecoder decoder) throws Exception {
+  JwtAuthenticationConverter converter=new JwtAuthenticationConverter();
+  converter.setJwtGrantedAuthoritiesConverter(jwt -> JwtAuthorities.authorities(jwt).stream().map(value -> (GrantedAuthority) new SimpleGrantedAuthority(value)).toList());
+  http.csrf(csrf -> csrf.disable()).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+   .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness").permitAll().anyRequest().authenticated())
+   .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(converter)));
+  return http.build();
+ }
+}

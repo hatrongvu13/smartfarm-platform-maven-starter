@@ -1,0 +1,20 @@
+syntax = "proto3";
+package smartfarm.reporting.v1;
+option java_package = "com.htv.smartfarm.proto.reporting.v1";
+option java_multiple_files = true;
+option java_outer_classname = "ReportingProto";
+import "smartfarm/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+service ReportingService { rpc RequestExport(RequestExportRequest) returns (ExportJobResponse); rpc GetExportJob(GetExportJobRequest) returns (ExportJobResponse); rpc ListExportJobs(ListExportJobsRequest) returns (ListExportJobsResponse); rpc GetDownloadLocation(GetDownloadLocationRequest) returns (DownloadLocationResponse); }
+enum ReportFormat { REPORT_FORMAT_UNSPECIFIED = 0; REPORT_FORMAT_PDF = 1; REPORT_FORMAT_XLSX = 2; REPORT_FORMAT_CSV = 3; }
+enum ReportType { REPORT_TYPE_UNSPECIFIED = 0; REPORT_TYPE_LIVESTOCK_TASKS = 1; REPORT_TYPE_HEALTH = 2; REPORT_TYPE_INVENTORY = 3; REPORT_TYPE_BATCH_COST = 4; REPORT_TYPE_CASH_FLOW = 5; }
+enum ExportStatus { EXPORT_STATUS_UNSPECIFIED = 0; EXPORT_STATUS_QUEUED = 1; EXPORT_STATUS_RUNNING = 2; EXPORT_STATUS_COMPLETED = 3; EXPORT_STATUS_FAILED = 4; EXPORT_STATUS_EXPIRED = 5; }
+message ExportJob { string job_id = 1; string farm_id = 2; ReportType type = 3; ReportFormat format = 4; ExportStatus status = 5; google.protobuf.Timestamp created_at = 6; google.protobuf.Timestamp completed_at = 7; string error_code = 8; string template_version = 9; }
+message RequestExportRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; ReportType type = 3; ReportFormat format = 4; smartfarm.common.v1.DateRange period = 5; string template_id = 6; }
+message ExportJobResponse { ExportJob job = 1; }
+message GetExportJobRequest { smartfarm.common.v1.RequestContext context = 1; string job_id = 2; }
+message ListExportJobsRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; smartfarm.common.v1.PageRequest page = 3; }
+message ListExportJobsResponse { repeated ExportJob jobs = 1; smartfarm.common.v1.PageResponse page = 2; }
+message GetDownloadLocationRequest { smartfarm.common.v1.RequestContext context = 1; string job_id = 2; }
+// URL is short-lived and must be authorized by the reporting service.
+message DownloadLocationResponse { string url = 1; google.protobuf.Timestamp expires_at = 2; string content_type = 3; }

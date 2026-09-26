@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: smartfarm-readiness-service
+  profiles:
+    default: dev
+  grpc:
+    server:
+      port: 9100
+server:
+  port: 8090
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI}
+    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-readiness}
+    allow-local-http: false
+  readiness:
+    poll-ms: 5000
+    initial-delay-ms: 1000
+    timeout: 800ms
+    max-age: 20s
+    allow-local-http: false

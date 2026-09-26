@@ -1,0 +1,13 @@
+syntax = "proto3";
+package smartfarm.telemetry.v1;
+option java_package = "com.htv.smartfarm.proto.telemetry.v1";
+option java_multiple_files = true;
+option java_outer_classname = "TelemetryProto";
+import "smartfarm/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+// MQTT payloads; IoT identity comes from broker credentials, not this message alone.
+enum DeviceStatus { DEVICE_STATUS_UNSPECIFIED = 0; DEVICE_STATUS_ONLINE = 1; DEVICE_STATUS_OFFLINE = 2; DEVICE_STATUS_FAULT = 3; DEVICE_STATUS_MAINTENANCE = 4; }
+enum FarmActivity { FARM_ACTIVITY_UNSPECIFIED = 0; FARM_ACTIVITY_FEEDING = 1; FARM_ACTIVITY_CLEANING = 2; FARM_ACTIVITY_INSPECTION = 3; FARM_ACTIVITY_MEDICATION = 4; FARM_ACTIVITY_IDLE = 5; }
+message SensorReading { string metric = 1; smartfarm.common.v1.Quantity value = 2; }
+message DeviceTelemetry { string message_id = 1; string tenant_id = 2; string farm_id = 3; string barn_id = 4; string device_id = 5; string animal_id = 6; uint64 sequence_number = 7; google.protobuf.Timestamp observed_at = 8; repeated SensorReading readings = 9; DeviceStatus device_status = 10; }
+message FarmStatusSimulation { string message_id = 1; string tenant_id = 2; string farm_id = 3; string simulator_id = 4; FarmActivity activity = 5; google.protobuf.Timestamp occurred_at = 6; string description = 7; }

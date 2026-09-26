@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: smartfarm-livestock-service
+  profiles:
+    default: dev
+server:
+  port: 8081
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+spring.grpc.server.port: 9091
+#smartfarm:
+#  security:
+#    issuer: ${SMARTFARM_JWT_ISSUER}
+#    jwk-set-uri: ${SMARTFARM_JWKS_URI}
+#    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-livestock}
+#    allow-local-http: false

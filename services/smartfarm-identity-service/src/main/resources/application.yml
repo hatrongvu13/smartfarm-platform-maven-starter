@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: smartfarm-identity-service
+  profiles:
+    default: dev,dev-tls
+  sql:
+    init:
+      mode: always
+server:
+  port: 8092
+smartfarm:
+  identity:
+    issuer: ${IDENTITY_ISSUER:http://localhost:8092}
+    gateway-audience: smartfarm-gateway
+    key-id: ${IDENTITY_KEY_ID:dev-key-1}
+    access-ttl: 10m
+    refresh-ttl: 7d
+    max-failures: 5
+    lock-duration: 15m
+    public-registration: false
+    registration-tenant: ${IDENTITY_REGISTRATION_TENANT:}
+    bootstrap-tenant: ${IDENTITY_BOOTSTRAP_TENANT:farm-demo}
+    bootstrap-email: ${IDENTITY_BOOTSTRAP_EMAIL:admin@example.test}
+    bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:replace-with-a-long-random-password}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

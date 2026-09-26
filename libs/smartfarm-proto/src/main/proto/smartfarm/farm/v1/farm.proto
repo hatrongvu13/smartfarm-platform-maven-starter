@@ -1,0 +1,19 @@
+syntax = "proto3";
+package smartfarm.farm.v1;
+option java_package = "com.htv.smartfarm.proto.farm.v1";
+option java_multiple_files = true;
+option java_outer_classname = "FarmProto";
+import "smartfarm/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+service FarmDirectoryService { rpc RegisterFarm(RegisterFarmRequest) returns (FarmResponse); rpc GetFarm(GetFarmRequest) returns (FarmResponse); rpc ListFarms(ListFarmsRequest) returns (ListFarmsResponse); rpc RegisterBarn(RegisterBarnRequest) returns (BarnResponse); rpc ListBarns(ListBarnsRequest) returns (ListBarnsResponse); }
+message Farm { string farm_id = 1; string tenant_id = 2; string name = 3; string address = 4; string time_zone = 5; bool active = 6; }
+message Barn { string barn_id = 1; string farm_id = 2; string name = 3; int32 capacity = 4; bool active = 5; }
+message RegisterFarmRequest { smartfarm.common.v1.RequestContext context = 1; Farm farm = 2; }
+message GetFarmRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; }
+message FarmResponse { Farm farm = 1; }
+message ListFarmsRequest { smartfarm.common.v1.RequestContext context = 1; smartfarm.common.v1.PageRequest page = 2; }
+message ListFarmsResponse { repeated Farm farms = 1; smartfarm.common.v1.PageResponse page = 2; }
+message RegisterBarnRequest { smartfarm.common.v1.RequestContext context = 1; Barn barn = 2; }
+message BarnResponse { Barn barn = 1; }
+message ListBarnsRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; smartfarm.common.v1.PageRequest page = 3; }
+message ListBarnsResponse { repeated Barn barns = 1; smartfarm.common.v1.PageResponse page = 2; }

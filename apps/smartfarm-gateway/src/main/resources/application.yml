@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: smartfarm-gateway
+  main:
+    web-application-type: reactive
+  profiles:
+    default: dev
+server:
+  port: 8080
+smartfarm:
+  security:
+    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-gateway}
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info

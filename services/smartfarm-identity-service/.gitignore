@@ -1,0 +1,4 @@
+src/main/resources/.local/
+target/
+*.pem
+.env

@@ -1,0 +1,19 @@
+server:
+  address: 127.0.0.1
+spring:
+  grpc:
+    server:
+      address: 127.0.0.1
+  datasource:
+    url: jdbc:h2:file:./.local/health-db;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+smartfarm:
+  security:
+    issuer: http://localhost:8092
+    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+    audience: smartfarm-gateway
+    allow-local-http: true

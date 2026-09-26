@@ -1,0 +1,39 @@
+syntax = "proto3";
+package smartfarm.finance.v1;
+option java_package = "com.htv.smartfarm.proto.finance.v1";
+option java_multiple_files = true;
+option java_outer_classname = "FinanceProto";
+import "smartfarm/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+service FarmFinanceService {
+ rpc RecordExpense(RecordExpenseRequest) returns (TransactionResponse);
+ rpc RecordIncome(RecordIncomeRequest) returns (TransactionResponse);
+ rpc GetTransaction(GetTransactionRequest) returns (TransactionResponse);
+ rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse);
+ rpc RecordPayable(RecordPayableRequest) returns (DebtResponse);
+ rpc RecordReceivable(RecordReceivableRequest) returns (DebtResponse);
+ rpc SettleDebt(SettleDebtRequest) returns (DebtResponse);
+ rpc GetBatchCost(GetBatchCostRequest) returns (BatchCostResponse);
+ rpc GetCashFlow(GetCashFlowRequest) returns (CashFlowResponse);
+}
+enum TransactionKind { TRANSACTION_KIND_UNSPECIFIED = 0; TRANSACTION_KIND_INCOME = 1; TRANSACTION_KIND_EXPENSE = 2; }
+enum DebtKind { DEBT_KIND_UNSPECIFIED = 0; DEBT_KIND_PAYABLE = 1; DEBT_KIND_RECEIVABLE = 2; }
+enum DebtStatus { DEBT_STATUS_UNSPECIFIED = 0; DEBT_STATUS_OPEN = 1; DEBT_STATUS_PARTIALLY_PAID = 2; DEBT_STATUS_SETTLED = 3; }
+message FinanceTransaction { string transaction_id = 1; string farm_id = 2; string batch_id = 3; TransactionKind kind = 4; smartfarm.common.v1.Money amount = 5; string category = 6; string reference_type = 7; string reference_id = 8; google.protobuf.Timestamp occurred_at = 9; string description = 10; }
+message Debt { string debt_id = 1; string farm_id = 2; string counterparty_id = 3; DebtKind kind = 4; DebtStatus status = 5; smartfarm.common.v1.Money principal = 6; smartfarm.common.v1.Money outstanding = 7; google.protobuf.Timestamp due_at = 8; string reference_id = 9; }
+message BatchCost { string batch_id = 1; string farm_id = 2; smartfarm.common.v1.Money feed_cost = 3; smartfarm.common.v1.Money medicine_cost = 4; smartfarm.common.v1.Money labor_cost = 5; smartfarm.common.v1.Money other_cost = 6; smartfarm.common.v1.Money total_cost = 7; int32 animal_count = 8; }
+message CashFlow { string farm_id = 1; smartfarm.common.v1.DateRange period = 2; smartfarm.common.v1.Money inflow = 3; smartfarm.common.v1.Money outflow = 4; smartfarm.common.v1.Money net = 5; }
+message RecordExpenseRequest { smartfarm.common.v1.RequestContext context = 1; FinanceTransaction transaction = 2; }
+message RecordIncomeRequest { smartfarm.common.v1.RequestContext context = 1; FinanceTransaction transaction = 2; }
+message TransactionResponse { FinanceTransaction transaction = 1; }
+message GetTransactionRequest { smartfarm.common.v1.RequestContext context = 1; string transaction_id = 2; }
+message ListTransactionsRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; string batch_id = 3; smartfarm.common.v1.DateRange period = 4; smartfarm.common.v1.PageRequest page = 5; }
+message ListTransactionsResponse { repeated FinanceTransaction transactions = 1; smartfarm.common.v1.PageResponse page = 2; }
+message RecordPayableRequest { smartfarm.common.v1.RequestContext context = 1; Debt debt = 2; }
+message RecordReceivableRequest { smartfarm.common.v1.RequestContext context = 1; Debt debt = 2; }
+message DebtResponse { Debt debt = 1; }
+message SettleDebtRequest { smartfarm.common.v1.RequestContext context = 1; string debt_id = 2; smartfarm.common.v1.Money amount = 3; }
+message GetBatchCostRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; string batch_id = 3; }
+message BatchCostResponse { BatchCost cost = 1; }
+message GetCashFlowRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; smartfarm.common.v1.DateRange period = 3; }
+message CashFlowResponse { CashFlow cash_flow = 1; }

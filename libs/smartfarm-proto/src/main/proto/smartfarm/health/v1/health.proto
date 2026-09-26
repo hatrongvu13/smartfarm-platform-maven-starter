@@ -1,0 +1,45 @@
+syntax = "proto3";
+package smartfarm.health.v1;
+option java_package = "com.htv.smartfarm.proto.health.v1";
+option java_multiple_files = true;
+option java_outer_classname = "HealthProto";
+import "smartfarm/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+service AnimalHealthService {
+ rpc RecordObservation(RecordObservationRequest) returns (ObservationResponse);
+ rpc ListObservations(ListObservationsRequest) returns (ListObservationsResponse);
+ rpc ScheduleExamination(ScheduleExaminationRequest) returns (ExaminationResponse);
+ rpc CompleteExamination(CompleteExaminationRequest) returns (ExaminationResponse);
+ rpc RecordVaccination(RecordVaccinationRequest) returns (VaccinationResponse);
+ rpc ListVaccinations(ListVaccinationsRequest) returns (ListVaccinationsResponse);
+ rpc RecordTreatment(RecordTreatmentRequest) returns (TreatmentResponse);
+ rpc ListTreatments(ListTreatmentsRequest) returns (ListTreatmentsResponse);
+ rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse);
+ rpc AcknowledgeAlert(AcknowledgeAlertRequest) returns (AlertResponse);
+}
+enum HealthSeverity { HEALTH_SEVERITY_UNSPECIFIED = 0; HEALTH_SEVERITY_INFO = 1; HEALTH_SEVERITY_WARNING = 2; HEALTH_SEVERITY_CRITICAL = 3; }
+enum AlertStatus { ALERT_STATUS_UNSPECIFIED = 0; ALERT_STATUS_OPEN = 1; ALERT_STATUS_ACKNOWLEDGED = 2; ALERT_STATUS_RESOLVED = 3; }
+message HealthObservation { string observation_id = 1; string animal_id = 2; string farm_id = 3; google.protobuf.Timestamp observed_at = 4; string symptom = 5; smartfarm.common.v1.Quantity temperature = 6; string observer_id = 7; string notes = 8; }
+message Examination { string examination_id = 1; string animal_id = 2; string veterinarian_id = 3; google.protobuf.Timestamp scheduled_at = 4; google.protobuf.Timestamp examined_at = 5; string diagnosis = 6; string status = 7; }
+message Vaccination { string vaccination_id = 1; string animal_id = 2; string vaccine_name = 3; string lot_code = 4; google.protobuf.Timestamp administered_at = 5; google.protobuf.Timestamp next_due_at = 6; string administrator_id = 7; }
+message Treatment { string treatment_id = 1; string animal_id = 2; string diagnosis = 3; string medication_sku = 4; smartfarm.common.v1.Quantity dosage = 5; google.protobuf.Timestamp started_at = 6; google.protobuf.Timestamp ended_at = 7; string veterinarian_id = 8; }
+message HealthAlert { string alert_id = 1; string farm_id = 2; string animal_id = 3; string device_id = 4; HealthSeverity severity = 5; AlertStatus status = 6; string reason = 7; google.protobuf.Timestamp detected_at = 8; string acknowledged_by = 9; }
+message RecordObservationRequest { smartfarm.common.v1.RequestContext context = 1; HealthObservation observation = 2; }
+message ObservationResponse { HealthObservation observation = 1; }
+message ListObservationsRequest { smartfarm.common.v1.RequestContext context = 1; string animal_id = 2; smartfarm.common.v1.PageRequest page = 3; }
+message ListObservationsResponse { repeated HealthObservation observations = 1; smartfarm.common.v1.PageResponse page = 2; }
+message ScheduleExaminationRequest { smartfarm.common.v1.RequestContext context = 1; Examination examination = 2; }
+message CompleteExaminationRequest { smartfarm.common.v1.RequestContext context = 1; string examination_id = 2; string diagnosis = 3; }
+message ExaminationResponse { Examination examination = 1; }
+message RecordVaccinationRequest { smartfarm.common.v1.RequestContext context = 1; Vaccination vaccination = 2; }
+message VaccinationResponse { Vaccination vaccination = 1; }
+message ListVaccinationsRequest { smartfarm.common.v1.RequestContext context = 1; string animal_id = 2; smartfarm.common.v1.PageRequest page = 3; }
+message ListVaccinationsResponse { repeated Vaccination vaccinations = 1; smartfarm.common.v1.PageResponse page = 2; }
+message RecordTreatmentRequest { smartfarm.common.v1.RequestContext context = 1; Treatment treatment = 2; }
+message TreatmentResponse { Treatment treatment = 1; }
+message ListTreatmentsRequest { smartfarm.common.v1.RequestContext context = 1; string animal_id = 2; smartfarm.common.v1.PageRequest page = 3; }
+message ListTreatmentsResponse { repeated Treatment treatments = 1; smartfarm.common.v1.PageResponse page = 2; }
+message ListAlertsRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; AlertStatus status = 3; smartfarm.common.v1.PageRequest page = 4; }
+message ListAlertsResponse { repeated HealthAlert alerts = 1; smartfarm.common.v1.PageResponse page = 2; }
+message AcknowledgeAlertRequest { smartfarm.common.v1.RequestContext context = 1; string alert_id = 2; }
+message AlertResponse { HealthAlert alert = 1; }

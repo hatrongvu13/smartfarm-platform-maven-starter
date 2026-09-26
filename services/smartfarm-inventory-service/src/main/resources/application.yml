@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: smartfarm-inventory-service
+  profiles:
+    default: dev
+server:
+  port: 8083
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI}
+    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-inventory}
+    allow-local-http: false
+  inventory:
+    mqtt:
+      enabled: false
