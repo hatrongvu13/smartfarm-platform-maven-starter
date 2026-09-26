@@ -29,10 +29,24 @@ public class RoleSeeder {
             ensureRole(users, "USER");
             ensureRole(users, "ADMIN");
             ensureRole(users, "PLATFORM_ADMIN");
+            ensureRole(users, "SUPERADMIN");
+            ensureRole(users, "FARM_OPERATOR");
             grant(users, "USER", "farm:read");
             grant(users, "ADMIN", "identity:admin");
             grant(users, "ADMIN", "farm:read");
             grant(users, "PLATFORM_ADMIN", "identity:platform");
+            // SUPERADMIN = the project's first/root admin. It holds the wildcard permission "*",
+            // which the token layer expands into every scope the system knows AND which the
+            // authorization layer treats as "grants any authority". No per-scope maintenance:
+            // new services/scopes are covered automatically.
+            grant(users, "SUPERADMIN", "*");
+            // Business operator: places orders (saga), manages stock, assigns tasks.
+            grant(users, "FARM_OPERATOR", "farm:read");
+            grant(users, "FARM_OPERATOR", "orders:write");
+            grant(users, "FARM_OPERATOR", "orders:read");
+            grant(users, "FARM_OPERATOR", "inventory:write");
+            grant(users, "FARM_OPERATOR", "inventory:read");
+            grant(users, "FARM_OPERATOR", "tasks:write");
         };
     }
 

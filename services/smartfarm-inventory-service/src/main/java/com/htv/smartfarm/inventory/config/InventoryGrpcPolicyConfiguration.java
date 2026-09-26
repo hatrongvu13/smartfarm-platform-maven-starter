@@ -16,6 +16,9 @@ public class InventoryGrpcPolicyConfiguration {
                 "smartfarm.inventory.v1.InventoryService/CreateItem", "SCOPE_inventory:write",
                 "smartfarm.inventory.v1.InventoryService/ReceiveStock", "SCOPE_inventory:write",
                 "smartfarm.inventory.v1.InventoryService/IssueStock", "SCOPE_inventory:write",
+                "smartfarm.inventory.v1.InventoryService/ReserveStock", "SCOPE_inventory:write",
+                "smartfarm.inventory.v1.InventoryService/ReleaseReservation", "SCOPE_inventory:write",
+                "smartfarm.inventory.v1.InventoryService/CommitReservation", "SCOPE_inventory:write",
                 "smartfarm.inventory.v1.InventoryService/GetStockBalance", "SCOPE_inventory:read"),
                 Set.of("grpc.health.v1.Health/Check", "grpc.health.v1.Health/Watch"));
     }

@@ -111,4 +111,80 @@ public class InventoryCommands {
         require(warehouse != null && !warehouse.isBlank(), "warehouse required");
         return repo.balance(tenant, itemId, warehouse);
     }
+
+    @Transactional(readOnly = true)
+    public BigDecimal reserved(String tenant, String itemId, String warehouse) {
+        require(repo.item(tenant, itemId) != null, "unknown item");
+        require(warehouse != null && !warehouse.isBlank(), "warehouse required");
+        return repo.reservedTotal(tenant, itemId, warehouse);
+    }
+
+    // ---- Saga participant operations: reserve / release / commit ------------
+
+    @Transactional
+    public InventoryRepository.Reservation reserve(String tenant, ReserveStockRequest req) {
+        require(req.hasContext() && req.hasQuantity(), "context/quantity required");
+        String k = key(req.getContext(), tenant);
+        require(!req.getOrderId().isBlank(), "order_id required");
+        var item = repo.item(tenant, req.getItemId());
+        require(item != null, "unknown item");
+        require(!req.getWarehouseId().isBlank(), "warehouse_id required");
+        BigDecimal n = quantity(req.getQuantity(), item.unit());
+
+        var prior = repo.reservationByKey(tenant, k);
+        if (prior != null) {
+            require(prior.itemId().equals(item.id()) && prior.quantity().compareTo(n) == 0
+                    && prior.warehouseId().equals(req.getWarehouseId()), "idempotency key reused with different reservation");
+            return prior;
+        }
+
+        // FIFO: reserve from the first lot with enough available stock in this warehouse.
+        String chosenLot = null;
+        for (String lotId : repo.lotsWithAvailable(tenant, item.id(), req.getWarehouseId())) {
+            if (repo.reserveOnLot(tenant, lotId, n)) { chosenLot = lotId; break; }
+        }
+        require(chosenLot != null, "insufficient available stock to reserve");
+
+        var reservation = new InventoryRepository.Reservation(UUID.randomUUID().toString(), tenant, req.getOrderId(),
+                item.id(), chosenLot, req.getWarehouseId(), n, "ACTIVE");
+        repo.saveReservation(reservation, k);
+        return reservation;
+    }
+
+    /** Compensating action: give reserved stock back. Idempotent — releasing a non-active reservation is a no-op. */
+    @Transactional
+    public InventoryRepository.Reservation release(String tenant, ReleaseReservationRequest req) {
+        require(req.hasContext(), "context required");
+        key(req.getContext(), tenant);
+        require(!req.getReservationId().isBlank(), "reservation_id required");
+        var r = repo.reservation(tenant, req.getReservationId());
+        require(r != null, "reservation not found");
+        if (!"ACTIVE".equals(r.status())) return r; // already released/committed
+        require(repo.releaseOnLot(tenant, r.lotId(), r.quantity()), "release failed: reserved balance changed");
+        repo.markReservationReleased(tenant, r.id());
+        return repo.reservation(tenant, r.id());
+    }
+
+    /** Commit a reservation: the held stock is consumed. Idempotent on an already-committed reservation. */
+    @Transactional
+    public InventoryRepository.Movement commit(String tenant, CommitReservationRequest req) {
+        require(req.hasContext(), "context required");
+        String k = key(req.getContext(), tenant);
+        require(!req.getReservationId().isBlank(), "reservation_id required");
+        var r = repo.reservation(tenant, req.getReservationId());
+        require(r != null, "reservation not found");
+        require(!"RELEASED".equals(r.status()), "cannot commit a released reservation");
+
+        var prior = repo.movement(tenant, k);
+        if (prior != null) return prior; // idempotent commit
+
+        if ("ACTIVE".equals(r.status())) {
+            require(repo.commitOnLot(tenant, r.lotId(), r.quantity()), "commit failed: balance changed");
+            repo.markReservationCommitted(tenant, r.id());
+        }
+        var m = new InventoryRepository.Movement(UUID.randomUUID().toString(), tenant, r.lotId(),
+                "RESERVATION_COMMIT", r.quantity(), r.orderId());
+        repo.addMovement(m, k);
+        return m;
+    }
 }

@@ -19,4 +19,13 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
 
     @Query("select ur.roleCode from UserRoleEntity ur where ur.userId = :userId order by ur.roleCode")
     List<String> findRoleCodes(@Param("userId") String userId);
+
+    @Query("select distinct rp.permissionCode from RolePermissionEntity rp where rp.permissionCode <> '*' order by rp.permissionCode")
+    List<String> findAllPermissions();
+
+    @Query("select r.code from RoleEntity r order by r.code")
+    List<String> findAllRoles();
+
+    @Query("select rp.permissionCode from RolePermissionEntity rp where rp.roleCode = :role order by rp.permissionCode")
+    List<String> findPermissionsByRole(@Param("role") String role);
 }

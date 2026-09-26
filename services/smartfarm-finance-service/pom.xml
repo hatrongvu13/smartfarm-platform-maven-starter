@@ -13,7 +13,7 @@
     <artifactId>smartfarm-finance-service</artifactId>
     <packaging>jar</packaging>
     <name>SmartFarm Finance Service</name>
-    <description>Farm finance service (ledger, cost aggregation). Skeleton pending Phase 4.</description>
+    <description>Farm finance service: ledger (expense/income), payables/receivables, saga participant.</description>
 
     <dependencies>
         <dependency>
@@ -23,6 +23,10 @@
         <dependency>
             <groupId>com.htv.smartfarm</groupId>
             <artifactId>smartfarm-proto</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.htv.smartfarm</groupId>
+            <artifactId>smartfarm-security</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

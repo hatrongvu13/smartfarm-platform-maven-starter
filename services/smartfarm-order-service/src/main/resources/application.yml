@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: smartfarm-order-service
+  profiles:
+    default: dev
+server:
+  port: 8085
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+spring.grpc.server.port: 9095
+smartfarm:
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER:}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI:}
+    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
+    allow-local-http: false
+  identity:
+    base-url: ${IDENTITY_BASE_URL:http://localhost:8092}
+  order:
+    service-client:
+      id: order
+      secret: ${ORDER_SERVICE_SECRET:}
+  inventory:
+    grpc-host: ${INVENTORY_GRPC_HOST:localhost}
+    grpc-port: ${INVENTORY_GRPC_PORT:9093}
+  finance:
+    grpc-host: ${FINANCE_GRPC_HOST:localhost}
+    grpc-port: ${FINANCE_GRPC_PORT:9094}

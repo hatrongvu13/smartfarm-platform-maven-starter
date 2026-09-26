@@ -25,9 +25,41 @@ public interface BalanceJpaRepository extends JpaRepository<BalanceEntity, Balan
             + "where b.tenantId = :tenant and b.lotId = :lot and b.onHand >= :delta")
     int decrement(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
 
+    /** Reserve: only succeeds when AVAILABLE (on_hand - reserved) covers the quantity. Atomic guard. */
+    @Modifying
+    @Query("update BalanceEntity b set b.reserved = b.reserved + :delta "
+            + "where b.tenantId = :tenant and b.lotId = :lot and (b.onHand - b.reserved) >= :delta")
+    int reserve(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
+
+    /** Release a reservation (compensating action): give the reserved quantity back to available. */
+    @Modifying
+    @Query("update BalanceEntity b set b.reserved = b.reserved - :delta "
+            + "where b.tenantId = :tenant and b.lotId = :lot and b.reserved >= :delta")
+    int release(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
+
+    /** Commit a reservation: consume the reserved stock (on_hand and reserved both drop). */
+    @Modifying
+    @Query("update BalanceEntity b set b.onHand = b.onHand - :delta, b.reserved = b.reserved - :delta "
+            + "where b.tenantId = :tenant and b.lotId = :lot and b.reserved >= :delta and b.onHand >= :delta")
+    int commit(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
+
     @Query("select coalesce(sum(b.onHand), 0) from BalanceEntity b, LotEntity l "
             + "where l.id = b.lotId and l.tenantId = b.tenantId "
             + "and b.tenantId = :tenant and l.itemId = :item and l.warehouseId = :warehouse")
     BigDecimal sumBalance(@Param("tenant") String tenant, @Param("item") String item,
                           @Param("warehouse") String warehouse);
+
+    @Query("select coalesce(sum(b.reserved), 0) from BalanceEntity b, LotEntity l "
+            + "where l.id = b.lotId and l.tenantId = b.tenantId "
+            + "and b.tenantId = :tenant and l.itemId = :item and l.warehouseId = :warehouse")
+    BigDecimal sumReserved(@Param("tenant") String tenant, @Param("item") String item,
+                           @Param("warehouse") String warehouse);
+
+    /** Lots for an item in a warehouse that still have available stock, oldest first (FIFO). */
+    @Query("select b.lotId from BalanceEntity b, LotEntity l "
+            + "where l.id = b.lotId and l.tenantId = b.tenantId "
+            + "and b.tenantId = :tenant and l.itemId = :item and l.warehouseId = :warehouse "
+            + "and (b.onHand - b.reserved) > 0 order by b.lotId")
+    java.util.List<String> lotsWithAvailable(@Param("tenant") String tenant, @Param("item") String item,
+                                              @Param("warehouse") String warehouse);
 }

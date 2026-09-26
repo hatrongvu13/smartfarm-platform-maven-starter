@@ -37,6 +37,7 @@
         <module>services/smartfarm-inventory-service</module>
         <module>services/smartfarm-identity-service</module>
         <module>services/smartfarm-finance-service</module>
+        <module>services/smartfarm-order-service</module>
         <module>services/smartfarm-reporting-service</module>
         <module>apps/smartfarm-gateway</module>
     </modules>
@@ -51,6 +52,8 @@
              the BOM's grpc version to avoid codegen/runtime drift. -->
         <grpc.version>1.83.1</grpc.version>
         <paho.version>1.2.5</paho.version>
+        <!-- springdoc 3.x aligns with Spring Boot 4 / Spring Framework 7 -->
+        <springdoc.version>3.1.1</springdoc.version>
     </properties>
 
     <dependencyManagement>

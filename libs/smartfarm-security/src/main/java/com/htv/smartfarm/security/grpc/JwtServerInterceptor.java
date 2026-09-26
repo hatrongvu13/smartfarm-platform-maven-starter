@@ -44,7 +44,9 @@ public final class JwtServerInterceptor implements ServerInterceptor {
         if (tenantHeader != null && !tenantHeader.equals(principal.tenantId()))
             return deny(call, Status.PERMISSION_DENIED);
         String required = policy.requiredAuthority(method);
-        if (required != null && !principal.roles().contains(required)) return deny(call, Status.PERMISSION_DENIED);
+        if (required != null && !principal.roles().contains(required)
+                && !com.htv.smartfarm.security.jwt.JwtAuthorities.isSuperAdmin(principal.roles()))
+            return deny(call, Status.PERMISSION_DENIED);
         String correlation = headers.get(CORR);
 
         if (correlation == null || correlation.isBlank()) {

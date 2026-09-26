@@ -25,19 +25,26 @@ public class InventoryRepository {
                            String referenceId) {
     }
 
+    public record Reservation(String id, String tenant, String orderId, String itemId, String lotId,
+                              String warehouseId, BigDecimal quantity, String status) {
+    }
+
     private final ItemJpaRepository items;
     private final LotJpaRepository lots;
     private final BalanceJpaRepository balances;
     private final MovementJpaRepository movements;
     private final InboxJpaRepository inbox;
+    private final ReservationJpaRepository reservations;
 
     public InventoryRepository(ItemJpaRepository items, LotJpaRepository lots, BalanceJpaRepository balances,
-                               MovementJpaRepository movements, InboxJpaRepository inbox) {
+                               MovementJpaRepository movements, InboxJpaRepository inbox,
+                               ReservationJpaRepository reservations) {
         this.items = items;
         this.lots = lots;
         this.balances = balances;
         this.movements = movements;
         this.inbox = inbox;
+        this.reservations = reservations;
     }
 
     private static Item toItem(ItemEntity e) {
@@ -113,5 +120,60 @@ public class InventoryRepository {
 
     public long inboxCount() {
         return inbox.count();
+    }
+
+    // ---- Reservations (saga stock holds) ------------------------------------
+
+    private static Reservation toReservation(ReservationEntity e) {
+        return new Reservation(e.getId(), e.getTenantId(), e.getOrderId(), e.getItemId(), e.getLotId(),
+                e.getWarehouseId(), e.getQuantity(), e.getStatus());
+    }
+
+    public Reservation reservation(String tenant, String id) {
+        return reservations.findByTenantIdAndId(tenant, id).map(InventoryRepository::toReservation).orElse(null);
+    }
+
+    public Reservation reservationByKey(String tenant, String key) {
+        return reservations.findByTenantIdAndIdempotencyKey(tenant, key).map(InventoryRepository::toReservation).orElse(null);
+    }
+
+    public java.util.List<String> lotsWithAvailable(String tenant, String item, String warehouse) {
+        return balances.lotsWithAvailable(tenant, item, warehouse);
+    }
+
+    /** Atomically hold {@code delta} on a lot; false when available stock is insufficient. */
+    @Transactional
+    public boolean reserveOnLot(String tenant, String lot, BigDecimal delta) {
+        return balances.reserve(tenant, lot, delta) == 1;
+    }
+
+    @Transactional
+    public boolean releaseOnLot(String tenant, String lot, BigDecimal delta) {
+        return balances.release(tenant, lot, delta) == 1;
+    }
+
+    @Transactional
+    public boolean commitOnLot(String tenant, String lot, BigDecimal delta) {
+        return balances.commit(tenant, lot, delta) == 1;
+    }
+
+    public void saveReservation(Reservation r, String key) {
+        reservations.save(new ReservationEntity(r.id(), r.tenant(), r.orderId(), r.itemId(), r.lotId(),
+                r.warehouseId(), r.quantity(), r.status(), key));
+    }
+
+    @Transactional
+    public void markReservationReleased(String tenant, String id) {
+        reservations.findByTenantIdAndId(tenant, id).ifPresent(e -> { e.markReleased(); reservations.save(e); });
+    }
+
+    @Transactional
+    public void markReservationCommitted(String tenant, String id) {
+        reservations.findByTenantIdAndId(tenant, id).ifPresent(e -> { e.markCommitted(); reservations.save(e); });
+    }
+
+    public BigDecimal reservedTotal(String tenant, String item, String warehouse) {
+        BigDecimal n = balances.sumReserved(tenant, item, warehouse);
+        return n == null ? BigDecimal.ZERO : n;
     }
 }

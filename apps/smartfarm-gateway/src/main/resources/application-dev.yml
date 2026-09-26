@@ -14,3 +14,9 @@ smartfarm:
   livestock:
     grpc-host: localhost
     grpc-port: 9091
+  inventory:
+    grpc-host: localhost
+    grpc-port: 9093
+  order:
+    grpc-host: localhost
+    grpc-port: 9095

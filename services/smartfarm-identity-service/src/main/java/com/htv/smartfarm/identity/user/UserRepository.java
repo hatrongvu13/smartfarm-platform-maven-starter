@@ -97,11 +97,32 @@ public class UserRepository {
     }
 
     public Set<String> scopes(String id) {
-        return new TreeSet<>(users.findScopes(id));
+        Set<String> granted = new TreeSet<>(users.findScopes(id));
+        // Super-admin: the wildcard "*" expands to every permission the system knows, plus the
+        // wildcard itself (kept so the gRPC layer recognises super-admin for scopes added later).
+        if (granted.contains("*")) {
+            granted.addAll(users.findAllPermissions());
+        }
+        return granted;
     }
 
     public boolean roleExists(String code) {
         return roles.existsById(code);
+    }
+
+    /** All defined roles, sorted. */
+    public java.util.List<String> allRoles() {
+        return users.findAllRoles();
+    }
+
+    /** Permissions granted to a role, sorted (includes the wildcard "*" if present). */
+    public java.util.List<String> permissionsOf(String role) {
+        return users.findPermissionsByRole(role);
+    }
+
+    /** Every concrete permission known to the system (wildcard excluded), sorted. */
+    public java.util.List<String> allPermissions() {
+        return users.findAllPermissions();
     }
 
     public void createRole(String code) {

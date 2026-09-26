@@ -3,4 +3,13 @@ spring:
     url: jdbc:h2:mem:smartfarm;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password:
+  jpa:
+    hibernate:
+      ddl-auto: update
   h2.console.enabled: true
+smartfarm:
+  security:
+    issuer: http://localhost:8092
+    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+    audience: smartfarm-finance
+    allow-local-http: true

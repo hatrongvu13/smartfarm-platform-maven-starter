@@ -37,6 +37,29 @@ public class AdminController {
     public record PermissionRequest(String permission) {
     }
 
+    /** List every role with the permissions it grants. Helps an admin decide what to assign. */
+    @GetMapping("/roles")
+    public Map<String, Object> listRoles() {
+        var roles = new java.util.LinkedHashMap<String, Object>();
+        for (String role : users.allRoles()) {
+            roles.put(role, users.permissionsOf(role));
+        }
+        return Map.of("roles", roles);
+    }
+
+    /** Every concrete permission (scope) the system knows — the vocabulary for granting. */
+    @GetMapping("/permissions")
+    public Map<String, Object> listPermissions() {
+        return Map.of("permissions", users.allPermissions());
+    }
+
+    /** The roles and effective scopes of one user in the caller's tenant. */
+    @GetMapping("/users/{id}/roles")
+    public Map<String, Object> userRoles(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+        inTenant(jwt, id);
+        return Map.of("userId", id, "roles", users.roles(id), "scopes", users.scopes(id));
+    }
+
     @Transactional
     @PostMapping("/users")
     public Map<String, String> create(@AuthenticationPrincipal Jwt jwt, @RequestBody CreateUser r) {
@@ -62,6 +85,8 @@ public class AdminController {
         inTenant(jwt, id);
         if (role.equals("PLATFORM_ADMIN"))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform role cannot be delegated via tenant API");
+        if (role.equals("SUPERADMIN"))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Super-admin cannot be delegated; it is the project root admin only");
         if (!users.roleExists(role)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role");
         try {
             users.assignRole(id, role);

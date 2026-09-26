@@ -29,6 +29,7 @@ smartfarm:
             - smartfarm-livestock
             - smartfarm-health
             - smartfarm-inventory
+            - smartfarm-order
           scopes-by-audience:
             smartfarm-livestock:
               - "tasks:write"
@@ -36,4 +37,21 @@ smartfarm:
             smartfarm-health:
               - "farm:read"
             smartfarm-inventory:
-              - "farm:read"
+              - "inventory:write"
+              - "inventory:read"
+            smartfarm-order:
+              - "orders:write"
+              - "orders:read"
+        order:
+          # bcrypt("dev-order-service-secret"); dev-only, override in prod.
+          # The saga owner calls inventory (reserve/commit/release) and finance (record expense).
+          secret: "$2a$12$Ya54/cTObYqqsalBT5HpkOszgwjCKbFeGwxxqVqPwuVkkqyxXpYSe"
+          audiences:
+            - smartfarm-inventory
+            - smartfarm-finance
+          scopes-by-audience:
+            smartfarm-inventory:
+              - "inventory:write"
+              - "inventory:read"
+            smartfarm-finance:
+              - "finance:write"

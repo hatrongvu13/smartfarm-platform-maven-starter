@@ -18,8 +18,15 @@ public class BootstrapAdmin {
                 throw new IllegalArgumentException("Bootstrap requires tenant and password");
             AuthService.password(settings.bootstrapPassword());
             String email = AuthService.email(settings.bootstrapEmail());
-            if (users.findByEmail(settings.bootstrapTenant(), email).isPresent()) return;
-            var admin = users.create(settings.bootstrapTenant(), email, encoder.encode(settings.bootstrapPassword()));
+            // Resolve (or create) the bootstrap user, then CONVERGE its roles on every startup.
+            // Role assignment must be idempotent: if the admin already existed from a prior run,
+            // newly-added roles (e.g. FARM_OPERATOR) must still be granted, not skipped.
+            var admin = users.findByEmail(settings.bootstrapTenant(), email)
+                    .orElseGet(() -> users.create(settings.bootstrapTenant(), email, encoder.encode(settings.bootstrapPassword())));
+            // The project's FIRST admin is the root SUPERADMIN: it holds the wildcard permission
+            // and therefore every authority in the system, now and for scopes added later. All
+            // OTHER users start with no privilege and must be granted roles by an admin.
+            users.assignRole(admin.id(), "SUPERADMIN");
             users.assignRole(admin.id(), "ADMIN");
             users.assignRole(admin.id(), "PLATFORM_ADMIN");
         };

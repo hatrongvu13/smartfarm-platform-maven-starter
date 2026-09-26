@@ -69,9 +69,53 @@ public class InventoryGrpcService extends InventoryServiceGrpc.InventoryServiceI
         respond(out, () -> {
             var t = tenant();
             var item = repo.item(t, req.getItemId());
-            var n = commands.balance(t, req.getItemId(), req.getWarehouseId());
-            var q = Quantity.newBuilder().setDecimalValue(n.toPlainString()).setUnit(item.unit());
-            return StockBalanceResponse.newBuilder().setBalance(StockBalance.newBuilder().setItemId(item.id()).setWarehouseId(req.getWarehouseId()).setOnHand(q).setAvailable(q).setReserved(Quantity.newBuilder().setDecimalValue("0").setUnit(item.unit()))).build();
+            var onHand = commands.balance(t, req.getItemId(), req.getWarehouseId());
+            var reserved = commands.reserved(t, req.getItemId(), req.getWarehouseId());
+            var available = onHand.subtract(reserved);
+            var unit = item.unit();
+            return StockBalanceResponse.newBuilder().setBalance(StockBalance.newBuilder()
+                    .setItemId(item.id()).setWarehouseId(req.getWarehouseId())
+                    .setOnHand(qty(onHand, unit)).setReserved(qty(reserved, unit)).setAvailable(qty(available, unit))).build();
+        });
+    }
+
+    private static Quantity.Builder qty(java.math.BigDecimal n, String unit) {
+        return Quantity.newBuilder().setDecimalValue(n.toPlainString()).setUnit(unit);
+    }
+
+    private ReservationResponse reservation(InventoryRepository.Reservation r) {
+        var status = switch (r.status()) {
+            case "COMMITTED" -> ReservationStatus.RESERVATION_STATUS_COMMITTED;
+            case "RELEASED" -> ReservationStatus.RESERVATION_STATUS_RELEASED;
+            default -> ReservationStatus.RESERVATION_STATUS_ACTIVE;
+        };
+        var item = repo.item(tenant(), r.itemId());
+        return ReservationResponse.newBuilder().setReservation(StockReservation.newBuilder()
+                .setReservationId(r.id()).setOrderId(r.orderId()).setItemId(r.itemId()).setLotId(r.lotId())
+                .setWarehouseId(r.warehouseId()).setStatus(status)
+                .setQuantity(qty(r.quantity(), item == null ? "" : item.unit()))).build();
+    }
+
+    @Override
+    public void reserveStock(ReserveStockRequest req, StreamObserver<ReservationResponse> out) {
+        respond(out, () -> reservation(commands.reserve(tenant(), req)));
+    }
+
+    @Override
+    public void releaseReservation(ReleaseReservationRequest req, StreamObserver<ReservationResponse> out) {
+        respond(out, () -> reservation(commands.release(tenant(), req)));
+    }
+
+    @Override
+    public void commitReservation(CommitReservationRequest req, StreamObserver<StockMovementResponse> out) {
+        respond(out, () -> {
+            var m = commands.commit(tenant(), req);
+            var lot = repo.lot(tenant(), m.lotId());
+            return StockMovementResponse.newBuilder().setMovement(StockMovement.newBuilder()
+                    .setMovementId(m.id()).setLotId(m.lotId()).setItemId(lot.itemId()).setWarehouseId(lot.warehouseId())
+                    .setType(MovementType.MOVEMENT_TYPE_RESERVATION_COMMIT)
+                    .setQuantity(qty(m.quantity(), repo.item(tenant(), lot.itemId()).unit()))
+                    .setReferenceId(m.referenceId() == null ? "" : m.referenceId())).build();
         });
     }
 }

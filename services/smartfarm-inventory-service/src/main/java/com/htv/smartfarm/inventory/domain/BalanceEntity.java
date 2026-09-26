@@ -27,6 +27,9 @@ public class BalanceEntity {
     @Column(name = "on_hand", nullable = false, precision = 18, scale = 3)
     private BigDecimal onHand;
 
+    @Column(name = "reserved", nullable = false, precision = 18, scale = 3)
+    private BigDecimal reserved;
+
     protected BalanceEntity() {
     }
 
@@ -34,10 +37,15 @@ public class BalanceEntity {
         this.tenantId = tenantId;
         this.lotId = lotId;
         this.onHand = onHand;
+        this.reserved = BigDecimal.ZERO;
     }
 
     public BigDecimal getOnHand() {
         return onHand;
+    }
+
+    public BigDecimal getReserved() {
+        return reserved;
     }
 
     /** Composite primary key for {@link BalanceEntity}. */
