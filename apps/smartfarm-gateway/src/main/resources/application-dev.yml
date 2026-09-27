@@ -6,6 +6,11 @@ smartfarm:
     allow-local-http: true
   identity:
     base-url: http://localhost:8092
+  mqtt:
+    url: tcp://localhost:1883
+  events:
+    mqtt:
+      enabled: true
   gateway:
     service-client:
       id: gateway
@@ -20,3 +25,6 @@ smartfarm:
   order:
     grpc-host: localhost
     grpc-port: 9095
+  reporting:
+    grpc-host: localhost
+    grpc-port: 9096

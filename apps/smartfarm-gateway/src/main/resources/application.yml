@@ -5,8 +5,15 @@ spring:
     web-application-type: reactive
   profiles:
     default: dev
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    http:
+      path: /graphql
 server:
   port: 8080
+
 smartfarm:
   security:
     audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-gateway}

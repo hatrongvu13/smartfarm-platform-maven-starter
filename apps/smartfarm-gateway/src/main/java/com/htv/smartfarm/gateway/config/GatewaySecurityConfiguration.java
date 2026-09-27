@@ -59,6 +59,11 @@ public class GatewaySecurityConfiguration {
                         .pathMatchers("/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness").permitAll()
                         // OpenAPI spec + Swagger UI (interactive docs). Read-only; safe to expose.
                         .pathMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**", "/webjars/**").permitAll()
+                        // GraphiQL UI (dev explorer). The /graphql endpoint itself still requires a JWT.
+                        .pathMatchers("/graphiql", "/graphiql/**").permitAll()
+                        // WebSocket event stream — the handshake authenticates via ?token=<jwt> inside
+                        // the handler (a browser WS cannot send an Authorization header), then filters by tenant.
+                        .pathMatchers("/ws/**").permitAll()
                         // Public auth ingress — no token; the identity service re-validates.
                         .pathMatchers(HttpMethod.POST,
                                 "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()

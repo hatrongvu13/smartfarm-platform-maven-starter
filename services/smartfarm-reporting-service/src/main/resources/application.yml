@@ -4,16 +4,22 @@ spring:
   profiles:
     default: dev
 server:
-  port: 8085
+  port: 8086
 management:
-  endpoints.web.exposure.include: health,info,prometheus
-  endpoint.health.probes.enabled: true
-spring.grpc.server.port: 9095
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+spring.grpc.server.port: 9096
 smartfarm:
-  grpc:
-    tls:
-      enabled: false
-      cert-chain: ${GRPC_CERT_CHAIN:}
-      private-key: ${GRPC_PRIVATE_KEY:}
-  mqtt:
-    url: ${MQTT_URL:tcp://localhost:1883}
+  security:
+    issuer: ${SMARTFARM_JWT_ISSUER:}
+    jwk-set-uri: ${SMARTFARM_JWKS_URI:}
+    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-reporting}
+    allow-local-http: false
+  reporting:
+    output-dir: ${REPORTING_OUTPUT_DIR:./.local/reports}
+    download-ttl-seconds: ${REPORTING_DOWNLOAD_TTL:900}
+    worker:
+      enabled: true
+      poll-ms: 5000

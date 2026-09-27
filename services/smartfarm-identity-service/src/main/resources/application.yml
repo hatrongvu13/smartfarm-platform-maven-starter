@@ -8,6 +8,11 @@ spring:
       mode: always
 server:
   port: 8092
+  # SINGLE-INGRESS: identity is an INTERNAL service. Bind loopback only so no external host can
+  # reach its REST (login/admin/service-token) directly — the gateway (same host) proxies all
+  # public auth traffic. Override IDENTITY_BIND_ADDRESS only where identity and gateway run on
+  # different hosts behind a private network / mesh with its own access controls.
+  address: ${IDENTITY_BIND_ADDRESS:127.0.0.1}
 smartfarm:
   identity:
     issuer: ${IDENTITY_ISSUER:http://localhost:8092}

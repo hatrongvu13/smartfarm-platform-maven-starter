@@ -13,7 +13,7 @@
     <artifactId>smartfarm-reporting-service</artifactId>
     <packaging>jar</packaging>
     <name>SmartFarm Reporting Service</name>
-    <description>Multi-format reporting service (PDF/Excel/CSV export). Skeleton pending Phase 4.</description>
+    <description>Multi-format reporting service: async export jobs (CSV/PDF/XLSX) with download location.</description>
 
     <dependencies>
         <dependency>
@@ -25,12 +25,32 @@
             <artifactId>smartfarm-proto</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.htv.smartfarm</groupId>
+            <artifactId>smartfarm-security</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-grpc-server</artifactId>
+        </dependency>
+        <!-- gRPC client: reporting pulls real data from other services (e.g. livestock tasks) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-grpc-client</artifactId>
+        </dependency>
+        <!-- Render engines: XLSX (Apache POI) and PDF (OpenPDF) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.3</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

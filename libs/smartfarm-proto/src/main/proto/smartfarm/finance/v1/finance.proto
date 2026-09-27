@@ -7,6 +7,7 @@ import "smartfarm/common/v1/common.proto";
 import "google/protobuf/timestamp.proto";
 service FarmFinanceService {
  rpc RecordExpense(RecordExpenseRequest) returns (TransactionResponse);
+ rpc ReverseExpense(ReverseExpenseRequest) returns (TransactionResponse);
  rpc RecordIncome(RecordIncomeRequest) returns (TransactionResponse);
  rpc GetTransaction(GetTransactionRequest) returns (TransactionResponse);
  rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse);
@@ -24,6 +25,9 @@ message Debt { string debt_id = 1; string farm_id = 2; string counterparty_id = 
 message BatchCost { string batch_id = 1; string farm_id = 2; smartfarm.common.v1.Money feed_cost = 3; smartfarm.common.v1.Money medicine_cost = 4; smartfarm.common.v1.Money labor_cost = 5; smartfarm.common.v1.Money other_cost = 6; smartfarm.common.v1.Money total_cost = 7; int32 animal_count = 8; }
 message CashFlow { string farm_id = 1; smartfarm.common.v1.DateRange period = 2; smartfarm.common.v1.Money inflow = 3; smartfarm.common.v1.Money outflow = 4; smartfarm.common.v1.Money net = 5; }
 message RecordExpenseRequest { smartfarm.common.v1.RequestContext context = 1; FinanceTransaction transaction = 2; }
+// Compensating action for the saga: reverse a prior expense identified by the idempotency key it
+// was recorded under (original_expense_key), writing an offsetting INCOME keyed by reversal_key.
+message ReverseExpenseRequest { smartfarm.common.v1.RequestContext context = 1; string original_expense_key = 2; string reversal_key = 3; }
 message RecordIncomeRequest { smartfarm.common.v1.RequestContext context = 1; FinanceTransaction transaction = 2; }
 message TransactionResponse { FinanceTransaction transaction = 1; }
 message GetTransactionRequest { smartfarm.common.v1.RequestContext context = 1; string transaction_id = 2; }

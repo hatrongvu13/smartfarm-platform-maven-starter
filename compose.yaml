@@ -2,8 +2,8 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: smartfarm
-      POSTGRES_PASSWORD: smartfarm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
       POSTGRES_DB: smartfarm
     ports: [ "5432:5432" ]
     healthcheck:

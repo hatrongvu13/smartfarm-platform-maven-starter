@@ -1,14 +1,28 @@
 spring:
+  # @Scheduled beans (OutboxRelay, ScheduleTaskGenerator, TaskDeadlineMonitor) share ONE
+  # scheduler thread by default. OutboxRelay.poll() publishes to MQTT synchronously; with no
+  # broker up, each publish blocks on the connect timeout and starves the generator/monitor.
+  # A small pool keeps them independent so the schedule generator still fires without a broker.
+  task:
+    scheduling:
+      pool:
+        size: 4
   datasource:
-    url: jdbc:h2:mem:livestock;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
+    url: jdbc:postgresql://localhost:5432/smartfarm
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
+      # Flyway owns the schema now; Hibernate only validates entities against it.
       ddl-auto: update
     properties:
       hibernate:
         format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
 smartfarm:
   security:
     issuer: http://localhost:8092
@@ -22,3 +36,16 @@ smartfarm:
   outbox:
     enabled: true
     poll-ms: 2000
+  livestock:
+    monitor:
+      enabled: true
+      poll-ms: 15000            # quét quá hạn mỗi 15s (dev)
+    schedule-generator:
+      enabled: true
+      poll-ms: 15000            # sinh task theo cron mỗi 15s (dev)
+    deadlines:
+      accept-window-seconds: 120   # dev: 2 phút để nhận (prod nên 5-10')
+      report-window-seconds: 600   # dev: 10 phút để báo cáo
+      report-window-seconds-by-type:
+        TASK_TYPE_MEDICATION: 1800  # tiêm/thuốc: 30 phút
+        TASK_TYPE_INSPECTION: 900   # kiểm tra: 15 phút

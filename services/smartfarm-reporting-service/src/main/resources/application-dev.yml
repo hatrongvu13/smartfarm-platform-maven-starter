@@ -1,6 +1,35 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:smartfarm;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
-  h2.console.enabled: true
+    url: jdbc:postgresql://localhost:5432/smartfarm
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+smartfarm:
+  security:
+    issuer: http://localhost:8092
+    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+    # Verify our OWN audience — only the gateway's per-service token (aud=smartfarm-reporting)
+    # may call this service, never a user's access token directly.
+    audience: smartfarm-reporting
+    allow-local-http: true
+  identity:
+    base-url: http://localhost:8092
+  livestock:
+    grpc-host: localhost
+    grpc-port: 9091
+  reporting:
+    service-client:
+      id: reporting
+      # bcrypt-whitelisted for client 'reporting' in identity dev config. DEV ONLY.
+      secret: dev-reporting-service-secret
+    output-dir: ./.local/reports
+    download-ttl-seconds: 900
+    worker:
+      enabled: true
+      poll-ms: 5000

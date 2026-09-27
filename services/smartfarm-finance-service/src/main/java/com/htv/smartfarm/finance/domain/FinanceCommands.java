@@ -65,6 +65,39 @@ public class FinanceCommands {
     }
 
     @Transactional
+    public TransactionEntity recordIncome(String tenant, RecordIncomeRequest req) {
+        require(req.hasContext() && req.hasTransaction(), "context/transaction required");
+        String k = key(req.getContext(), tenant);
+        var t = req.getTransaction();
+        require(!t.getFarmId().isBlank(), "farm_id required");
+        validMoney(t.getAmount());
+        var prior = transactions.findByTenantIdAndIdempotencyKey(tenant, k).orElse(null);
+        if (prior != null) {
+            require(prior.getKind().equals("INCOME") && prior.getMinorUnits() == t.getAmount().getMinorUnits()
+                    && prior.getCurrencyCode().equals(t.getAmount().getCurrencyCode()), "idempotency key reused with different income");
+            return prior;
+        }
+        var e = new TransactionEntity(UUID.randomUUID().toString(), tenant, t.getFarmId(),
+                emptyToNull(t.getBatchId()), "INCOME", t.getAmount().getCurrencyCode(), t.getAmount().getMinorUnits(),
+                emptyToNull(t.getCategory()), emptyToNull(t.getReferenceType()), emptyToNull(t.getReferenceId()),
+                emptyToNull(t.getDescription()), System.currentTimeMillis(), k);
+        transactions.save(e);
+        return e;
+    }
+
+    @Transactional(readOnly = true)
+    public TransactionEntity getTransaction(String tenant, String id) {
+        return transactions.findByTenantIdAndId(tenant, id).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<TransactionEntity> listTransactions(String tenant, String farm, String batch, Long from, Long to, int limit) {
+        require(farm != null && !farm.isBlank(), "farm_id required");
+        return transactions.list(tenant, farm, emptyToNull(batch), from, to,
+                org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit <= 0 ? 100 : limit, 500))));
+    }
+
+    @Transactional
     public DebtEntity recordPayable(String tenant, RecordPayableRequest req) {
         require(req.hasContext() && req.hasDebt(), "context/debt required");
         String k = key(req.getContext(), tenant);
@@ -83,6 +116,61 @@ public class FinanceCommands {
                 d.hasDueAt() ? d.getDueAt().getSeconds() * 1000 : null, emptyToNull(d.getReferenceId()), k);
         debts.save(e);
         return e;
+    }
+
+    @Transactional
+    public DebtEntity recordReceivable(String tenant, RecordReceivableRequest req) {
+        require(req.hasContext() && req.hasDebt(), "context/debt required");
+        String k = key(req.getContext(), tenant);
+        var d = req.getDebt();
+        require(!d.getFarmId().isBlank(), "farm_id required");
+        validMoney(d.getPrincipal());
+        var prior = debts.findByTenantIdAndIdempotencyKey(tenant, k).orElse(null);
+        if (prior != null) {
+            require(prior.getKind().equals("RECEIVABLE") && prior.getPrincipalMinor() == d.getPrincipal().getMinorUnits(), "idempotency key reused with different receivable");
+            return prior;
+        }
+        long principal = d.getPrincipal().getMinorUnits();
+        var e = new DebtEntity(UUID.randomUUID().toString(), tenant, d.getFarmId(), emptyToNull(d.getCounterpartyId()),
+                "RECEIVABLE", "OPEN", d.getPrincipal().getCurrencyCode(), principal, principal,
+                d.hasDueAt() ? d.getDueAt().getSeconds() * 1000 : null, emptyToNull(d.getReferenceId()), k);
+        debts.save(e);
+        return e;
+    }
+
+    /** Batch cost breakdown: sum EXPENSE by category (FEED/MEDICINE/LABOR/other) for one batch. */
+    @Transactional(readOnly = true)
+    public BatchCostView batchCost(String tenant, String farm, String batch) {
+        require(farm != null && !farm.isBlank() && batch != null && !batch.isBlank(), "farm_id and batch_id required");
+        long feed = transactions.sumByKindAndCategory(tenant, farm, batch, "EXPENSE", "FEED");
+        long medicine = transactions.sumByKindAndCategory(tenant, farm, batch, "EXPENSE", "MEDICINE");
+        long labor = transactions.sumByKindAndCategory(tenant, farm, batch, "EXPENSE", "LABOR");
+        long all = transactions.sumByKindAndCategory(tenant, farm, batch, "EXPENSE", null);
+        long other = all - feed - medicine - labor;
+        return new BatchCostView(farm, batch, currency(tenant, farm), feed, medicine, labor, Math.max(0, other), all);
+    }
+
+    /** Cash flow: inflow (INCOME) vs outflow (EXPENSE) over an optional period. */
+    @Transactional(readOnly = true)
+    public CashFlowView cashFlow(String tenant, String farm, Long from, Long to) {
+        require(farm != null && !farm.isBlank(), "farm_id required");
+        long inflow = transactions.sumByKind(tenant, farm, "INCOME", from, to);
+        long outflow = transactions.sumByKind(tenant, farm, "EXPENSE", from, to);
+        return new CashFlowView(farm, currency(tenant, farm), inflow, outflow, inflow - outflow, from, to);
+    }
+
+    private String currency(String tenant, String farm) {
+        var list = transactions.currencies(tenant, farm, org.springframework.data.domain.PageRequest.of(0, 1));
+        return list.isEmpty() ? "VND" : list.get(0);
+    }
+
+    /** Aggregate views (currency + minor units). */
+    public record BatchCostView(String farmId, String batchId, String currency,
+                                long feedMinor, long medicineMinor, long laborMinor, long otherMinor, long totalMinor) {
+    }
+
+    public record CashFlowView(String farmId, String currency, long inflowMinor, long outflowMinor,
+                               long netMinor, Long fromMs, Long toMs) {
     }
 
     @Transactional

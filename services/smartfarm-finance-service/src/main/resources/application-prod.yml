@@ -3,4 +3,10 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/smartfarm}
     username: ${DB_USERNAME:smartfarm}
     password: ${DB_PASSWORD}
-  h2.console.enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0

@@ -91,8 +91,15 @@ public class OrderDevController {
 
     // ---- the saga -----------------------------------------------------------
 
+    // NOTE: unitPriceMinor is boxed (Long) not primitive. A multi-line payload omits the
+    // TOP-LEVEL single-line scalars (itemId/quantity/unit/currency/unitPriceMinor), so a
+    // primitive `long` there would make Jackson reject the whole body with a message-less
+    // 400 (a primitive cannot bind an absent/null JSON value). Boxed = absent -> null, OK.
+    public record Line(String itemId, String quantity, String unit, String currency, Long unitPriceMinor, String warehouseId) {
+    }
+
     public record Place(String farmId, String warehouseId, String itemId, String quantity, String unit,
-                        String currency, long unitPriceMinor) {
+                        String currency, Long unitPriceMinor, java.util.List<Line> lines) {
     }
 
     @PostMapping("/orders")
@@ -102,18 +109,29 @@ public class OrderDevController {
                                             @RequestBody Place body) {
         return call(jwt, () -> {
             var t = tenant(jwt); var a = jwt.getSubject();
-            var resp = orderStub(t, a).placeOrder(PlaceOrderRequest.newBuilder()
+            var req = PlaceOrderRequest.newBuilder()
                     .setContext(ctx(t, a, key))
                     .setFarmId(body.farmId())
-                    .setBatchId(body.warehouseId())   // warehouse carried via batch_id in this starter saga
-                    .addLines(OrderLine.newBuilder()
-                            .setItemId(body.itemId())
-                            .setQuantity(Quantity.newBuilder().setDecimalValue(body.quantity()).setUnit(body.unit()))
-                            .setUnitPrice(Money.newBuilder().setCurrencyCode(body.currency()).setMinorUnits(body.unitPriceMinor())))
-                    .build());
-            var o = resp.getOrder();
-            return Map.of("orderId", o.getOrderId(), "status", o.getStatus().name(),
-                    "failureReason", o.getFailureReason(), "totalMinor", o.getTotal().getMinorUnits());
+                    .setBatchId(body.warehouseId());   // warehouse carried via batch_id in this starter saga
+            if (body.lines() != null && !body.lines().isEmpty()) {
+                for (Line l : body.lines()) {
+                    long priceMinor = l.unitPriceMinor() == null ? 0L : l.unitPriceMinor();
+                    var lb = OrderLine.newBuilder()
+                            .setItemId(l.itemId())
+                            .setQuantity(Quantity.newBuilder().setDecimalValue(l.quantity()).setUnit(l.unit()))
+                            .setUnitPrice(Money.newBuilder().setCurrencyCode(l.currency()).setMinorUnits(priceMinor));
+                    if (l.warehouseId() != null && !l.warehouseId().isBlank()) lb.setWarehouseId(l.warehouseId());
+                    req.addLines(lb);
+                }
+            } else {
+                req.addLines(OrderLine.newBuilder()
+                        .setItemId(body.itemId())
+                        .setQuantity(Quantity.newBuilder().setDecimalValue(body.quantity()).setUnit(body.unit()))
+                        .setUnitPrice(Money.newBuilder().setCurrencyCode(body.currency())
+                                .setMinorUnits(body.unitPriceMinor() == null ? 0L : body.unitPriceMinor())));
+            }
+            var resp = orderStub(t, a).placeOrder(req.build());
+            return orderJson(resp.getOrder());
         });
     }
 
@@ -123,11 +141,77 @@ public class OrderDevController {
         return call(jwt, () -> {
             var t = tenant(jwt); var a = jwt.getSubject();
             var o = orderStub(t, a).getOrder(GetOrderRequest.newBuilder().setContext(ctx(t, a, "")).setOrderId(id).build()).getOrder();
-            return Map.of("orderId", o.getOrderId(), "status", o.getStatus().name(), "failureReason", o.getFailureReason());
+            return orderJson(o);
+        });
+    }
+
+    @GetMapping("/orders")
+    @PreAuthorize("hasAuthority('SCOPE_orders:read')")
+    public Mono<Map<String, Object>> list(@AuthenticationPrincipal Jwt jwt,
+                                           @RequestParam String farmId,
+                                           @RequestParam(required = false) String status,
+                                           @RequestParam(required = false, defaultValue = "50") int limit) {
+        return call(jwt, () -> {
+            var t = tenant(jwt); var a = jwt.getSubject();
+            var b = ListOrdersRequest.newBuilder().setContext(ctx(t, a, "")).setFarmId(farmId)
+                    .setPage(com.htv.smartfarm.proto.common.v1.PageRequest.newBuilder().setPageSize(limit));
+            if (status != null && !status.isBlank()) {
+                try {
+                    b.setStatus(OrderStatus.valueOf(status.startsWith("ORDER_STATUS_") ? status : "ORDER_STATUS_" + status));
+                } catch (IllegalArgumentException ignore) {
+                    // unknown status -> no filter
+                }
+            }
+            var resp = orderStub(t, a).listOrders(b.build());
+            var items = new java.util.ArrayList<Map<String, Object>>();
+            for (FarmOrder o : resp.getOrdersList()) items.add(orderJson(o));
+            return Map.of("count", items.size(), "orders", items);
+        });
+    }
+
+    public record CancelBody(String reason) {
+    }
+
+    @PostMapping("/orders/{id}/cancel")
+    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    public Mono<Map<String, Object>> cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String id,
+                                            @RequestBody(required = false) CancelBody body) {
+        return call(jwt, () -> {
+            var t = tenant(jwt); var a = jwt.getSubject();
+            var o = orderStub(t, a).cancelOrder(CancelOrderRequest.newBuilder().setContext(ctx(t, a, ""))
+                    .setOrderId(id).setReason(body == null || body.reason() == null ? "" : body.reason()).build()).getOrder();
+            return orderJson(o);
         });
     }
 
     // ---- helpers ------------------------------------------------------------
+
+    /** Full FE-facing JSON shape of an order, mirroring proto FarmOrder (lines + warehouse per line). */
+    private static Map<String, Object> orderJson(FarmOrder o) {
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("orderId", o.getOrderId());
+        m.put("farmId", o.getFarmId());
+        m.put("batchId", o.getBatchId());
+        m.put("status", o.getStatus().name());
+        m.put("totalMinor", o.getTotal().getMinorUnits());
+        m.put("currency", o.getTotal().getCurrencyCode());
+        if (o.hasCreatedAt())
+            m.put("createdAt", java.time.Instant.ofEpochSecond(o.getCreatedAt().getSeconds(), o.getCreatedAt().getNanos()).toString());
+        m.put("failureReason", o.getFailureReason());
+        var lines = new java.util.ArrayList<Map<String, Object>>();
+        for (OrderLine l : o.getLinesList()) {
+            var lm = new java.util.LinkedHashMap<String, Object>();
+            lm.put("itemId", l.getItemId());
+            lm.put("quantity", l.getQuantity().getDecimalValue());
+            lm.put("unit", l.getQuantity().getUnit());
+            lm.put("unitPriceMinor", l.getUnitPrice().getMinorUnits());
+            lm.put("currency", l.getUnitPrice().getCurrencyCode());
+            lm.put("warehouseId", l.getWarehouseId());
+            lines.add(lm);
+        }
+        m.put("lines", lines);
+        return m;
+    }
 
     private static String tenant(Jwt jwt) {
         return jwt.getClaimAsString("tenant_id");
@@ -160,6 +244,7 @@ public class OrderDevController {
                     HttpStatus http = switch (code) {
                         case NOT_FOUND -> HttpStatus.NOT_FOUND;
                         case INVALID_ARGUMENT -> HttpStatus.BAD_REQUEST;
+                        case FAILED_PRECONDITION, ALREADY_EXISTS -> HttpStatus.CONFLICT;
                         case UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
                         case PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
                         case DEADLINE_EXCEEDED -> HttpStatus.GATEWAY_TIMEOUT;

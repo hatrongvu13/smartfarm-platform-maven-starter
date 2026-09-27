@@ -5,9 +5,10 @@ spring:
     server:
       address: 127.0.0.1
   datasource:
-    url: jdbc:h2:file:./.local/health-db;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
+    url: jdbc:postgresql://localhost:5432/smartfarm
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update

@@ -86,6 +86,15 @@ public class FarmFinanceGrpcService extends FarmFinanceServiceGrpc.FarmFinanceSe
     }
 
     @Override
+    public void reverseExpense(ReverseExpenseRequest req, StreamObserver<TransactionResponse> out) {
+        respond(out, () -> {
+            if (req.getOriginalExpenseKey().isBlank() || req.getReversalKey().isBlank())
+                throw new IllegalArgumentException("original_expense_key and reversal_key required");
+            return toTxn(commands.reverseExpense(tenant(), req.getOriginalExpenseKey(), req.getReversalKey()));
+        });
+    }
+
+    @Override
     public void recordPayable(RecordPayableRequest req, StreamObserver<DebtResponse> out) {
         respond(out, () -> toDebt(commands.recordPayable(tenant(), req)));
     }
@@ -93,5 +102,65 @@ public class FarmFinanceGrpcService extends FarmFinanceServiceGrpc.FarmFinanceSe
     @Override
     public void settleDebt(SettleDebtRequest req, StreamObserver<DebtResponse> out) {
         respond(out, () -> toDebt(commands.settleDebt(tenant(), req)));
+    }
+
+    @Override
+    public void recordIncome(RecordIncomeRequest req, StreamObserver<TransactionResponse> out) {
+        respond(out, () -> toTxn(commands.recordIncome(tenant(), req)));
+    }
+
+    @Override
+    public void recordReceivable(RecordReceivableRequest req, StreamObserver<DebtResponse> out) {
+        respond(out, () -> toDebt(commands.recordReceivable(tenant(), req)));
+    }
+
+    @Override
+    public void getTransaction(GetTransactionRequest req, StreamObserver<TransactionResponse> out) {
+        respond(out, () -> {
+            var t = commands.getTransaction(tenant(), req.getTransactionId());
+            if (t == null) throw Status.NOT_FOUND.withDescription("transaction not found").asRuntimeException();
+            return toTxn(t);
+        });
+    }
+
+    @Override
+    public void listTransactions(ListTransactionsRequest req, StreamObserver<ListTransactionsResponse> out) {
+        respond(out, () -> {
+            int limit = req.hasPage() && req.getPage().getPageSize() > 0 ? req.getPage().getPageSize() : 100;
+            Long from = req.hasPeriod() && req.getPeriod().hasFrom() ? req.getPeriod().getFrom().getSeconds() * 1000 : null;
+            Long to = req.hasPeriod() && req.getPeriod().hasTo() ? req.getPeriod().getTo().getSeconds() * 1000 : null;
+            var b = ListTransactionsResponse.newBuilder();
+            for (var e : commands.listTransactions(tenant(), req.getFarmId(), req.getBatchId(), from, to, limit))
+                b.addTransactions(toTxn(e).getTransaction());
+            return b.build();
+        });
+    }
+
+    @Override
+    public void getBatchCost(GetBatchCostRequest req, StreamObserver<BatchCostResponse> out) {
+        respond(out, () -> {
+            var v = commands.batchCost(tenant(), req.getFarmId(), req.getBatchId());
+            return BatchCostResponse.newBuilder().setCost(BatchCost.newBuilder()
+                    .setFarmId(v.farmId()).setBatchId(v.batchId())
+                    .setFeedCost(money(v.currency(), v.feedMinor()))
+                    .setMedicineCost(money(v.currency(), v.medicineMinor()))
+                    .setLaborCost(money(v.currency(), v.laborMinor()))
+                    .setOtherCost(money(v.currency(), v.otherMinor()))
+                    .setTotalCost(money(v.currency(), v.totalMinor()))).build();
+        });
+    }
+
+    @Override
+    public void getCashFlow(GetCashFlowRequest req, StreamObserver<CashFlowResponse> out) {
+        respond(out, () -> {
+            Long from = req.hasPeriod() && req.getPeriod().hasFrom() ? req.getPeriod().getFrom().getSeconds() * 1000 : null;
+            Long to = req.hasPeriod() && req.getPeriod().hasTo() ? req.getPeriod().getTo().getSeconds() * 1000 : null;
+            var v = commands.cashFlow(tenant(), req.getFarmId(), from, to);
+            return CashFlowResponse.newBuilder().setCashFlow(CashFlow.newBuilder()
+                    .setFarmId(v.farmId())
+                    .setInflow(money(v.currency(), v.inflowMinor()))
+                    .setOutflow(money(v.currency(), v.outflowMinor()))
+                    .setNet(money(v.currency(), v.netMinor()))).build();
+        });
     }
 }

@@ -1,0 +1,9 @@
+**/target/
+**/.local/
+.git/
+.idea/
+graphify-out/
+**/*.md
+scripts/
+node_modules/
+**/.DS_Store

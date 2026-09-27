@@ -2,6 +2,10 @@ package com.htv.smartfarm.order.saga;
 
 import com.htv.smartfarm.order.domain.OrderEntity;
 import com.htv.smartfarm.order.domain.OrderJpaRepository;
+import com.htv.smartfarm.order.domain.OrderLineEntity;
+import com.htv.smartfarm.order.domain.OrderLineJpaRepository;
+import com.htv.smartfarm.order.outbox.OrderOutboxEntity;
+import com.htv.smartfarm.order.outbox.OrderOutboxJpaRepository;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 import com.htv.smartfarm.order.grpc.ServiceTokenClient;
 import com.htv.smartfarm.proto.common.v1.Money;
@@ -10,6 +14,8 @@ import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.finance.v1.*;
 import com.htv.smartfarm.proto.inventory.v1.*;
 
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import io.grpc.StatusRuntimeException;
@@ -18,24 +24,19 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Orchestration-based Saga for placing a farm order.
+ * Orchestration-based Saga for placing a MULTI-LINE farm order.
  *
- * <p>Forward path (each step advances the persisted saga state):
+ * <p>Forward path:
  * <ol>
- *   <li>ReserveStock (inventory)   -> ORDER_STATUS_STOCK_RESERVED</li>
- *   <li>RecordExpense (finance)    -> ORDER_STATUS_FINANCE_POSTED</li>
- *   <li>CommitReservation (inventory) -> ORDER_STATUS_COMPLETED</li>
+ *   <li>ReserveStock for EACH line (inventory) — reservation id stored per line -> STOCK_RESERVED</li>
+ *   <li>RecordExpense once for the order total (finance) -> FINANCE_POSTED</li>
+ *   <li>CommitReservation for EACH reserved line (inventory) -> COMPLETED</li>
  * </ol>
  *
- * <p>If a step fails, the orchestrator runs the COMPENSATING actions for the steps that
- * already succeeded, in reverse order, and marks the order ORDER_STATUS_FAILED:
- * <ul>
- *   <li>finance posted  -> reverseExpense (offsetting entry)</li>
- *   <li>stock reserved  -> ReleaseReservation</li>
- * </ul>
- * Every downstream call carries a per-service token (Phase 2) scoped to that audience and
- * the human actor_id in RequestContext for end-to-end audit traceability. Steps are keyed by
- * the order id so they are idempotent under retry.
+ * <p>On any failure, compensation runs in reverse for whatever succeeded: reverse the expense
+ * (if posted) and release EVERY reservation that was held (per line), then mark FAILED. Each
+ * downstream call carries a per-service token scoped to that audience + the human actor_id for
+ * audit; step idempotency keys are derived from the order id (+ line no) so retries are safe.
  */
 @Service
 public class OrderSagaOrchestrator {
@@ -47,18 +48,30 @@ public class OrderSagaOrchestrator {
     private static final String FINANCE_AUDIENCE = "smartfarm-finance";
 
     private final OrderJpaRepository orders;
+    private final OrderLineJpaRepository lines;
+    private final OrderOutboxJpaRepository outbox;
     private final InventoryServiceGrpc.InventoryServiceBlockingStub inventory;
     private final FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance;
     private final ServiceTokenClient tokens;
 
     public OrderSagaOrchestrator(OrderJpaRepository orders,
+                                 OrderLineJpaRepository lines,
+                                 OrderOutboxJpaRepository outbox,
                                  InventoryServiceGrpc.InventoryServiceBlockingStub inventory,
                                  FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance,
                                  ServiceTokenClient tokens) {
         this.orders = orders;
+        this.lines = lines;
+        this.outbox = outbox;
         this.inventory = inventory;
         this.finance = finance;
         this.tokens = tokens;
+    }
+
+    private void saveAndEmit(OrderEntity order) {
+        orders.save(order);
+        outbox.save(new OrderOutboxEntity(UUID.randomUUID().toString(), order.getTenantId(), order.getId(),
+                "order-changed.v1", order.getId(), System.currentTimeMillis(), "NEW"));
     }
 
     private RequestContext ctx(OrderEntity o, String actor, String stepKey) {
@@ -80,29 +93,29 @@ public class OrderSagaOrchestrator {
         return finance.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> token));
     }
 
-    /**
-     * Drive the saga to a terminal state. The order row already exists in ORDER_STATUS_CREATED.
-     * Returns the updated order. Never throws for a business failure — it records FAILED and
-     * compensates; it only propagates truly unexpected errors after best-effort compensation.
-     */
     public OrderEntity run(OrderEntity order, String actor) {
+        List<OrderLineEntity> orderLines = lines.findByOrderIdOrderByLineNo(order.getId());
         try {
-            // --- Step 1: reserve stock -------------------------------------
-            var reserveResp = inv(order, actor).reserveStock(ReserveStockRequest.newBuilder()
-                    .setContext(ctx(order, actor, "reserve"))
-                    .setOrderId(order.getId())
-                    .setItemId(order.getItemId())
-                    .setWarehouseId(order.getWarehouseId())
-                    .setQuantity(Quantity.newBuilder().setDecimalValue(order.getQuantity()).setUnit(order.getQuantityUnit()))
-                    .build());
-            String reservationId = reserveResp.getReservation().getReservationId();
-            order.setReservationId(reservationId);
+            // --- Step 1: reserve EACH line --------------------------------
+            for (OrderLineEntity line : orderLines) {
+                var resp = inv(order, actor).reserveStock(ReserveStockRequest.newBuilder()
+                        .setContext(ctx(order, actor, "reserve:" + line.getLineNo()))
+                        .setOrderId(order.getId())
+                        .setItemId(line.getItemId())
+                        .setWarehouseId(line.getWarehouseId())
+                        .setQuantity(Quantity.newBuilder().setDecimalValue(line.getQuantity()).setUnit(line.getQuantityUnit()))
+                        .build());
+                line.setReservationId(resp.getReservation().getReservationId());
+                lines.save(line);
+            }
+            // keep the first reservation on the order for read-model/back-compat display
+            if (!orderLines.isEmpty()) order.setReservationId(orderLines.get(0).getReservationId());
             order.setStatus("ORDER_STATUS_STOCK_RESERVED");
-            orders.save(order);
-            AUDIT.info("order_step ok step=reserve order_id={} tenant={} actor_id={} reservation_id={}",
-                    order.getId(), order.getTenantId(), safe(actor), reservationId);
+            saveAndEmit(order);
+            AUDIT.info("order_step ok step=reserve order_id={} tenant={} actor_id={} lines={}",
+                    order.getId(), order.getTenantId(), safe(actor), orderLines.size());
 
-            // --- Step 2: post finance expense ------------------------------
+            // --- Step 2: post finance expense for the order total ---------
             var txn = fin(order, actor).recordExpense(RecordExpenseRequest.newBuilder()
                     .setContext(ctx(order, actor, "expense"))
                     .setTransaction(FinanceTransaction.newBuilder()
@@ -116,45 +129,61 @@ public class OrderSagaOrchestrator {
                     .build());
             order.setExpenseTxnId(txn.getTransaction().getTransactionId());
             order.setStatus("ORDER_STATUS_FINANCE_POSTED");
-            orders.save(order);
+            saveAndEmit(order);
             AUDIT.info("order_step ok step=expense order_id={} tenant={} actor_id={} txn_id={}",
                     order.getId(), order.getTenantId(), safe(actor), txn.getTransaction().getTransactionId());
 
-            // --- Step 3: commit the reservation (consume stock) ------------
-            inv(order, actor).commitReservation(CommitReservationRequest.newBuilder()
-                    .setContext(ctx(order, actor, "commit"))
-                    .setReservationId(reservationId)
-                    .build());
+            // --- Step 3: commit EACH reservation --------------------------
+            for (OrderLineEntity line : orderLines) {
+                if (line.getReservationId() == null) continue;
+                inv(order, actor).commitReservation(CommitReservationRequest.newBuilder()
+                        .setContext(ctx(order, actor, "commit:" + line.getLineNo()))
+                        .setReservationId(line.getReservationId())
+                        .build());
+            }
             order.setStatus("ORDER_STATUS_COMPLETED");
-            orders.save(order);
+            saveAndEmit(order);
             AUDIT.info("order_completed order_id={} tenant={} actor_id={}", order.getId(), order.getTenantId(), safe(actor));
             return order;
 
         } catch (StatusRuntimeException e) {
             log.warn("Saga step failed for order {}: {} {}", order.getId(), e.getStatus().getCode(), e.getStatus().getDescription());
-            compensate(order, actor, describe(e));
+            compensate(order, orderLines, actor, describe(e));
             return order;
         } catch (RuntimeException e) {
             log.error("Unexpected saga error for order {}", order.getId(), e);
-            compensate(order, actor, "internal error");
+            compensate(order, orderLines, actor, "internal error");
             return order;
         }
     }
 
-    /** Run compensating actions in reverse for whatever forward steps had succeeded. */
-    private void compensate(OrderEntity order, String actor, String reason) {
-        // Reverse finance if it was posted.
+    public OrderEntity cancel(OrderEntity order, String actor, String reason) {
+        String s = order.getStatus();
+        if ("ORDER_STATUS_CANCELLED".equals(s)) return order; // idempotent
+        if ("ORDER_STATUS_COMPLETED".equals(s))
+            throw new IllegalStateException("cannot cancel a completed order");
+        List<OrderLineEntity> orderLines = lines.findByOrderIdOrderByLineNo(order.getId());
+        boolean anyHeld = order.getExpenseTxnId() != null
+                || orderLines.stream().anyMatch(l -> l.getReservationId() != null);
+        if (anyHeld) {
+            compensate(order, orderLines, actor, reason == null || reason.isBlank() ? "cancelled by user" : reason);
+        }
+        order.setStatus("ORDER_STATUS_CANCELLED");
+        order.setFailureReason(reason == null ? "" : reason);
+        saveAndEmit(order);
+        AUDIT.info("order_cancelled order_id={} tenant={} actor_id={} reason={}",
+                order.getId(), order.getTenantId(), safe(actor), reason == null ? "-" : reason);
+        return order;
+    }
+
+    /** Reverse the expense (if posted) and release EVERY held reservation, then mark FAILED. */
+    private void compensate(OrderEntity order, List<OrderLineEntity> orderLines, String actor, String reason) {
         if (order.getExpenseTxnId() != null) {
             try {
-                fin(order, actor).recordExpense(RecordExpenseRequest.newBuilder()
+                fin(order, actor).reverseExpense(ReverseExpenseRequest.newBuilder()
                         .setContext(ctx(order, actor, "expense-reversal"))
-                        .setTransaction(FinanceTransaction.newBuilder()
-                                .setFarmId(order.getFarmId())
-                                .setKind(TransactionKind.TRANSACTION_KIND_INCOME)
-                                .setAmount(Money.newBuilder().setCurrencyCode(order.getCurrencyCode()).setMinorUnits(order.getTotalMinor()))
-                                .setCategory("SAGA_COMPENSATION")
-                                .setReferenceType("ORDER_REVERSAL")
-                                .setReferenceId(order.getId()))
+                        .setOriginalExpenseKey(order.getId() + ":expense")
+                        .setReversalKey(order.getId() + ":expense-reversal")
                         .build());
                 AUDIT.info("order_compensate step=reverse-expense order_id={} tenant={} actor_id={}",
                         order.getId(), order.getTenantId(), safe(actor));
@@ -162,23 +191,25 @@ public class OrderSagaOrchestrator {
                 log.error("Compensation (reverse expense) failed for order {}", order.getId(), ex);
             }
         }
-        // Release the reservation if it was held (and not already committed).
-        if (order.getReservationId() != null && !"ORDER_STATUS_COMPLETED".equals(order.getStatus())) {
-            try {
-                inv(order, actor).releaseReservation(ReleaseReservationRequest.newBuilder()
-                        .setContext(ctx(order, actor, "release"))
-                        .setReservationId(order.getReservationId())
-                        .setReason(reason)
-                        .build());
-                AUDIT.info("order_compensate step=release order_id={} tenant={} actor_id={}",
-                        order.getId(), order.getTenantId(), safe(actor));
-            } catch (RuntimeException ex) {
-                log.error("Compensation (release reservation) failed for order {}", order.getId(), ex);
+        if (!"ORDER_STATUS_COMPLETED".equals(order.getStatus())) {
+            for (OrderLineEntity line : orderLines) {
+                if (line.getReservationId() == null) continue;
+                try {
+                    inv(order, actor).releaseReservation(ReleaseReservationRequest.newBuilder()
+                            .setContext(ctx(order, actor, "release:" + line.getLineNo()))
+                            .setReservationId(line.getReservationId())
+                            .setReason(reason)
+                            .build());
+                    AUDIT.info("order_compensate step=release order_id={} line={} tenant={} actor_id={}",
+                            order.getId(), line.getLineNo(), order.getTenantId(), safe(actor));
+                } catch (RuntimeException ex) {
+                    log.error("Compensation (release reservation) failed for order {} line {}", order.getId(), line.getLineNo(), ex);
+                }
             }
         }
         order.setStatus("ORDER_STATUS_FAILED");
         order.setFailureReason(reason);
-        orders.save(order);
+        saveAndEmit(order);
         AUDIT.warn("order_failed order_id={} tenant={} actor_id={} reason={}",
                 order.getId(), order.getTenantId(), safe(actor), reason);
     }

@@ -47,6 +47,8 @@ public class RoleSeeder {
             grant(users, "FARM_OPERATOR", "inventory:write");
             grant(users, "FARM_OPERATOR", "inventory:read");
             grant(users, "FARM_OPERATOR", "tasks:write");
+            grant(users, "FARM_OPERATOR", "report:write");
+            grant(users, "FARM_OPERATOR", "report:read");
         };
     }
 

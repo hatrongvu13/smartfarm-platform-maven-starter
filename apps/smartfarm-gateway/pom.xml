@@ -48,6 +48,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
+        <!-- MQTT subscriber feeding the WebSocket event bridge for the frontend -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+        </dependency>
+        <!-- protobuf -> JSON for domain events pushed over WebSocket (matches protoc 4.32.0) -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>4.32.0</version>
+        </dependency>
         <!-- OpenAPI 3 + Swagger UI (WebFlux). springdoc 3.x = Spring Boot 4 line. -->
         <dependency>
             <groupId>org.springdoc</groupId>

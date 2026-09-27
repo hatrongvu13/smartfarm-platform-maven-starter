@@ -1,9 +1,58 @@
 type Query {
   platformStatus: PlatformStatus!
+
+  "Danh sách công việc theo farm (lọc tuỳ chọn theo trạng thái/người nhận)."
+  tasks(farmId: ID!, status: String, assigneeId: String, limit: Int): [Task!]!
+  "Một công việc theo id."
+  task(id: ID!): Task
+
+  "Danh sách đơn hàng theo farm (lọc tuỳ chọn theo trạng thái)."
+  orders(farmId: ID!, status: String, limit: Int): [Order!]!
+  "Một đơn hàng theo id."
+  order(id: ID!): Order
 }
 
 type PlatformStatus {
   name: String!
   status: String!
   tenantId: String!
+}
+
+"Công việc chăn nuôi (livestock task) kèm các mốc giám sát quá hạn."
+type Task {
+  taskId: ID!
+  farmId: String!
+  title: String!
+  type: String!
+  status: String!
+  assigneeId: String
+  dueAt: Float
+  assignedAt: Float
+  acceptDeadlineAt: Float
+  acceptedAt: Float
+  reportDueAt: Float
+  reportedAt: Float
+  completedAt: Float
+}
+
+"Đơn hàng (saga) với tổng tiền theo minor units."
+type Order {
+  orderId: ID!
+  farmId: String!
+  batchId: String
+  status: String!
+  totalMinor: Float!
+  failureReason: String
+  "Các dòng hàng của đơn; mỗi dòng có thể ở kho (warehouse) riêng."
+  lines: [OrderLine!]!
+}
+
+"Một dòng hàng trong đơn — hỗ trợ warehouse-per-line (mỗi dòng lấy hàng từ kho riêng)."
+type OrderLine {
+  itemId: String!
+  quantity: Float!
+  unit: String
+  unitPriceMinor: Float
+  "Kho cấp hàng cho dòng này; rỗng = dùng batchId cấp đơn (tương thích ngược)."
+  warehouseId: String
 }

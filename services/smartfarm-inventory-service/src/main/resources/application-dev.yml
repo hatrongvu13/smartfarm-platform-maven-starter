@@ -2,12 +2,18 @@ server:
   address: 127.0.0.1
 spring:
   datasource:
-    url: jdbc:h2:file:./.local/inventory-db;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
+    url: jdbc:postgresql://localhost:5432/smartfarm
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
+      # Flyway owns the schema now; Hibernate only validates entities against it.
       ddl-auto: update
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
   grpc:
     server:
       address: 127.0.0.1
@@ -25,4 +31,4 @@ smartfarm:
       enabled: true
       url: tcp://localhost:1883
       client-id: smartfarm-inventory-dev
-      persistence-path: ./.local/mqtt-inventory
+#      persistence-path: ./.local/mqtt-inventory
