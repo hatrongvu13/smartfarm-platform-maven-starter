@@ -24,7 +24,7 @@ public class MovementEntity {
     @Column(name = "lot_id", nullable = false, length = 36)
     private String lotId;
 
-    @Column(nullable = false, length = 16)
+    @Column(nullable = false, length = 32)
     private String kind;
 
     @Column(nullable = false, precision = 18, scale = 3)

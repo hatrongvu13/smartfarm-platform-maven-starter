@@ -17,6 +17,21 @@ public class LivestockGrpcPolicyConfiguration {
                         "smartfarm.livestock.v1.LivestockTaskService/CreateTask",
                         "SCOPE_tasks:write",
 
+                        "smartfarm.livestock.v1.LivestockTaskService/AssignTask",
+                        "SCOPE_tasks:write",
+
+                        "smartfarm.livestock.v1.LivestockTaskService/AcceptTask",
+                        "SCOPE_tasks:write",
+
+                        "smartfarm.livestock.v1.LivestockTaskService/CompleteTask",
+                        "SCOPE_tasks:write",
+
+                        "smartfarm.livestock.v1.LivestockTaskService/CancelTask",
+                        "SCOPE_tasks:write",
+
+                        "smartfarm.livestock.v1.LivestockTaskService/ListTasks",
+                        "SCOPE_farm:read",
+
                         "smartfarm.livestock.v1.LivestockTaskService/GetTask",
                         "SCOPE_farm:read"
                 ),

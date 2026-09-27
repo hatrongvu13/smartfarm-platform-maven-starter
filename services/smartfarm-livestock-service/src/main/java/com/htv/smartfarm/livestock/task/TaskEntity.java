@@ -38,8 +38,46 @@ public class TaskEntity {
     @Column(nullable = false, length = 32)
     private String status;
 
+    /** TaskType name from the proto enum, e.g. TASK_TYPE_INSPECTION. Nullable for legacy rows. */
+    @Column(name = "task_type", length = 40)
+    private String taskType;
+
     @Column(name = "created_at", nullable = false)
     private long createdAt;
+
+    // ---- lifecycle / monitoring timestamps (epoch millis; null until the step happens) ----
+    @Column(name = "due_at")
+    private Long dueAt;
+
+    @Column(name = "assigned_at")
+    private Long assignedAt;
+
+    /** Deadline by which the assignee must ACCEPT; monitored for accept-overdue. */
+    @Column(name = "accept_deadline_at")
+    private Long acceptDeadlineAt;
+
+    @Column(name = "accepted_at")
+    private Long acceptedAt;
+
+    /** Deadline by which the accepted task must be reported/completed; monitored for report-overdue. */
+    @Column(name = "report_due_at")
+    private Long reportDueAt;
+
+    @Column(name = "reported_at")
+    private Long reportedAt;
+
+    @Column(name = "completed_at")
+    private Long completedAt;
+
+    @Column(name = "cancel_reason", length = 500)
+    private String cancelReason;
+
+    /** Set once when an overdue event has been emitted, so the monitor does not re-emit every cycle. */
+    @Column(name = "accept_overdue_notified_at")
+    private Long acceptOverdueNotifiedAt;
+
+    @Column(name = "report_overdue_notified_at")
+    private Long reportOverdueNotifiedAt;
 
     @Column(name = "idempotency_key", nullable = false, length = 128)
     private String idempotencyKey;
@@ -50,13 +88,20 @@ public class TaskEntity {
 
     public TaskEntity(String id, String tenantId, String farmId, String title, String assigneeId,
                       String status, long createdAt, String idempotencyKey) {
+        this(id, tenantId, farmId, title, assigneeId, status, null, createdAt, null, idempotencyKey);
+    }
+
+    public TaskEntity(String id, String tenantId, String farmId, String title, String assigneeId,
+                      String status, String taskType, long createdAt, Long dueAt, String idempotencyKey) {
         this.id = id;
         this.tenantId = tenantId;
         this.farmId = farmId;
         this.title = title;
         this.assigneeId = assigneeId;
         this.status = status;
+        this.taskType = taskType;
         this.createdAt = createdAt;
+        this.dueAt = dueAt;
         this.idempotencyKey = idempotencyKey;
     }
 
@@ -84,11 +129,97 @@ public class TaskEntity {
         return status;
     }
 
+    public String getTaskType() {
+        return taskType;
+    }
+
     public long getCreatedAt() {
         return createdAt;
     }
 
+    public Long getDueAt() {
+        return dueAt;
+    }
+
+    public Long getAssignedAt() {
+        return assignedAt;
+    }
+
+    public Long getAcceptDeadlineAt() {
+        return acceptDeadlineAt;
+    }
+
+    public Long getAcceptedAt() {
+        return acceptedAt;
+    }
+
+    public Long getReportDueAt() {
+        return reportDueAt;
+    }
+
+    public Long getReportedAt() {
+        return reportedAt;
+    }
+
+    public Long getCompletedAt() {
+        return completedAt;
+    }
+
+    public String getCancelReason() {
+        return cancelReason;
+    }
+
+    public Long getAcceptOverdueNotifiedAt() {
+        return acceptOverdueNotifiedAt;
+    }
+
+    public Long getReportOverdueNotifiedAt() {
+        return reportOverdueNotifiedAt;
+    }
+
     public String getIdempotencyKey() {
         return idempotencyKey;
+    }
+
+    // ---- state transitions ----
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public void setAssignment(String assigneeId, long assignedAt, long acceptDeadlineAt, long reportDueAt) {
+        this.assigneeId = assigneeId;
+        this.assignedAt = assignedAt;
+        this.acceptDeadlineAt = acceptDeadlineAt;
+        this.reportDueAt = reportDueAt;
+        this.status = "TASK_STATUS_ASSIGNED";
+        // re-assignment clears prior acceptance and any overdue notices
+        this.acceptedAt = null;
+        this.acceptOverdueNotifiedAt = null;
+        this.reportOverdueNotifiedAt = null;
+    }
+
+    public void markAccepted(long acceptedAt) {
+        this.acceptedAt = acceptedAt;
+        this.status = "TASK_STATUS_ACCEPTED";
+    }
+
+    public void markCompleted(long completedAt) {
+        this.completedAt = completedAt;
+        this.reportedAt = completedAt;
+        this.status = "TASK_STATUS_COMPLETED";
+    }
+
+    public void markCancelled(String reason, long at) {
+        this.cancelReason = reason;
+        this.completedAt = at;
+        this.status = "TASK_STATUS_CANCELLED";
+    }
+
+    public void markAcceptOverdueNotified(long at) {
+        this.acceptOverdueNotifiedAt = at;
+    }
+
+    public void markReportOverdueNotified(long at) {
+        this.reportOverdueNotifiedAt = at;
     }
 }

@@ -52,4 +52,33 @@ public class TaskStore {
         outbox.save(new OutboxEntity(UUID.randomUUID().toString(), task.tenant(), task.id(),
                 "task-created.v1", correlation, task.createdAt(), "NEW"));
     }
+
+    // ---- lifecycle access (operate directly on the entity) ----
+
+    public java.util.Optional<TaskEntity> entity(String tenant, String id) {
+        return tasks.findByTenantIdAndId(tenant, id);
+    }
+
+    public TaskEntity save(TaskEntity e) {
+        return tasks.save(e);
+    }
+
+    public java.util.List<TaskEntity> list(String tenant, String farm, String status, String assignee, int limit) {
+        return tasks.list(tenant, farm, status, assignee,
+                org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 200))));
+    }
+
+    public java.util.List<TaskEntity> acceptOverdue(long now, int limit) {
+        return tasks.acceptOverdue(now, org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 500))));
+    }
+
+    public java.util.List<TaskEntity> reportOverdue(long now, int limit) {
+        return tasks.reportOverdue(now, org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 500))));
+    }
+
+    /** Write a lifecycle event to the outbox with a specific event type (e.g. task-assigned.v1). */
+    public void insertLifecycleOutbox(String tenant, String taskId, String eventType, String correlation, long at) {
+        outbox.save(new OutboxEntity(UUID.randomUUID().toString(), tenant, taskId,
+                eventType, correlation, at, "NEW"));
+    }
 }
