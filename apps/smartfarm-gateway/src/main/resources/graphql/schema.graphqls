@@ -29,6 +29,43 @@ type Query {
 
   "Các điểm tồn kho dưới ngưỡng đặt lại theo farm. Cần scope inventory:read."
   lowStock(farmId: ID!, limit: Int): [StockBalance!]!
+
+  """
+  Danh sách người dùng trong tenant của người gọi kèm vai trò + trạng thái.
+  Mặt đọc quản trị (thay cho GET /admin/users) — dùng cho màn hình Quản trị người dùng. Cần scope identity:admin.
+  """
+  users: [UserSummary!]!
+
+  """
+  Toàn bộ vai trò và các quyền (permission/scope) mỗi vai trò cấp.
+  Dùng để admin quyết định gán gì cho ai. Cần scope identity:admin.
+  """
+  roles: [Role!]!
+
+  """
+  Toàn bộ quyền (permission/scope) hệ thống biết — từ vựng để cấp cho vai trò.
+  Cần scope identity:admin.
+  """
+  permissions: [String!]!
+}
+
+"Tóm tắt một người dùng cho màn hình quản trị (không lộ mật khẩu/hash)."
+type UserSummary {
+  id: ID!
+  email: String!
+  "Tài khoản còn hoạt động (chưa bị disable)."
+  enabled: Boolean!
+  "Đang bị khoá tạm thời do đăng nhập sai (lockedUntil > hiện tại)."
+  locked: Boolean!
+  "Các vai trò đã gán, sắp xếp."
+  roles: [String!]!
+}
+
+"Một vai trò và các quyền nó cấp."
+type Role {
+  code: String!
+  "Các permission/scope vai trò này cấp (có thể gồm ký tự đại diện '*' cho super-admin)."
+  permissions: [String!]!
 }
 
 "Dòng tiền tổng hợp theo khoảng thời gian."

@@ -31,12 +31,18 @@
 
 | Method | Path | Ý nghĩa |
 |---|---|---|
+| GET | `/admin/users` | **Danh sách người dùng trong tenant** kèm role + trạng thái — `{users:[{id,email,enabled,locked,roles:[...]}]}` |
+| POST | `/admin/users` | Tạo user mới `{email,password}` → `{userId}`; tự gán role `USER`. Trùng email → `409` |
+| GET | `/admin/users/{id}/roles` | Role + scope hiệu lực của 1 user — `{userId,roles:[...],scopes:[...]}` |
+| PUT | `/admin/users/{id}/roles/{role}` | **Gán role cho user** (không gán được `SUPERADMIN`/`PLATFORM_ADMIN`; role lạ → `400`) |
+| DELETE | `/admin/users/{id}/roles/{role}` | Gỡ role khỏi user (không gỡ được `ADMIN` của chính mình → `409`) |
+| POST | `/admin/users/{id}/disable` | Vô hiệu hoá user (không disable chính mình → `409`) |
 | GET | `/admin/roles` | Mọi role kèm permission — vd `{"SUPERADMIN":["*"],"FARM_OPERATOR":[...]}` |
 | GET | `/admin/permissions` | Mọi scope hệ thống biết (vốn từ để cấp quyền) |
-| GET | `/admin/users/{id}/roles` | Role + scope hiệu lực của 1 user |
-| PUT | `/admin/users/{id}/roles/{role}` | Gán role cho user (không gán được SUPERADMIN/PLATFORM_ADMIN) |
+| POST | `/admin/roles/{role}` | **Tạo role mới** (`[A-Z][A-Z0-9_]{1,39}`) — cần thêm `identity:platform`. Trùng → `409` |
+| PUT | `/admin/roles/{role}/permissions/{permission}` | **Thêm permission vào role** (`[a-z][a-z0-9:_-]{1,79}`) — cần thêm `identity:platform` |
 
-Luồng phân quyền FE: liệt kê role → liệt kê scope → gán role cho user mới.
+Luồng phân quyền FE: liệt kê user (`GET /admin/users`) → liệt kê role/scope → gán/gỡ role cho user; quản trị nền tảng (tạo role, cấp permission cho role) cần thêm `identity:platform`.
 
 ## 4. Livestock — Công việc (`/api/v1/livestock/tasks`)
 
@@ -193,6 +199,20 @@ Ngoài REST, gateway mở **một mặt GraphQL chỉ-đọc** để FE lấy đ
 | `batchCost(farmId!, batchId!)` | `report:read` | `BatchCost{ feedCost, medicineCost, laborCost, otherCost, totalCost (mỗi cái {currency,minor}), animalCount }` — chi phí theo lô (FarmFinanceService.GetBatchCost). |
 | `cashFlow(farmId!, fromEpochMs, toEpochMs)` | `report:read` | `CashFlow{ farmId, inflow, outflow, net (mỗi cái {currency,minor}) }` — dòng tiền theo khoảng thời gian (FarmFinanceService.GetCashFlow). |
 | `lowStock(farmId!, limit)` | `inventory:read` | `[StockBalance!]!` — các điểm tồn kho dưới ngưỡng đặt lại (InventoryService.ListLowStock). |
+| `users` | `identity:admin` | `[UserSummary!]!` — **danh sách người dùng trong tenant** kèm `{ id, email, enabled, locked, roles[] }`. Đọc lại qua identity `GET /admin/users` (relay token). |
+| `roles` | `identity:admin` | `[Role!]!` — mọi vai trò kèm `{ code, permissions[] }` (permission có thể gồm `*` cho super-admin). |
+| `permissions` | `identity:admin` | `[String!]!` — toàn bộ scope hệ thống biết (từ vựng để cấp quyền). |
+
+> **Mặt đọc admin qua GraphQL** dùng lại **cùng** endpoint identity REST và **cùng scope `identity:admin`** mà proxy `/api/v1/admin/**` enforce — không thêm quyền, không có đường ghi. Các thao tác **ghi** (gán/gỡ role, tạo role, cấp permission cho role, tạo/disable user) vẫn ở REST mục 3; tạo role & cấp permission cần thêm `identity:platform`.
+
+Ví dụ màn Quản trị người dùng (danh sách user + vốn từ role/permission trong 1 round-trip):
+```graphql
+query {
+  users { id email enabled locked roles }
+  roles { code permissions }
+  permissions
+}
+```
 
 Ví dụ Dashboard (một round-trip cho toàn màn tổng quan):
 ```graphql

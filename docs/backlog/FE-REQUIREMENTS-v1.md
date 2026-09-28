@@ -535,32 +535,71 @@ curl -sS "$GW/api/v1/reports?farmId=farm-1&limit=20" -H "Authorization: Bearer $
 
 ---
 
-### C.9 Màn hình QUẢN TRỊ (Admin) **[W]** — scope `identity:admin`
+### C.9 Màn hình QUẢN TRỊ (Admin) **[W/R]** — scope `identity:admin` (tạo role/permission cần thêm `identity:platform`)
 
-**Tính năng**: liệt kê role + permission, xem role của user, gán role.
+**Tính năng**: danh sách người dùng (kèm vai trò + trạng thái), tạo user, gán/gỡ vai trò, disable user, xem vốn từ role + permission; (nền tảng, cần thêm `identity:platform`) tạo role mới, thêm permission vào role.
 
 **DTO** (gateway proxy tới identity `/api/v1/admin/**`, token relay)
 ```ts
-// GET /api/v1/admin/roles          -> { "SUPERADMIN": ["*"], "FARM_OPERATOR": [...], ... }
-// GET /api/v1/admin/permissions    -> string[]  (mọi scope hệ thống biết)
-// GET /api/v1/admin/users/{id}/roles       -> { roles: string[], permissions: string[] }
-// PUT /api/v1/admin/users/{id}/roles/{role} -> gán role (không gán được SUPERADMIN/PLATFORM_ADMIN)
+// ---- Đọc (REST hoặc GraphQL, xem cuối mục) ----
+// GET /api/v1/admin/users          -> { users: UserSummary[] }
+interface UserSummary { id: string; email: string; enabled: boolean; locked: boolean; roles: string[]; }
+// GET /api/v1/admin/roles          -> { roles: { [code: string]: string[] } }  // { "SUPERADMIN": ["*"], ... }
+// GET /api/v1/admin/permissions    -> { permissions: string[] }
+// GET /api/v1/admin/users/{id}/roles -> { userId, roles: string[], scopes: string[] }
+
+// ---- Ghi (REST) ----
+// POST   /api/v1/admin/users                       body { email, password }  -> { userId }  (409 nếu trùng)
+interface CreateUserRequest { email: string; password: string; }
+// PUT    /api/v1/admin/users/{id}/roles/{role}      gán role   (không gán được SUPERADMIN/PLATFORM_ADMIN)
+// DELETE /api/v1/admin/users/{id}/roles/{role}      gỡ role    (không gỡ ADMIN của chính mình -> 409)
+// POST   /api/v1/admin/users/{id}/disable           vô hiệu hoá (không disable chính mình -> 409)
+// ---- Ghi (nền tảng, cần thêm identity:platform) ----
+// POST /api/v1/admin/roles/{role}                   tạo role mới   ([A-Z][A-Z0-9_]{1,39}; 409 nếu tồn tại)
+// PUT  /api/v1/admin/roles/{role}/permissions/{perm} thêm permission vào role ([a-z][a-z0-9:_-]{1,79})
 ```
 
 **Validate & bắt lỗi**
-- Toàn màn hình cần `identity:admin` → thiếu = **403** (ẩn menu).
-- Gán `SUPERADMIN`/`PLATFORM_ADMIN` → backend từ chối (**403/409**) — FE ẩn 2 role này khỏi lựa chọn gán.
+- Toàn màn hình cần `identity:admin` → thiếu = **403** (ẩn menu). Tạo role / thêm permission cần thêm `identity:platform` → thiếu = **403** (ẩn 2 nút này).
+- Gán `SUPERADMIN`/`PLATFORM_ADMIN` → backend từ chối (**403**) — FE ẩn 2 role này khỏi danh sách gán.
+- Gỡ vai trò `ADMIN` của chính mình, disable chính mình → **409** — FE disable nút cho hàng = current user.
+- Tạo user trùng email → **409**. Role/permission sai format hoặc role lạ → **400** (validate client trước: role `^[A-Z][A-Z0-9_]{1,39}$`, permission `^[a-z][a-z0-9:_-]{1,79}$`).
+- Danh sách user rỗng là hợp lệ (tenant mới) — không hiện như lỗi.
 
-**Flow**: liệt kê role → liệt kê scope (vốn từ) → chọn user → gán role → refresh danh sách role của user.
+**Flow**
+1. Vào Quản trị → `GET /admin/users` (danh sách) + `GET /admin/roles` + `GET /admin/permissions` (vốn từ) — hoặc **một truy vấn GraphQL gộp cả ba** (xem dưới).
+2. Chọn user → gán role (`PUT`) / gỡ role (`DELETE`) → refresh hàng user đó (`GET /admin/users/{id}/roles`).
+3. Tạo user (`POST /admin/users`) → xuất hiện trong danh sách với role mặc định `USER`.
+4. (Nền tảng) Tạo role mới → thêm permission vào role → role xuất hiện trong danh sách gán.
+- Ở lại màn Quản trị sau mỗi thao tác; **403** ở bất kỳ nút nào = ẩn/disable nút, không điều hướng.
 
-**curl thật** (cần `identity:admin`)
+**curl thật** (cần `identity:admin`; tạo role/permission cần thêm `identity:platform`)
 ```bash
+# --- đọc ---
+curl -sS "$GW/api/v1/admin/users"       -H "Authorization: Bearer $ACCESS"
 curl -sS "$GW/api/v1/admin/roles"       -H "Authorization: Bearer $ACCESS"
 curl -sS "$GW/api/v1/admin/permissions" -H "Authorization: Bearer $ACCESS"
 curl -sS "$GW/api/v1/admin/users/<userId>/roles" -H "Authorization: Bearer $ACCESS"
-# gán role (không gán được SUPERADMIN/PLATFORM_ADMIN)
-curl -sS -X PUT "$GW/api/v1/admin/users/<userId>/roles/FARM_OPERATOR" -H "Authorization: Bearer $ACCESS"
+# --- ghi (quản trị tenant) ---
+curl -sS -X POST "$GW/api/v1/admin/users" -H "Authorization: Bearer $ACCESS" \
+  -H 'Content-Type: application/json' -d '{"email":"nv1@farm.local","password":"Str0ng!pass"}'
+curl -sS -X PUT    "$GW/api/v1/admin/users/<userId>/roles/FARM_OPERATOR" -H "Authorization: Bearer $ACCESS"
+curl -sS -X DELETE "$GW/api/v1/admin/users/<userId>/roles/FARM_OPERATOR" -H "Authorization: Bearer $ACCESS"
+curl -sS -X POST   "$GW/api/v1/admin/users/<userId>/disable" -H "Authorization: Bearer $ACCESS"
+# --- ghi (nền tảng: cần identity:platform) ---
+curl -sS -X POST "$GW/api/v1/admin/roles/FARM_VET" -H "Authorization: Bearer $ACCESS"
+curl -sS -X PUT  "$GW/api/v1/admin/roles/FARM_VET/permissions/animals:write" -H "Authorization: Bearer $ACCESS"
 ```
+
+**GraphQL — lấy toàn bộ dữ liệu màn hình trong 1 round-trip** (đọc; cùng scope `identity:admin`):
+```graphql
+query {
+  users { id email enabled locked roles }
+  roles { code permissions }
+  permissions
+}
+```
+FE gọi 1 lần GraphQL này thay vì 3 REST call. Ghi (gán/gỡ/tạo) vẫn dùng REST ở trên — GraphQL v1 chỉ đọc.
 
 ---
 

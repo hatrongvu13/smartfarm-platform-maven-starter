@@ -96,6 +96,23 @@ public class UserRepository {
         return new TreeSet<>(users.findRoleCodes(id));
     }
 
+    /** Summary of one user for admin listing: identity + status + assigned roles (no secrets). */
+    public record UserSummary(String id, String email, boolean enabled, boolean locked,
+                              java.util.List<String> roles) {
+    }
+
+    /** Every user in a tenant with their assigned roles, for the admin user-list screen. */
+    public java.util.List<UserSummary> listByTenant(String tenant) {
+        long now = System.currentTimeMillis();
+        java.util.List<UserSummary> out = new java.util.ArrayList<>();
+        for (UserEntity e : users.findByTenantIdOrderByEmailAsc(tenant)) {
+            boolean locked = e.getLockedUntil() != null && e.getLockedUntil() > now;
+            out.add(new UserSummary(e.getId(), e.getEmail(), e.isEnabled(), locked,
+                    new java.util.ArrayList<>(new TreeSet<>(users.findRoleCodes(e.getId())))));
+        }
+        return out;
+    }
+
     public Set<String> scopes(String id) {
         Set<String> granted = new TreeSet<>(users.findScopes(id));
         // Super-admin: the wildcard "*" expands to every permission the system knows, plus the

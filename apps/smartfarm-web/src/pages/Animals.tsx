@@ -1,0 +1,12 @@
+import { useState, type FormEvent } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { get, params, post, type Animal } from '../api'
+import { Card, Empty, ErrorText, Field, Page, Status } from '../ui'
+import { useAuth, can } from '../auth'
+import { useFarm } from '../app'
+export default function Animals() {
+    const { farmId } = useFarm(), { me } = useAuth(), cache = useQueryClient(); const [tag, setTag] = useState(''), [species, setSpecies] = useState(''), [barn, setBarn] = useState(''), [batch, setBatch] = useState(''), [error, setError] = useState<unknown>(null), [busy, setBusy] = useState(false)
+    const q = useQuery({ queryKey: ['animals', me?.tenantId, farmId], queryFn: () => get<Animal[] | { animals: Animal[] }>(params('/api/v1/livestock/animals', { farmId, limit: 50 })), enabled: !!farmId && can(me, 'farm:read') }); const animals = Array.isArray(q.data) ? q.data : q.data?.animals || []
+    async function create(e: FormEvent) { e.preventDefault(); setBusy(true); setError(null); try { await post('/api/v1/livestock/animals', { farmId, tagCode: tag, species: species || undefined, barnId: barn || undefined, batchId: batch || undefined }); setTag(''); await cache.invalidateQueries({ queryKey: ['animals'] }) } catch (e) { setError(e) } finally { setBusy(false) } }
+    return <Page title="Vật nuôi" subtitle="Đăng ký và tra cứu vật nuôi theo trang trại."><Card title="Danh sách vật nuôi">{!farmId ? <Empty text="Nhập mã trang trại." /> : q.isError ? <ErrorText error={q.error} /> : q.isLoading ? <Empty text="Đang tải..." /> : animals.length ? animals.map(a => <div className="row" key={a.animalId}><div><b>{a.tagCode}</b><small>{a.species || 'Chưa xác định'} · {a.barnId || 'Chưa có chuồng'} · {a.animalId}</small></div><Status value={a.status} /></div>) : <Empty />}</Card>{can(me, 'tasks:write') && <Card title="Đăng ký vật nuôi"><form className="form-grid" onSubmit={create}><Field label="Mã tai / tag"><input required value={tag} onChange={e => setTag(e.target.value)} /></Field><Field label="Loài"><input value={species} onChange={e => setSpecies(e.target.value)} /></Field><Field label="Chuồng"><input value={barn} onChange={e => setBarn(e.target.value)} /></Field><Field label="Lô"><input value={batch} onChange={e => setBatch(e.target.value)} /></Field><button disabled={busy || !farmId}>Lưu vật nuôi</button></form></Card>}<ErrorText error={error} /></Page>
+}

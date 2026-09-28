@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 60 — GraphQL read surface: platformStatus, tasks, orders, dashboard, warehouseInventory,
-# batchCost, cashFlow, lowStock. Tất cả đọc qua POST /graphql với Bearer token (scope như REST).
+# batchCost, cashFlow, lowStock, và identity admin (users/roles/permissions).
+# Tất cả đọc qua POST /graphql với Bearer token (scope như REST). users/roles/permissions cần identity:admin.
 #
 # Prereq: identity + livestock + inventory + finance + order + gateway chạy profile dev.
 # Env override: GW, TENANT, EMAIL, PASSWORD, FARM (mặc định farm-1).
@@ -55,7 +56,14 @@ gql "cashFlow" "{\"query\":\"query(\$f:ID!){ cashFlow(farmId:\$f){ farmId inflow
 hdr "8. lowStock (tồn kho dưới ngưỡng)"
 gql "lowStock" "{\"query\":\"query(\$f:ID!){ lowStock(farmId:\$f, limit:20){ itemId warehouseId available{ value unit } } }\",\"variables\":{\"f\":\"$FARM\"}}"
 
-hdr "9. RBAC: query cần scope -> token rác bị 401/403"
+hdr "9. identity admin (users/roles/permissions) — cần scope identity:admin"
+# Token đăng nhập phải thuộc admin (ADMIN/SUPERADMIN). Nếu user test không có identity:admin -> 403 (đúng RBAC).
+gql "roles" '{"query":"{ roles { code permissions } }"}'
+gql "permissions" '{"query":"{ permissions }"}'
+gql "users" '{"query":"{ users { id email enabled locked roles } }"}'
+printf '%s' "$BODY" | grep -q '"email"' && ok "users có email+roles" || say "users rỗng hoặc chưa có dữ liệu (không phải lỗi nếu tenant trống)"
+
+hdr "10. RBAC: query cần scope -> token rác bị 401/403"
 CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$GW/graphql" -H 'Authorization: Bearer rac.rac.rac' \
   -H 'Content-Type: application/json' -d "{\"query\":\"{ tasks(farmId:\\\"$FARM\\\"){ taskId } }\"}" 2>/dev/null)
 [ "$CODE" = "401" ] || [ "$CODE" = "403" ] && ok "token rác -> $CODE" || no "token rác -> $CODE (muốn 401/403)"

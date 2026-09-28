@@ -53,6 +53,12 @@ public class AdminController {
         return Map.of("permissions", users.allPermissions());
     }
 
+    /** Every user in the caller's tenant with their assigned roles + status (for the admin user list). */
+    @GetMapping("/users")
+    public Map<String, Object> listUsers(@AuthenticationPrincipal Jwt jwt) {
+        return Map.of("users", users.listByTenant(jwt.getClaimAsString("tenant_id")));
+    }
+
     /** The roles and effective scopes of one user in the caller's tenant. */
     @GetMapping("/users/{id}/roles")
     public Map<String, Object> userRoles(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {

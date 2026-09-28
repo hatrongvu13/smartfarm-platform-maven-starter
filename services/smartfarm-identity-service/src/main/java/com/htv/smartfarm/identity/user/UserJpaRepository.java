@@ -13,6 +13,9 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
 
     Optional<UserEntity> findByTenantIdAndEmail(String tenantId, String email);
 
+    /** All users of one tenant, oldest-created id order stable by email for a deterministic list. */
+    List<UserEntity> findByTenantIdOrderByEmailAsc(String tenantId);
+
     @Query("select distinct rp.permissionCode from UserRoleEntity ur, RolePermissionEntity rp "
             + "where rp.roleCode = ur.roleCode and ur.userId = :userId order by rp.permissionCode")
     List<String> findScopes(@Param("userId") String userId);

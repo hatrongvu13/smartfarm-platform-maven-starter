@@ -73,9 +73,19 @@ public class AuthProxyController {
             method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
     public Mono<ResponseEntity<String>> admin(@RequestBody(required = false) String body, ServerWebExchange ex) {
         String path = ex.getRequest().getPath().pathWithinApplication().value();
+        boolean hasBody = body != null && !body.isEmpty();
         return identity.method(ex.getRequest().getMethod())
                 .uri(path)
-                .headers(h -> copyAuth(ex, h))
+                .headers(h -> {
+                    copyAuth(ex, h);
+                    // Relay the client's Content-Type so identity's @RequestBody parses the
+                    // body; default to JSON when a body is present but the header was dropped.
+                    // Without this, POST/PUT /admin/** forwarded with no Content-Type -> 415.
+                    if (hasBody) {
+                        MediaType ct = ex.getRequest().getHeaders().getContentType();
+                        h.setContentType(ct != null ? ct : MediaType.APPLICATION_JSON);
+                    }
+                })
                 .bodyValue(body == null ? "" : body)
                 .retrieve()
                 .toEntity(String.class);
