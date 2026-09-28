@@ -3,8 +3,8 @@ package com.htv.smartfarm.reporting.render;
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
 import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
@@ -93,18 +93,23 @@ public class ReportRenderer {
         try (OutputStream out = Files.newOutputStream(file)) {
             PdfWriter.getInstance(doc, out);
             doc.open();
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            // Unicode-capable base font: the report data (e.g. livestock task titles) contains
+            // Vietnamese text, which the built-in Helvetica (WinAnsi/Cp1252) cannot encode —
+            // that throws OpenPDF's ExceptionConverter. Load a system TrueType font with
+            // IDENTITY_H + embedding so all glyphs render; fall back to Helvetica if none found.
+            BaseFont base = unicodeBaseFont();
+            Font titleFont = new Font(base, 14, Font.BOLD);
+            Font headFont = new Font(base, 10, Font.BOLD);
+            Font bodyFont = new Font(base, 9, Font.NORMAL);
             doc.add(new Paragraph(d.title(), titleFont));
             doc.add(new Paragraph(" "));
             PdfPTable table = new PdfPTable(Math.max(1, d.headers().size()));
             table.setWidthPercentage(100);
-            Font headFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
             for (String h : d.headers()) {
                 PdfPCell cell = new PdfPCell(new Paragraph(h, headFont));
                 cell.setHorizontalAlignment(Element.ALIGN_LEFT);
                 table.addCell(cell);
             }
-            Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
             for (var row : d.rows()) {
                 for (String v : row) table.addCell(new PdfPCell(new Paragraph(v == null ? "" : v, bodyFont)));
             }
@@ -114,6 +119,41 @@ public class ReportRenderer {
         } finally {
             if (doc.isOpen()) doc.close();
         }
+    }
+
+    /** Candidate system TTFs with full Unicode/Vietnamese coverage, across macOS/Linux/Windows. */
+    private static final String[] UNICODE_TTF_CANDIDATES = {
+            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",   // macOS
+            "/Library/Fonts/Arial Unicode.ttf",                       // macOS (older)
+            "/System/Library/Fonts/Helvetica.ttc,0",                  // macOS (has Vietnamese)
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",        // Debian/Ubuntu
+            "/usr/share/fonts/dejavu/DejaVuSans.ttf",                 // Fedora
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "C:/Windows/Fonts/arial.ttf",                             // Windows
+    };
+
+    private static BaseFont cachedUnicodeFont;
+
+    private static synchronized BaseFont unicodeBaseFont() {
+        if (cachedUnicodeFont != null) return cachedUnicodeFont;
+        for (String path : UNICODE_TTF_CANDIDATES) {
+            String file = path.contains(",") ? path.substring(0, path.indexOf(',')) : path;
+            if (!java.nio.file.Files.exists(java.nio.file.Path.of(file))) continue;
+            try {
+                cachedUnicodeFont = BaseFont.createFont(path, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                return cachedUnicodeFont;
+            } catch (Exception ignore) {
+                // try next candidate
+            }
+        }
+        try {
+            // Last resort: built-in Helvetica (WinAnsi). Non-Latin1 glyphs will be dropped,
+            // but rendering no longer throws — better than a hard failure.
+            cachedUnicodeFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED);
+        } catch (Exception e) {
+            throw new IllegalStateException("no usable PDF base font", e);
+        }
+        return cachedUnicodeFont;
     }
 
     private static String sheetName(String title) {

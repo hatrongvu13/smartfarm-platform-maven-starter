@@ -31,4 +31,4 @@ smartfarm:
       enabled: true
       url: tcp://localhost:1883
       client-id: smartfarm-inventory-dev
-#      persistence-path: ./.local/mqtt-inventory
+      persistence-path: ./.local/mqtt-inventory

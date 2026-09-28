@@ -63,11 +63,20 @@ public class ExportJobWorker {
                 jobs.save(job);
                 AUDIT.info("export_completed job_id={} tenant={} file={}", job.getId(), job.getTenantId(), file.getFileName());
             } catch (Exception e) {
-                job.markFailed("RENDER_FAILED", System.currentTimeMillis());
+                Throwable root = e; while (root.getCause() != null) root = root.getCause();
+                String detail = root.getClass().getSimpleName() + ": " + String.valueOf(root.getMessage());
+                // Column is error_code VARCHAR(100); ddl-auto=update won't widen an existing
+                // column, so cap to 90 to hold "RENDER_FAILED <Exception>: <start of msg>".
+                job.markFailed(truncate("RENDER_FAILED " + detail, 90), System.currentTimeMillis());
                 jobs.save(job);
-                AUDIT.warn("export_failed job_id={} tenant={} reason={}", job.getId(), job.getTenantId(), e.getClass().getSimpleName());
+                AUDIT.warn("export_failed job_id={} tenant={} format={} reason={}",
+                        job.getId(), job.getTenantId(), job.getReportFormat(), detail, e);
             }
         }
+    }
+
+    private static String truncate(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max);
     }
 
     private Path render(ExportJobEntity job) throws IOException {
