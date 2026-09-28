@@ -62,4 +62,20 @@ public interface BalanceJpaRepository extends JpaRepository<BalanceEntity, Balan
             + "and (b.onHand - b.reserved) > 0 order by b.lotId")
     java.util.List<String> lotsWithAvailable(@Param("tenant") String tenant, @Param("item") String item,
                                               @Param("warehouse") String warehouse);
+
+    /**
+     * Aggregated balance per (item, warehouse) for a farm, with the item's unit and reorder
+     * threshold. Returns [itemId, warehouseId, unit, sum(onHand), sum(reserved), reorderThreshold].
+     * The threshold comparison (available < threshold, threshold > 0) is done in Java to avoid
+     * a JPQL numeric CAST of the string-typed threshold column.
+     */
+    @Query("select l.itemId, l.warehouseId, i.unit, "
+            + "sum(b.onHand), sum(b.reserved), i.reorderThreshold "
+            + "from BalanceEntity b, LotEntity l, ItemEntity i "
+            + "where l.id = b.lotId and l.tenantId = b.tenantId "
+            + "and i.id = l.itemId and i.tenantId = l.tenantId "
+            + "and b.tenantId = :tenant and l.farmId = :farm "
+            + "group by l.itemId, l.warehouseId, i.unit, i.reorderThreshold "
+            + "order by l.itemId, l.warehouseId")
+    java.util.List<Object[]> balancesByFarm(@Param("tenant") String tenant, @Param("farm") String farm);
 }

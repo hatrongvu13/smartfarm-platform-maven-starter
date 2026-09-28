@@ -1,8 +1,8 @@
 # SmartFarm — Version 1 (nền tảng tính năng cơ bản)
 
 > Tổng quan độ hoàn thiện để làm cơ sở **xây dựng giao diện**. Cập nhật 2026-09-28.
-> Chi tiết API: [docs/GATEWAY-API-V1.md](./docs/GATEWAY-API-V1.md). Kiến trúc: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
-> Release notes: [docs/RELEASE-NOTES-v1.md](./docs/RELEASE-NOTES-v1.md).
+> Chi tiết API: [docs/v1/GATEWAY-API-V1.md](./docs/v1/GATEWAY-API-V1.md). Kiến trúc: [docs/shared/ARCHITECTURE.md](./docs/shared/ARCHITECTURE.md).
+> Release notes: [docs/v1/RELEASE-NOTES-v1.md](./docs/v1/RELEASE-NOTES-v1.md).
 
 ## 1. Kiến trúc một dòng
 

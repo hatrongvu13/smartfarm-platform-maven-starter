@@ -31,16 +31,25 @@ public class ItemEntity {
     @Column(nullable = false, length = 60)
     private String category;
 
+    /** Reorder threshold (decimal string, same unit as the item). "0" = no threshold (never low). */
+    @Column(name = "reorder_threshold", nullable = false, length = 40)
+    private String reorderThreshold = "0";
+
     protected ItemEntity() {
     }
 
     public ItemEntity(String id, String tenantId, String sku, String name, String unit, String category) {
+        this(id, tenantId, sku, name, unit, category, "0");
+    }
+
+    public ItemEntity(String id, String tenantId, String sku, String name, String unit, String category, String reorderThreshold) {
         this.id = id;
         this.tenantId = tenantId;
         this.sku = sku;
         this.name = name;
         this.unit = unit;
         this.category = category;
+        this.reorderThreshold = (reorderThreshold == null || reorderThreshold.isBlank()) ? "0" : reorderThreshold;
     }
 
     public String getId() {
@@ -65,5 +74,9 @@ public class ItemEntity {
 
     public String getCategory() {
         return category;
+    }
+
+    public String getReorderThreshold() {
+        return reorderThreshold;
     }
 }

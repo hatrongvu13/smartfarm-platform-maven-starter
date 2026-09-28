@@ -1,6 +1,7 @@
 package com.htv.smartfarm.gateway.order;
 
 import com.htv.smartfarm.proto.inventory.v1.InventoryServiceGrpc;
+import com.htv.smartfarm.proto.finance.v1.FarmFinanceServiceGrpc;
 import com.htv.smartfarm.proto.order.v1.FarmOrderServiceGrpc;
 
 import io.grpc.ManagedChannel;
@@ -46,5 +47,16 @@ public class OrderDevClientConfig {
     @Bean
     InventoryServiceGrpc.InventoryServiceBlockingStub gwInventoryStub(@Qualifier("gwInventoryChannel") ManagedChannel channel) {
         return InventoryServiceGrpc.newBlockingStub(channel);
+    }
+
+    @Bean(name = "gwFinanceChannel", destroyMethod = "shutdown")
+    ManagedChannel gwFinanceChannel(@Value("${smartfarm.finance.grpc-host:localhost}") String host,
+                                    @Value("${smartfarm.finance.grpc-port:9094}") int port) {
+        return channel(host, port);
+    }
+
+    @Bean
+    FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub gwFinanceStub(@Qualifier("gwFinanceChannel") ManagedChannel channel) {
+        return FarmFinanceServiceGrpc.newBlockingStub(channel);
     }
 }

@@ -1,9 +1,11 @@
 # SmartFarm Platform — Release Notes v1
 
 > Bản phát hành **v1 (nền tảng tính năng cơ bản)** — cơ sở để dựng Frontend. Cập nhật 2026-09-28.
-> Tài liệu liên quan: [SMARTFARM-VERSION.md](../SMARTFARM-VERSION.md) (ma trận hoàn thiện) ·
-> [docs/GATEWAY-API-V1.md](./GATEWAY-API-V1.md) (API đầy đủ) · [docs/ARCHITECTURE.md](./ARCHITECTURE.md) ·
-> [docs/SEQUENCES.md](./SEQUENCES.md) · [README.md](../README.md).
+> **Trạng thái: v1 ĐÃ ĐÓNG** (feature-complete cho FE + mặt đọc GraphQL gồm dashboard/warehouseInventory/batchCost/cashFlow/lowStock).
+> Công việc tiếp theo là **cải thiện/hardening** — xem [backlog/BACKLOG-v2.md](../backlog/BACKLOG-v2.md).
+> Tài liệu liên quan: [SMARTFARM-VERSION.md](../../SMARTFARM-VERSION.md) (ma trận hoàn thiện) ·
+> [GATEWAY-API-V1.md](./GATEWAY-API-V1.md) (API đầy đủ) · [shared/ARCHITECTURE.md](../shared/ARCHITECTURE.md) ·
+> [shared/SEQUENCES.md](../shared/SEQUENCES.md) · [README.md](../../README.md).
 
 ## 1. Tổng quan
 
@@ -93,4 +95,4 @@ Kỳ vọng sau khi có broker + finance độc chiếm 9094 + reporting nạp f
 GraphQL prod wiring + mutations · multi-instance hardening (distributed lock cho outbox/generator/export/WS) ·
 reporting read-model thật cho INVENTORY/HEALTH/BATCH_COST/CASH_FLOW · OrderChanged consumer liên-service ·
 reporting Flyway · hoàn thiện RPC health/simulator · **TLS/mTLS gRPC transport binding** · Lombok (đánh giá: chưa thêm).
-Chi tiết ở [SMARTFARM-VERSION.md §7](../SMARTFARM-VERSION.md).
+Chi tiết ở [SMARTFARM-VERSION.md §7](../../SMARTFARM-VERSION.md).

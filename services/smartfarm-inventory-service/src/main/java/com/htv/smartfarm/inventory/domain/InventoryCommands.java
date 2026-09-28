@@ -52,9 +52,30 @@ public class InventoryCommands {
             require(old.name().equals(v.getName()) && old.unit().equals(v.getUnit()) && old.category().equals(v.getCategory().name()), "SKU already exists with different details");
             return old;
         }
-        var item = new InventoryRepository.Item(UUID.randomUUID().toString(), tenant, v.getSku(), v.getName(), v.getUnit(), v.getCategory().name());
+        // Optional reorder threshold (same unit as the item); default "0" = no threshold.
+        String threshold = "0";
+        if (v.hasReorderThreshold()) {
+            var rt = v.getReorderThreshold();
+            require(rt.getUnit().isBlank() || rt.getUnit().equals(v.getUnit()), "reorder_threshold unit must match item unit");
+            if (!rt.getDecimalValue().isBlank()) {
+                try {
+                    var n = new BigDecimal(rt.getDecimalValue());
+                    require(n.signum() >= 0 && n.precision() <= 18 && n.scale() <= 3, "reorder_threshold must be >= 0, max 3 decimals/18 digits");
+                    threshold = n.toPlainString();
+                } catch (NumberFormatException ex) {
+                    throw new IllegalArgumentException("invalid reorder_threshold");
+                }
+            }
+        }
+        var item = new InventoryRepository.Item(UUID.randomUUID().toString(), tenant, v.getSku(), v.getName(), v.getUnit(), v.getCategory().name(), threshold);
         repo.createItem(item);
         return item;
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<InventoryRepository.LowBalance> lowStock(String tenant, String farmId, int limit) {
+        require(farmId != null && !farmId.isBlank(), "farmId required");
+        return repo.lowStock(tenant, farmId, limit <= 0 ? 50 : limit);
     }
 
     @Transactional

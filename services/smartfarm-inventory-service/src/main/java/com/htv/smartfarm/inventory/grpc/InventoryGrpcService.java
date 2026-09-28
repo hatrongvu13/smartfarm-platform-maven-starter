@@ -83,6 +83,24 @@ public class InventoryGrpcService extends InventoryServiceGrpc.InventoryServiceI
         return Quantity.newBuilder().setDecimalValue(n.toPlainString()).setUnit(unit);
     }
 
+    @Override
+    public void listLowStock(ListLowStockRequest req, StreamObserver<ListLowStockResponse> out) {
+        respond(out, () -> {
+            var t = tenant();
+            int limit = req.hasPage() && req.getPage().getPageSize() > 0 ? req.getPage().getPageSize() : 50;
+            var resp = ListLowStockResponse.newBuilder();
+            for (var r : commands.lowStock(t, req.getFarmId(), limit)) {
+                var available = r.onHand().subtract(r.reserved());
+                resp.addBalances(StockBalance.newBuilder()
+                        .setItemId(r.itemId()).setWarehouseId(r.warehouseId())
+                        .setOnHand(qty(r.onHand(), r.unit()))
+                        .setReserved(qty(r.reserved(), r.unit()))
+                        .setAvailable(qty(available, r.unit())));
+            }
+            return resp.build();
+        });
+    }
+
     private ReservationResponse reservation(InventoryRepository.Reservation r) {
         var status = switch (r.status()) {
             case "COMMITTED" -> ReservationStatus.RESERVATION_STATUS_COMMITTED;

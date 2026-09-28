@@ -15,7 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class InventoryRepository {
 
-    public record Item(String id, String tenant, String sku, String name, String unit, String category) {
+    public record Item(String id, String tenant, String sku, String name, String unit, String category, String reorderThreshold) {
+    }
+
+    /** Row for low-stock listing: aggregated balance for an (item, warehouse) under a farm. */
+    public record LowBalance(String itemId, String warehouseId, String unit, BigDecimal onHand, BigDecimal reserved, BigDecimal reorderThreshold) {
     }
 
     public record Lot(String id, String tenant, String itemId, String farmId, String warehouseId) {
@@ -48,7 +52,7 @@ public class InventoryRepository {
     }
 
     private static Item toItem(ItemEntity e) {
-        return new Item(e.getId(), e.getTenantId(), e.getSku(), e.getName(), e.getUnit(), e.getCategory());
+        return new Item(e.getId(), e.getTenantId(), e.getSku(), e.getName(), e.getUnit(), e.getCategory(), e.getReorderThreshold());
     }
 
     private static Lot toLot(LotEntity e) {
@@ -68,7 +72,23 @@ public class InventoryRepository {
     }
 
     public void createItem(Item i) {
-        items.save(new ItemEntity(i.id(), i.tenant(), i.sku(), i.name(), i.unit(), i.category()));
+        items.save(new ItemEntity(i.id(), i.tenant(), i.sku(), i.name(), i.unit(), i.category(), i.reorderThreshold()));
+    }
+
+    /** Low-stock rows for a farm: (item, warehouse) whose available (on_hand - reserved) is below the item's reorder threshold (threshold > 0). */
+    public java.util.List<LowBalance> lowStock(String tenant, String farmId, int limit) {
+        var rows = balances.balancesByFarm(tenant, farmId);
+        var out = new java.util.ArrayList<LowBalance>();
+        for (Object[] r : rows) {
+            var threshold = new BigDecimal((String) r[5]);
+            if (threshold.signum() <= 0) continue;                 // no threshold set -> never "low"
+            var onHand = (BigDecimal) r[3];
+            var reserved = (BigDecimal) r[4];
+            if (onHand.subtract(reserved).compareTo(threshold) >= 0) continue;   // not below threshold
+            out.add(new LowBalance((String) r[0], (String) r[1], (String) r[2], onHand, reserved, threshold));
+            if (out.size() >= Math.max(1, limit)) break;
+        }
+        return out;
     }
 
     public Lot lot(String tenant, String id) {

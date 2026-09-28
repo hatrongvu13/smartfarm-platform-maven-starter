@@ -10,6 +10,104 @@ type Query {
   orders(farmId: ID!, status: String, limit: Int): [Order!]!
   "Một đơn hàng theo id."
   order(id: ID!): Order
+
+  """
+  Tổng hợp cho màn hình Dashboard trong MỘT round-trip: đếm task theo trạng thái, đếm task quá hạn
+  (nhận/báo cáo), đếm đơn theo trạng thái, và trả kèm danh sách rút gọn task quá hạn + đơn FAILED gần đây.
+  Thay cho việc FE gọi nhiều list rồi tự đếm. Cần cả scope farm:read và orders:read.
+  """
+  dashboard(farmId: ID!, recentLimit: Int): Dashboard!
+
+  "Tồn kho tại một (item, warehouse): on-hand / reserved / available. Cần scope inventory:read."
+  warehouseInventory(itemId: ID!, warehouseId: ID!): StockBalance
+
+  "Chi phí theo lô (feed/medicine/labor/other/total + số con). Cần scope report:read."
+  batchCost(farmId: ID!, batchId: ID!): BatchCost
+
+  "Dòng tiền theo khoảng thời gian (inflow/outflow/net). from/to là epoch ms; bỏ trống = toàn bộ. Cần scope report:read."
+  cashFlow(farmId: ID!, fromEpochMs: Float, toEpochMs: Float): CashFlow
+
+  "Các điểm tồn kho dưới ngưỡng đặt lại theo farm. Cần scope inventory:read."
+  lowStock(farmId: ID!, limit: Int): [StockBalance!]!
+}
+
+"Dòng tiền tổng hợp theo khoảng thời gian."
+type CashFlow {
+  farmId: String!
+  inflow: Money!
+  outflow: Money!
+  net: Money!
+}
+
+"Số tiền theo minor units (vd VND: 1 = 1 đồng)."
+type Money {
+  currency: String!
+  minor: Float!
+}
+
+"Số lượng dạng chuỗi thập phân + đơn vị."
+type Quantity {
+  value: String!
+  unit: String
+}
+
+"Tồn kho tại một điểm (item × warehouse)."
+type StockBalance {
+  itemId: String!
+  warehouseId: String!
+  onHand: Quantity!
+  reserved: Quantity!
+  available: Quantity!
+}
+
+"Chi phí tổng hợp theo lô (batch)."
+type BatchCost {
+  batchId: String!
+  farmId: String!
+  feedCost: Money!
+  medicineCost: Money!
+  laborCost: Money!
+  otherCost: Money!
+  totalCost: Money!
+  animalCount: Int!
+}
+
+"Tổng hợp Dashboard theo farm (tính server-side từ cùng nguồn gRPC như REST)."
+type Dashboard {
+  farmId: String!
+  "Thời điểm tính (epoch ms) — mốc dùng để xác định quá hạn."
+  generatedAt: Float!
+  tasks: TaskSummary!
+  orders: OrderSummary!
+  "Task đang quá hạn (nhận hoặc báo cáo), rút gọn để hiển thị nhanh."
+  overdueTasks: [Task!]!
+  "Đơn FAILED gần đây, rút gọn."
+  failedOrders: [Order!]!
+}
+
+"Đếm task theo trạng thái + quá hạn."
+type TaskSummary {
+  total: Int!
+  created: Int!
+  assigned: Int!
+  accepted: Int!
+  completed: Int!
+  cancelled: Int!
+  "Task ASSIGNED mà đã quá acceptDeadlineAt."
+  overdueAccept: Int!
+  "Task ACCEPTED mà đã quá reportDueAt."
+  overdueReport: Int!
+}
+
+"Đếm đơn theo trạng thái."
+type OrderSummary {
+  total: Int!
+  created: Int!
+  stockReserved: Int!
+  financePosted: Int!
+  completed: Int!
+  failed: Int!
+  cancelled: Int!
 }
 
 type PlatformStatus {

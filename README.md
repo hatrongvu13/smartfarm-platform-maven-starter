@@ -5,7 +5,7 @@
 `com.htv.smartfarm`, Spring Boot 4.1.1, Spring gRPC 1.1.1, **Java 17**.
 
 > Trước đây dự án được tổ chức theo mô hình nhiều repository (mỗi module một repo, ghép bằng aggregator). Nay đã hợp
-> nhất thành **một repo** để dễ quản lý phiên bản, xem toàn cảnh kiến trúc và build một phát. Xem `docs/REPOSITORY-STRATEGY.md`
+> nhất thành **một repo** để dễ quản lý phiên bản, xem toàn cảnh kiến trúc và build một phát. Xem `docs/shared/REPOSITORY-STRATEGY.md`
 > để hiểu chiến lược monorepo và lý do hợp nhất.
 
 ## Bắt đầu nhanh
@@ -23,7 +23,7 @@
    sắp thứ tự dependency nội bộ.
 5. Tùy chọn khởi chạy hạ tầng: `docker compose up -d` (PostgreSQL, Mosquitto, Redis). **H2 dev không cần Docker**.
 6. Khởi chạy stack v1 (7 tiến trình, profile `dev`). Thứ tự + port đầy đủ ở
-   [`docs/GATEWAY-API-V1.md` §11](./docs/GATEWAY-API-V1.md#11-khởi-động-dev--cho-người-chạy-thử):
+   [`docs/v1/GATEWAY-API-V1.md` §11](./docs/v1/GATEWAY-API-V1.md#11-khởi-động-dev--cho-người-chạy-thử):
    identity(:8092) · livestock(:8081/9091) · inventory(:8083/9093) · finance(:8084/9094) ·
    order(:8085/9095) · reporting(:8086/9096) · gateway(:8080). Ví dụ tối thiểu để smoke test một luồng:
    ```bash
@@ -33,7 +33,7 @@
    ```
 7. Kiểm nhanh toàn bộ luồng nghiệp vụ: `./scripts/release/v1/run-all.sh`.
 8. Kiểm tra: `curl http://localhost:8081/actuator/health` và `curl http://localhost:8080/actuator/health`.
-9. GraphQL (đọc, cần token — schema `tasks/task/orders/order`, xem [API §9](./docs/GATEWAY-API-V1.md#9-graphql-đọc-linh-hoạt--post-graphql)):
+9. GraphQL (đọc, cần token — schema `tasks/task/orders/order`, xem [API §9](./docs/v1/GATEWAY-API-V1.md#9-graphql-đọc-linh-hoạt--post-graphql)):
    ```bash
    curl -s http://localhost:8080/graphql -H "Authorization: Bearer $ACCESS" \
      -H 'Content-Type: application/json' \
@@ -65,7 +65,7 @@ curl -X POST http://localhost:8091/api/v1/simulations/FEEDING   # simulator (tr�
 ```
 
 **Lưu ý (trạng thái hiện tại):** các **service nghiệp vụ v1 đã hoàn thiện** — xem ma trận đầy đủ ở
-[`SMARTFARM-VERSION.md`](./SMARTFARM-VERSION.md) và API ở [`docs/GATEWAY-API-V1.md`](./docs/GATEWAY-API-V1.md):
+[`SMARTFARM-VERSION.md`](./SMARTFARM-VERSION.md) và API ở [`docs/v1/GATEWAY-API-V1.md`](./docs/v1/GATEWAY-API-V1.md):
 auth/RBAC, livestock (task + monitor quá hạn + schedule generator), inventory, finance, order-saga
 (multi-line + warehouse-per-line), reporting (CSV/XLSX/PDF render thật), GraphQL đọc (`/graphql`),
 realtime WebSocket (`/ws/events`), Flyway cho 5 DB Postgres. gRPC JWT interceptor + per-service token
@@ -152,10 +152,12 @@ apps/
 
 ### Tài liệu
 
+- [`docs/README.md`](./docs/README.md): **chỉ mục tài liệu** — phân loại dùng-chung vs theo-version để truy vết.
 - [`SMARTFARM-VERSION.md`](./SMARTFARM-VERSION.md): ma trận hoàn thiện v1 + gợi ý màn hình FE + backlog v2.
-- [`docs/RELEASE-NOTES-v1.md`](./docs/RELEASE-NOTES-v1.md): **release notes v1** — phạm vi, các fix, cách chạy & test.
-- [`docs/GATEWAY-API-V1.md`](./docs/GATEWAY-API-V1.md): toàn bộ REST + GraphQL + WebSocket API qua gateway.
-- `docs/ARCHITECTURE.md`: kiến trúc, ràng buộc, Saga, security, TLS.
-- `docs/SEQUENCES.md`: sequence Mermaid.
-- `docs/ROADMAP.md`: các giai đoạn hoàn thiện.
-- `docs/REPOSITORY-STRATEGY.md`: chiến lược monorepo — parent+aggregator, quản lý phiên bản tập trung, tách nhiệm vụ module.
+- [`docs/v1/RELEASE-NOTES-v1.md`](./docs/v1/RELEASE-NOTES-v1.md): **release notes v1** — phạm vi, các fix, cách chạy & test.
+- [`docs/v1/GATEWAY-API-V1.md`](./docs/v1/GATEWAY-API-V1.md): toàn bộ REST + GraphQL + WebSocket API qua gateway.
+- [`docs/backlog/`](./docs/backlog/README.md): **kế hoạch từng version** — require FE v1 (tự chứa), gợi ý stack FE + 3D, backlog v2.
+- `docs/shared/ARCHITECTURE.md`: kiến trúc, ràng buộc, Saga, security, TLS.
+- `docs/shared/SEQUENCES.md`: sequence Mermaid.
+- `docs/shared/ROADMAP.md`: các giai đoạn hoàn thiện.
+- `docs/shared/REPOSITORY-STRATEGY.md`: chiến lược monorepo — parent+aggregator, quản lý phiên bản tập trung, tách nhiệm vụ module.

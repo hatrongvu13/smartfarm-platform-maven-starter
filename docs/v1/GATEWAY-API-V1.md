@@ -76,7 +76,7 @@ Vòng đời: `CREATED → ASSIGNED → ACCEPTED → COMPLETED` (hoặc `CANCELL
 
 | Method | Path | Quyền | Body |
 |---|---|---|---|
-| POST | `/inventory/items` | `inventory:write` | header `Idempotency-Key`; `{sku, name, unit}` |
+| POST | `/inventory/items` | `inventory:write` | header `Idempotency-Key`; `{sku, name, unit, reorderThreshold?}` — `reorderThreshold` (chuỗi thập phân, cùng đơn vị) > 0 thì item được `lowStock` theo dõi; bỏ trống = "0" (không cảnh báo) |
 | POST | `/inventory/receipts` | `inventory:write` | header `Idempotency-Key`; `{itemId, farmId, warehouseId, quantity, unit}` (nạp kho) |
 | POST | `/orders` | `orders:write` | header `Idempotency-Key`; **1 hoặc nhiều dòng** — xem dưới |
 | GET | `/orders` | `orders:read` | query `farmId`, `status?`, `limit?` |
@@ -188,6 +188,24 @@ Ngoài REST, gateway mở **một mặt GraphQL chỉ-đọc** để FE lấy đ
 | `orders(farmId!, status, limit)` | `orders:read` | `[Order!]!` |
 | `order(id!)` | `orders:read` | `Order` (kèm `lines { itemId quantity unit unitPriceMinor warehouseId }`) |
 | `platformStatus` | `farm:read` | `{ name, status, tenantId }` — trạng thái nền tảng (smoke check) |
+| `dashboard(farmId!, recentLimit)` | `farm:read` + `orders:read` | `Dashboard` — tổng hợp **1 round-trip**: `tasks{total,created,assigned,accepted,completed,cancelled,overdueAccept,overdueReport}`, `orders{total,created,stockReserved,financePosted,completed,failed,cancelled}`, `overdueTasks[]`, `failedOrders[]`, `generatedAt`. Đếm + xác định quá hạn **server-side** (thay cho FE gọi nhiều list rồi tự đếm). |
+| `warehouseInventory(itemId!, warehouseId!)` | `inventory:read` | `StockBalance{ itemId, warehouseId, onHand{value,unit}, reserved{...}, available{...} }` — tồn kho tại một điểm (InventoryService.GetStockBalance). |
+| `batchCost(farmId!, batchId!)` | `report:read` | `BatchCost{ feedCost, medicineCost, laborCost, otherCost, totalCost (mỗi cái {currency,minor}), animalCount }` — chi phí theo lô (FarmFinanceService.GetBatchCost). |
+| `cashFlow(farmId!, fromEpochMs, toEpochMs)` | `report:read` | `CashFlow{ farmId, inflow, outflow, net (mỗi cái {currency,minor}) }` — dòng tiền theo khoảng thời gian (FarmFinanceService.GetCashFlow). |
+| `lowStock(farmId!, limit)` | `inventory:read` | `[StockBalance!]!` — các điểm tồn kho dưới ngưỡng đặt lại (InventoryService.ListLowStock). |
+
+Ví dụ Dashboard (một round-trip cho toàn màn tổng quan):
+```graphql
+query($f: ID!, $n: Int) {
+  dashboard(farmId: $f, recentLimit: $n) {
+    generatedAt
+    tasks { total assigned accepted completed overdueAccept overdueReport }
+    orders { total completed failed }
+    overdueTasks { taskId title status acceptDeadlineAt reportDueAt }
+    failedOrders { orderId status failureReason totalMinor }
+  }
+}
+```
 
 Ví dụ (lấy đơn kèm dòng hàng + kho từng dòng):
 ```graphql

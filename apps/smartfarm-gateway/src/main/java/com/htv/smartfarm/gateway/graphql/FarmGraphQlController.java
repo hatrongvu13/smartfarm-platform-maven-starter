@@ -5,6 +5,8 @@ import com.htv.smartfarm.proto.common.v1.PageRequest;
 import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.livestock.v1.*;
 import com.htv.smartfarm.proto.order.v1.*;
+import com.htv.smartfarm.proto.inventory.v1.*;
+import com.htv.smartfarm.proto.finance.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 
 import java.util.ArrayList;
@@ -36,16 +38,24 @@ public class FarmGraphQlController {
 
     private static final String LIVESTOCK_AUDIENCE = "smartfarm-livestock";
     private static final String ORDER_AUDIENCE = "smartfarm-order";
+    private static final String INVENTORY_AUDIENCE = "smartfarm-inventory";
+    private static final String FINANCE_AUDIENCE = "smartfarm-finance";
 
     private final LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestock;
     private final FarmOrderServiceGrpc.FarmOrderServiceBlockingStub order;
+    private final InventoryServiceGrpc.InventoryServiceBlockingStub inventory;
+    private final FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance;
     private final ServiceTokenClient tokens;
 
     public FarmGraphQlController(LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestockStub,
                                  FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orderStub,
+                                 InventoryServiceGrpc.InventoryServiceBlockingStub gwInventoryStub,
+                                 FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub gwFinanceStub,
                                  ServiceTokenClient tokens) {
         this.livestock = livestockStub;
         this.order = orderStub;
+        this.inventory = gwInventoryStub;
+        this.finance = gwFinanceStub;
         this.tokens = tokens;
     }
 
@@ -66,6 +76,16 @@ public class FarmGraphQlController {
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orderStub(Jwt jwt) {
         String t = tokens.tokenFor(ORDER_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
         return order.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
+    }
+
+    private InventoryServiceGrpc.InventoryServiceBlockingStub invStub(Jwt jwt) {
+        String t = tokens.tokenFor(INVENTORY_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
+        return inventory.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
+    }
+
+    private FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finStub(Jwt jwt) {
+        String t = tokens.tokenFor(FINANCE_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
+        return finance.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     // ---- tasks ----
@@ -124,6 +144,182 @@ public class FarmGraphQlController {
             var o = orderStub(jwt).getOrder(GetOrderRequest.newBuilder().setContext(ctx(jwt)).setOrderId(id).build()).getOrder();
             return orderMap(o);
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    // ---- dashboard (aggregate) ----
+
+    /**
+     * One-round-trip Dashboard aggregate: pulls tasks + orders for the farm via the SAME gRPC
+     * calls the list resolvers use, then computes status counts and overdue flags server-side.
+     * Read-convenience only — no new gRPC/proto, same per-service token + scopes as REST.
+     * Needs both farm:read (tasks) and orders:read (orders).
+     */
+    @QueryMapping
+    @PreAuthorize("hasAuthority('SCOPE_farm:read') and hasAuthority('SCOPE_orders:read')")
+    public Mono<Map<String, Object>> dashboard(@Argument String farmId, @Argument Integer recentLimit) {
+        return jwt().map(jwt -> {
+            long now = System.currentTimeMillis();
+            int recent = recentLimit == null || recentLimit <= 0 ? 10 : recentLimit;
+
+            // Pull a wide page of tasks + orders (no status filter) and aggregate here.
+            var taskResp = liveStub(jwt).listTasks(ListTasksRequest.newBuilder().setContext(ctx(jwt))
+                    .setFarmId(farmId).setPage(PageRequest.newBuilder().setPageSize(500)).build());
+            var orderResp = orderStub(jwt).listOrders(ListOrdersRequest.newBuilder().setContext(ctx(jwt))
+                    .setFarmId(farmId).setPage(PageRequest.newBuilder().setPageSize(500)).build());
+
+            int tTotal = 0, tCreated = 0, tAssigned = 0, tAccepted = 0, tCompleted = 0, tCancelled = 0;
+            int overdueAccept = 0, overdueReport = 0;
+            List<Map<String, Object>> overdueTasks = new ArrayList<>();
+            for (LivestockTask t : taskResp.getTasksList()) {
+                tTotal++;
+                switch (t.getStatus()) {
+                    case TASK_STATUS_CREATED -> tCreated++;
+                    case TASK_STATUS_ASSIGNED -> tAssigned++;
+                    case TASK_STATUS_ACCEPTED -> tAccepted++;
+                    case TASK_STATUS_COMPLETED -> tCompleted++;
+                    case TASK_STATUS_CANCELLED -> tCancelled++;
+                    default -> { }
+                }
+                boolean isOverdue = false;
+                if (t.getStatus() == TaskStatus.TASK_STATUS_ASSIGNED && t.hasAcceptDeadlineAt()
+                        && ms(t.getAcceptDeadlineAt()) < now) { overdueAccept++; isOverdue = true; }
+                if (t.getStatus() == TaskStatus.TASK_STATUS_ACCEPTED && t.hasReportDueAt()
+                        && ms(t.getReportDueAt()) < now) { overdueReport++; isOverdue = true; }
+                if (isOverdue && overdueTasks.size() < recent) overdueTasks.add(taskMap(t));
+            }
+
+            int oTotal = 0, oCreated = 0, oReserved = 0, oPosted = 0, oCompleted = 0, oFailed = 0, oCancelled = 0;
+            List<Map<String, Object>> failedOrders = new ArrayList<>();
+            for (FarmOrder o : orderResp.getOrdersList()) {
+                oTotal++;
+                switch (o.getStatus()) {
+                    case ORDER_STATUS_CREATED -> oCreated++;
+                    case ORDER_STATUS_STOCK_RESERVED -> oReserved++;
+                    case ORDER_STATUS_FINANCE_POSTED -> oPosted++;
+                    case ORDER_STATUS_COMPLETED -> oCompleted++;
+                    case ORDER_STATUS_FAILED -> { oFailed++; if (failedOrders.size() < recent) failedOrders.add(orderMap(o)); }
+                    case ORDER_STATUS_CANCELLED -> oCancelled++;
+                    default -> { }
+                }
+            }
+
+            var taskSummary = new LinkedHashMap<String, Object>();
+            taskSummary.put("total", tTotal); taskSummary.put("created", tCreated);
+            taskSummary.put("assigned", tAssigned); taskSummary.put("accepted", tAccepted);
+            taskSummary.put("completed", tCompleted); taskSummary.put("cancelled", tCancelled);
+            taskSummary.put("overdueAccept", overdueAccept); taskSummary.put("overdueReport", overdueReport);
+
+            var orderSummary = new LinkedHashMap<String, Object>();
+            orderSummary.put("total", oTotal); orderSummary.put("created", oCreated);
+            orderSummary.put("stockReserved", oReserved); orderSummary.put("financePosted", oPosted);
+            orderSummary.put("completed", oCompleted); orderSummary.put("failed", oFailed);
+            orderSummary.put("cancelled", oCancelled);
+
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("farmId", farmId);
+            m.put("generatedAt", (double) now);
+            m.put("tasks", taskSummary);
+            m.put("orders", orderSummary);
+            m.put("overdueTasks", overdueTasks);
+            m.put("failedOrders", failedOrders);
+            return m;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    // ---- inventory & finance (read-convenience) ----
+
+    /** Tồn kho tại (item, warehouse). Read-only qua InventoryService.GetStockBalance. */
+    @QueryMapping
+    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    public Mono<Map<String, Object>> warehouseInventory(@Argument String itemId, @Argument String warehouseId) {
+        return jwt().map(jwt -> {
+            var b = invStub(jwt).getStockBalance(GetStockBalanceRequest.newBuilder()
+                    .setContext(ctx(jwt)).setItemId(itemId).setWarehouseId(warehouseId).build()).getBalance();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("itemId", b.getItemId());
+            m.put("warehouseId", b.getWarehouseId());
+            m.put("onHand", qtyMap(b.getOnHand()));
+            m.put("reserved", qtyMap(b.getReserved()));
+            m.put("available", qtyMap(b.getAvailable()));
+            return m;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /** Chi phí theo lô. Read-only qua FarmFinanceService.GetBatchCost (service token mang finance:read). */
+    @QueryMapping
+    @PreAuthorize("hasAuthority('SCOPE_report:read')")
+    public Mono<Map<String, Object>> batchCost(@Argument String farmId, @Argument String batchId) {
+        return jwt().map(jwt -> {
+            var c = finStub(jwt).getBatchCost(GetBatchCostRequest.newBuilder()
+                    .setContext(ctx(jwt)).setFarmId(farmId).setBatchId(batchId).build()).getCost();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("batchId", c.getBatchId());
+            m.put("farmId", c.getFarmId());
+            m.put("feedCost", moneyMap(c.getFeedCost()));
+            m.put("medicineCost", moneyMap(c.getMedicineCost()));
+            m.put("laborCost", moneyMap(c.getLaborCost()));
+            m.put("otherCost", moneyMap(c.getOtherCost()));
+            m.put("totalCost", moneyMap(c.getTotalCost()));
+            m.put("animalCount", c.getAnimalCount());
+            return m;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /** Dòng tiền theo khoảng thời gian. Read-only qua FarmFinanceService.GetCashFlow. */
+    @QueryMapping
+    @PreAuthorize("hasAuthority('SCOPE_report:read')")
+    public Mono<Map<String, Object>> cashFlow(@Argument String farmId, @Argument Double fromEpochMs, @Argument Double toEpochMs) {
+        return jwt().map(jwt -> {
+            var req = GetCashFlowRequest.newBuilder().setContext(ctx(jwt)).setFarmId(farmId);
+            if (fromEpochMs != null || toEpochMs != null) {
+                var range = com.htv.smartfarm.proto.common.v1.DateRange.newBuilder();
+                if (fromEpochMs != null) range.setFrom(com.google.protobuf.Timestamp.newBuilder().setSeconds((long) (fromEpochMs / 1000)));
+                if (toEpochMs != null) range.setTo(com.google.protobuf.Timestamp.newBuilder().setSeconds((long) (toEpochMs / 1000)));
+                req.setPeriod(range);
+            }
+            var cf = finStub(jwt).getCashFlow(req.build()).getCashFlow();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("farmId", cf.getFarmId());
+            m.put("inflow", moneyMap(cf.getInflow()));
+            m.put("outflow", moneyMap(cf.getOutflow()));
+            m.put("net", moneyMap(cf.getNet()));
+            return m;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /** Tồn kho dưới ngưỡng đặt lại theo farm. Read-only qua InventoryService.ListLowStock. */
+    @QueryMapping
+    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    public Mono<List<Map<String, Object>>> lowStock(@Argument String farmId, @Argument Integer limit) {
+        return jwt().map(jwt -> {
+            var resp = invStub(jwt).listLowStock(ListLowStockRequest.newBuilder().setContext(ctx(jwt))
+                    .setFarmId(farmId).setPage(PageRequest.newBuilder().setPageSize(limit == null || limit <= 0 ? 50 : limit)).build());
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (StockBalance b : resp.getBalancesList()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("itemId", b.getItemId());
+                m.put("warehouseId", b.getWarehouseId());
+                m.put("onHand", qtyMap(b.getOnHand()));
+                m.put("reserved", qtyMap(b.getReserved()));
+                m.put("available", qtyMap(b.getAvailable()));
+                out.add(m);
+            }
+            return out;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private static Map<String, Object> moneyMap(com.htv.smartfarm.proto.common.v1.Money mon) {
+        var m = new LinkedHashMap<String, Object>();
+        m.put("currency", mon.getCurrencyCode());
+        m.put("minor", (double) mon.getMinorUnits());
+        return m;
+    }
+
+    private static Map<String, Object> qtyMap(com.htv.smartfarm.proto.common.v1.Quantity q) {
+        var m = new LinkedHashMap<String, Object>();
+        m.put("value", q.getDecimalValue());
+        if (!q.getUnit().isBlank()) m.put("unit", q.getUnit());
+        return m;
     }
 
     // ---- mappers ----

@@ -37,7 +37,7 @@ sequenceDiagram
 > `release` + `reverseExpense`), rồi phát `OrderChanged` qua **outbox → MQTT** để dựng read-model CQRS
 > (`ord_order_view`). Nghĩa là bước reserve/expense/commit là gRPC trực tiếp (không choreography qua MQTT); MQTT chỉ
 > mang **event thông báo trạng thái** cho read-model và realtime. Chi tiết ở
-> [docs/GATEWAY-API-V1.md §6](./GATEWAY-API-V1.md#6-inventory--order-saga-apiv1).
+> [docs/GATEWAY-API-V1.md §6](../v1/GATEWAY-API-V1.md#6-inventory--order-saga-apiv1).
 
 ## IoT simulator
 

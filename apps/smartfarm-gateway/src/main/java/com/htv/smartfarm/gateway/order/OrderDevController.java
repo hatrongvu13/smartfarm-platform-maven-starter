@@ -50,7 +50,7 @@ public class OrderDevController {
 
     // ---- inventory setup (so the saga has stock to reserve) -----------------
 
-    public record CreateItem(String sku, String name, String unit) {
+    public record CreateItem(String sku, String name, String unit, String reorderThreshold) {
     }
 
     @PostMapping("/inventory/items")
@@ -60,10 +60,13 @@ public class OrderDevController {
                                                  @RequestBody CreateItem body) {
         return call(jwt, () -> {
             var t = tenant(jwt); var a = jwt.getSubject();
+            var item = InventoryItem.newBuilder().setSku(body.sku()).setName(body.name()).setUnit(body.unit())
+                    .setCategory(ItemCategory.ITEM_CATEGORY_FEED);
+            if (body.reorderThreshold() != null && !body.reorderThreshold().isBlank())
+                item.setReorderThreshold(Quantity.newBuilder().setDecimalValue(body.reorderThreshold()).setUnit(body.unit()));
             var resp = invStub(t, a).createItem(CreateItemRequest.newBuilder()
                     .setContext(ctx(t, a, key))
-                    .setItem(InventoryItem.newBuilder().setSku(body.sku()).setName(body.name()).setUnit(body.unit())
-                            .setCategory(ItemCategory.ITEM_CATEGORY_FEED))
+                    .setItem(item)
                     .build());
             return Map.of("itemId", resp.getItem().getItemId(), "sku", resp.getItem().getSku());
         });
