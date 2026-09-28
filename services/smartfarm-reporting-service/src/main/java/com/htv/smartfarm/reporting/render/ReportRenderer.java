@@ -114,10 +114,14 @@ public class ReportRenderer {
                 for (String v : row) table.addCell(new PdfPCell(new Paragraph(v == null ? "" : v, bodyFont)));
             }
             doc.add(table);
+            // Close the Document BEFORE the try-with-resources closes `out`: doc.close()
+            // makes PdfWriter flush the PDF trailer to the stream. If `out` were closed
+            // first (which try-with-resources does on block exit, before finally), that
+            // final flush would hit a closed channel -> ExceptionConverter: ClosedChannelException.
+            doc.close();
         } catch (Exception e) {
-            throw new IOException("PDF render failed", e);
-        } finally {
             if (doc.isOpen()) doc.close();
+            throw new IOException("PDF render failed", e);
         }
     }
 

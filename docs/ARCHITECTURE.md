@@ -15,23 +15,30 @@
 
 ```mermaid
 flowchart LR
-  C[Web / Mobile] -->|REST + GraphQL| G[Gateway BFF]
+  C[Web / Mobile] -->|REST + GraphQL + WS| G[Gateway BFF]
+  G -->|gRPC| ID[Identity]
   G -->|gRPC| L[Livestock Task]
   G -->|gRPC| H[Animal Health]
   G -->|gRPC| I[Inventory]
   G -->|gRPC| F[Finance]
+  G -->|gRPC| O[Order Saga]
   G -->|gRPC| R[Reporting]
+  O -->|gRPC reserve/commit| I
+  O -->|gRPC recordExpense| F
   L -->|Outbox -> MQTT| M[(MQTT Broker)]
+  O -->|Outbox OrderChanged -> MQTT| M
   H <--> M
   I <--> M
   F <--> M
-  R <--> M
+  R -->|gRPC pull data| L
   S[Farm Simulator] -->|telemetry/status| M
-  P[Readiness] -->|gRPC Health/Ping| L & H & I & F & R & G
+  P[Readiness] -->|gRPC Health/Ping| L & H & I & F & O & R & G
+  ID --> DB0[(Own DB)]
   L --> DB1[(Own DB)]
   H --> DB2[(Own DB)]
   I --> DB3[(Own DB)]
   F --> DB4[(Own DB)]
+  O --> DB5[(Own DB)]
 ```
 
 **Không chia sẻ bảng giữa service.** Common module chỉ chứa contract, primitives và starter kỹ thuật, không chứa entity
@@ -70,10 +77,12 @@ Không retry command không idempotent nếu thiếu idempotency key.
 
 ## 6. TLS
 
-- `dev`: plaintext mặc định để debug cục bộ; profile `dev-tls` sẽ dùng certificate development.
+- `dev`: plaintext mặc định để debug cục bộ; profile `dev-tls` (identity) dùng certificate development.
 - `prod`: yêu cầu TLS; nội bộ nâng lên mTLS khi có PKI/service mesh. Private key không commit Git.
-- File cấu hình đã đặt `smartfarm.grpc.tls.enabled=false` làm feature switch. Phase 2 sẽ bind nó vào Netty
-  server/channel customizer và bổ sung test TLS.
+- **Trạng thái v1**: `smartfarm.grpc.tls.enabled=false` là feature-switch (một số service như finance đã có
+  cert-chain/private-key placeholder trong cấu hình), **nhưng binding vào Netty server/channel transport chưa được
+  bật** — đây là hạng mục **v2 hardening** (bind customizer + mTLS + test TLS). gRPC nội bộ v1 chạy plaintext trên
+  loopback; bảo mật hiện dựa vào single-ingress qua gateway + per-service token (zero-trust) + audit `actor_id`.
 
 ## 7. Dữ liệu
 

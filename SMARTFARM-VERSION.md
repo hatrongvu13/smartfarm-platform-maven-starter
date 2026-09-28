@@ -1,11 +1,12 @@
 # SmartFarm — Version 1 (nền tảng tính năng cơ bản)
 
-> Tổng quan độ hoàn thiện để làm cơ sở **xây dựng giao diện**. Cập nhật 2026-09-27.
-> Chi tiết API: [docs/GATEWAY-API-V1.md](./GATEWAY-API-V1.md). Kiến trúc: [docs/ARCHITECTURE.md](./ARCHITECTURE.md).
+> Tổng quan độ hoàn thiện để làm cơ sở **xây dựng giao diện**. Cập nhật 2026-09-28.
+> Chi tiết API: [docs/GATEWAY-API-V1.md](./docs/GATEWAY-API-V1.md). Kiến trúc: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+> Release notes: [docs/RELEASE-NOTES-v1.md](./docs/RELEASE-NOTES-v1.md).
 
 ## 1. Kiến trúc một dòng
 
-Client → **Gateway (BFF, cửa duy nhất :8080)** → gRPC nội bộ tới các service → mỗi service DB riêng; sự kiện async qua **MQTT** (outbox → broker). Auth tập trung ở gateway + per-service token (zero-trust, có audit `actor_id` truy về người dùng thật). Mặt đọc cho FE: REST + **GraphQL** (`/graphql`); realtime qua **WebSocket** (`/ws/events`). 14 module Maven, Java 17, Spring Boot 4.1.1.
+Client → **Gateway (BFF, cửa duy nhất :8080)** → gRPC nội bộ tới các service → mỗi service DB riêng; sự kiện async qua **MQTT** (outbox → broker). Auth tập trung ở gateway + per-service token (zero-trust, có audit `actor_id` truy về người dùng thật). Mặt đọc cho FE: REST + **GraphQL** (`/graphql`); realtime qua **WebSocket** (`/ws/events`). 13 module Maven, Java 17, Spring Boot 4.1.1.
 
 ## 2. Ma trận hoàn thiện v1
 
@@ -18,7 +19,7 @@ Client → **Gateway (BFF, cửa duy nhất :8080)** → gRPC nội bộ tới c
 | **Inventory** | ✅ Hoàn thiện | Item, lot, balance, reserve/commit/release (xương sống saga), FIFO chọn lot. |
 | **Finance** | ✅ Hoàn thiện | expense/income/payable/receivable/settle/**reverseExpense**, getTransaction/listTransactions, **getBatchCost/getCashFlow** (aggregate). Flyway migration. |
 | **Order (Saga)** | ✅ Hoàn thiện | PlaceOrder orchestration reserve→expense→commit + compensation; List/Cancel; phát **OrderChanged** qua outbox. **Nhiều dòng hàng/đơn + warehouse-per-line** (mỗi dòng reserve/commit kho riêng). CQRS read-model (`ord_order_view`). |
-| **Reporting** | ✅ Hoàn thiện | Export job bất đồng bộ; render **thật đa định dạng** CSV/XLSX(POI)/PDF(OpenPDF); LIVESTOCK_TASKS lấy dữ liệu thật qua gRPC. |
+| **Reporting** | ✅ Hoàn thiện | Export job bất đồng bộ; render **thật đa định dạng** CSV/XLSX(POI)/PDF(OpenPDF, font Unicode IDENTITY_H nhúng → render đúng tiếng Việt); LIVESTOCK_TASKS lấy dữ liệu thật qua gRPC. Worker log root-cause + lưu `errorCode` khi render lỗi. |
 | **GraphQL (đọc)** | ✅ Có (dev) | `/graphql` — query `tasks/task/orders/order` (kèm `lines`), dùng lại gRPC+scope như REST. GraphiQL ở `/graphiql`. Prod wiring stub → v2. |
 | **Realtime (WebSocket)** | ✅ Có | Gateway `ws://…/ws/events` đẩy DomainEvent (MQTT→WS), auth qua token, lọc theo tenant/farm. |
 | **Schema (Flyway)** | ✅ Hoàn thiện | Flyway quản schema cho **identity/livestock/inventory/order/finance** (`validate` + baseline-on-migrate). Reporting dùng H2 in-mem (dev) nên giữ `ddl-auto`. |
@@ -54,7 +55,7 @@ Chú thích: ✅ dùng được cho FE · ⚙️ có nền, chưa ưu tiên FE v
 
 ## 5. Xác thực chất lượng
 
-- Build: `mvn clean install` — 14 module BUILD SUCCESS.
+- Build: `mvn clean install` — 13 module BUILD SUCCESS.
 - Test luồng nghiệp vụ: `scripts/release/v1/run-all.sh` (preflight + auth/rbac + livestock + order saga + reporting).
 - Test lẻ: `scripts/livestock-lifecycle-test.sh`, `scripts/livestock-registry-test.sh`, `scripts/phase3-saga-curl-test.sh`, `scripts/phase2-curl-test.sh`.
 - Mặt đọc GraphQL: thử tay ở GraphiQL `/graphiql` (cần đăng nhập lấy token).

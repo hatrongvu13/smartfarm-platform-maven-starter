@@ -28,6 +28,7 @@ svc_module() { case "$1" in
   finance)   echo "services/smartfarm-finance-service|9094";;
   order)     echo "services/smartfarm-order-service|9095";;
   reporting) echo "services/smartfarm-reporting-service|9096";;
+  health)    echo "services/smartfarm-health-service|9097";;
   gateway)   echo "apps/smartfarm-gateway|8080";;
   *) echo "";;
 esac; }

@@ -1,7 +1,7 @@
 # SmartFarm — Gateway API v1 (hiện trạng cho Frontend)
 
 > Tài liệu này mô tả **toàn bộ REST API mà Frontend gọi được qua Gateway** (`http://localhost:8080` ở dev).
-> Client CHỈ đi qua gateway; không service nội bộ nào expose ra ngoài. Cập nhật theo code ngày 2026-09-27.
+> Client CHỈ đi qua gateway; không service nội bộ nào expose ra ngoài. Cập nhật theo code ngày 2026-09-28.
 > Mặt đọc: REST (mục 2–8) + **GraphQL** (mục 9). Realtime: **WebSocket** (mục 10). Schema các DB do **Flyway** quản lý (validate).
 > Swagger UI: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) · OpenAPI JSON: `/v3/api-docs`.
 
@@ -25,6 +25,7 @@
 | GET | `/auth/me` | đăng nhập | → `{userId, tenantId, roles[], permissions[]}` |
 | GET | `/auth/verify` | đăng nhập | → `{valid, subject, tenantId}` |
 | POST | `/auth/password` | đăng nhập | `{oldPassword, newPassword}` |
+| GET | `/me` | `farm:read` | Tiện ích whoami tại gateway (đọc thẳng từ JWT) → `{subject, tenantId}`. Khác `/auth/me` (proxy tới identity, trả cả roles/permissions). |
 
 ## 3. Quản trị & phân quyền (`/api/v1/admin`) — cần `identity:admin`
 
@@ -186,6 +187,7 @@ Ngoài REST, gateway mở **một mặt GraphQL chỉ-đọc** để FE lấy đ
 | `task(id!)` | `farm:read` | `Task` |
 | `orders(farmId!, status, limit)` | `orders:read` | `[Order!]!` |
 | `order(id!)` | `orders:read` | `Order` (kèm `lines { itemId quantity unit unitPriceMinor warehouseId }`) |
+| `platformStatus` | `farm:read` | `{ name, status, tenantId }` — trạng thái nền tảng (smoke check) |
 
 Ví dụ (lấy đơn kèm dòng hàng + kho từng dòng):
 ```graphql
