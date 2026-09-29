@@ -65,6 +65,14 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.htv.smartfarm</groupId>
+            <artifactId>smartfarm-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.htv.smartfarm</groupId>
+            <artifactId>smartfarm-proto</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

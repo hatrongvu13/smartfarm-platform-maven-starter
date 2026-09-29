@@ -1,4 +1,4 @@
-package com.htv.smartfarm.identity.grpc;
+package com.htv.smartfarm.identity.grpc.security;
 
 import java.util.Set;
 
@@ -6,7 +6,7 @@ public record GrpcCaller(
         String subjectId,
         String tenantId,
         Set<String> authorities,
-        boolean serviceAccount
+        String correlationId
 ) {
 
     public GrpcCaller {
@@ -16,6 +16,18 @@ public record GrpcCaller(
     }
 
     public boolean hasAuthority(String authority) {
-        return authorities.contains(authority);
+        return authority != null
+                && authorities.contains(authority);
+    }
+
+    public boolean isSuperAdmin() {
+        return authorities.contains("SCOPE_*");
+    }
+
+    public boolean hasAuthorityOrSuperAdmin(
+            String authority
+    ) {
+        return hasAuthority(authority)
+                || isSuperAdmin();
     }
 }

@@ -1,6 +1,5 @@
 package com.htv.smartfarm.identity.grpc.security;
 
-import com.htv.smartfarm.identity.grpc.GrpcCaller;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
 
 import io.grpc.Status;
