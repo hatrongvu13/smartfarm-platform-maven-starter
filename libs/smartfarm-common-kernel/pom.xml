@@ -17,4 +17,11 @@
 
     <!-- Library module: no dependencies of its own yet; groupId/version, Java
          version and the gRPC BOM are all inherited from the parent. -->
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>
