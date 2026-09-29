@@ -1,13 +1,155 @@
 syntax = "proto3";
+
 package smartfarm.identity.v1;
+
 option java_package = "com.htv.smartfarm.proto.identity.v1";
 option java_multiple_files = true;
 option java_outer_classname = "IdentityProto";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
 import "smartfarm/common/v1/common.proto";
-// Internal directory/authorization contract only. OAuth/OIDC token issuance is NOT a gRPC RPC here.
-service IdentityDirectoryService { rpc GetPrincipal(GetPrincipalRequest) returns (PrincipalResponse); rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse); }
-message Principal { string subject_id = 1; string tenant_id = 2; repeated string roles = 3; bool active = 4; repeated string farm_ids = 5; }
-message GetPrincipalRequest { smartfarm.common.v1.RequestContext context = 1; string subject_id = 2; }
-message PrincipalResponse { Principal principal = 1; }
-message CheckPermissionRequest { smartfarm.common.v1.RequestContext context = 1; string subject_id = 2; string resource_type = 3; string resource_id = 4; string action = 5; }
-message CheckPermissionResponse { bool allowed = 1; string reason_code = 2; }
+
+// Internal identity directory and authorization contract.
+//
+// Service này không phát hành access token, refresh token hoặc authorization
+// code. Các OAuth2/OIDC endpoint vẫn do Spring Authorization Server đảm nhiệm.
+service IdentityDirectoryService {
+
+  // Lấy thông tin principal trong phạm vi một tenant.
+  rpc GetPrincipal(GetPrincipalRequest) returns (GetPrincipalResponse);
+
+  // Cập nhật các thuộc tính hồ sơ an toàn.
+  // Không cập nhật password, credential hoặc OAuth2 session.
+  rpc UpdatePrincipalProfile(UpdatePrincipalProfileRequest)
+      returns (UpdatePrincipalProfileResponse);
+
+  // Kiểm tra một hành động trên resource trong tenant hiện tại.
+  rpc CheckPermission(CheckPermissionRequest)
+      returns (CheckPermissionResponse);
+
+  // Kiểm tra nhiều quyền trong một lần gọi để tránh N+1 gRPC.
+  rpc BatchCheckPermissions(BatchCheckPermissionsRequest)
+      returns (BatchCheckPermissionsResponse);
+
+  // Kiểm tra kết nối nội bộ.
+  rpc Ping(smartfarm.common.v1.PingRequest)
+      returns (smartfarm.common.v1.PingResponse);
+}
+
+enum MembershipStatus {
+  MEMBERSHIP_STATUS_UNSPECIFIED = 0;
+  MEMBERSHIP_STATUS_INVITED = 1;
+  MEMBERSHIP_STATUS_ACTIVE = 2;
+  MEMBERSHIP_STATUS_SUSPENDED = 3;
+  MEMBERSHIP_STATUS_DISABLED = 4;
+}
+
+message PrincipalProfile {
+  string display_name = 1;
+  string email = 2;
+  string phone_number = 3;
+  string locale = 4;
+  string time_zone = 5;
+}
+
+message TenantMembership {
+  string tenant_id = 1;
+  MembershipStatus status = 2;
+  repeated string roles = 3;
+  repeated string farm_ids = 4;
+}
+
+message Principal {
+  // Stable OAuth2/OIDC subject identifier.
+  string subject_id = 1;
+
+  PrincipalProfile profile = 2;
+
+  // Trạng thái toàn cục của tài khoản.
+  bool active = 3;
+
+  // Membership của tenant được yêu cầu.
+  TenantMembership membership = 4;
+
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+
+  // Dùng cho optimistic concurrency khi cập nhật profile.
+  int64 version = 7;
+}
+
+message GetPrincipalRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+
+  // Nếu rỗng, server có thể sử dụng subject của authenticated principal.
+  //
+  // Chỉ trusted service có quyền đọc subject khác.
+  string subject_id = 2;
+}
+
+message GetPrincipalResponse {
+  Principal principal = 1;
+}
+
+message UpdatePrincipalProfileRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+
+  PrincipalProfile profile = 3;
+
+  // Chỉ cho phép:
+  // display_name, phone_number, locale và time_zone.
+  //
+  // email nên được thay đổi qua luồng xác minh email riêng.
+  google.protobuf.FieldMask update_mask = 4;
+
+  // Giá trị version nhận được từ lần đọc gần nhất.
+  int64 expected_version = 5;
+}
+
+message UpdatePrincipalProfileResponse {
+  Principal principal = 1;
+}
+
+message PermissionTarget {
+  string resource_type = 1;
+  string resource_id = 2;
+  string action = 3;
+}
+
+message CheckPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  PermissionTarget target = 3;
+}
+
+message CheckPermissionResponse {
+  bool allowed = 1;
+
+  // Mã ổn định cho machine processing, ví dụ:
+  // ALLOWED_BY_ROLE
+  // ACCOUNT_DISABLED
+  // MEMBERSHIP_NOT_FOUND
+  // MEMBERSHIP_SUSPENDED
+  // ROLE_NOT_GRANTED
+  // RESOURCE_OUT_OF_SCOPE
+  string reason_code = 2;
+}
+
+message BatchCheckPermissionsRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  repeated PermissionTarget targets = 3;
+}
+
+message PermissionDecision {
+  PermissionTarget target = 1;
+  bool allowed = 2;
+  string reason_code = 3;
+}
+
+message BatchCheckPermissionsResponse {
+  repeated PermissionDecision decisions = 1;
+}

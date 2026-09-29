@@ -1,7 +1,7 @@
 package com.htv.smartfarm.identity;
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.token.RefreshRepository;
-import com.htv.smartfarm.identity.auth.AuthService;
+import com.htv.smartfarm.identity.oauth2.AuthService;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;

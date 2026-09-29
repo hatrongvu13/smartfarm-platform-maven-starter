@@ -1,7 +1,7 @@
 package com.htv.smartfarm.identity.config;
 
 import com.htv.smartfarm.identity.user.UserRepository;
-import com.htv.smartfarm.identity.auth.AuthService;
+import com.htv.smartfarm.identity.oauth2.AuthService;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.*;
 import org.springframework.core.annotation.Order;

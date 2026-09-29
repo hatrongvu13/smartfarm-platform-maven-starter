@@ -1,17 +1,65 @@
 syntax = "proto3";
+
 package smartfarm.common.v1;
+
 option java_package = "com.htv.smartfarm.proto.common.v1";
 option java_multiple_files = true;
 option java_outer_classname = "CommonProto";
+
 import "google/protobuf/timestamp.proto";
-// Tenant and actor are context only. The server must derive/verify them from the authenticated identity.
-message RequestContext { string correlation_id = 1; string tenant_id = 2; string actor_id = 3; string idempotency_key = 4; string trace_id = 5; }
-message PageRequest { int32 page_size = 1; string page_token = 2; }
-message PageResponse { string next_page_token = 1; }
-message Money { string currency_code = 1; int64 minor_units = 2; }
-// Decimal quantity is encoded as a base-10 string, not floating point.
-message Quantity { string decimal_value = 1; string unit = 2; }
-message DateRange { google.protobuf.Timestamp from = 1; google.protobuf.Timestamp to = 2; }
-message AuditInfo { string created_by = 1; google.protobuf.Timestamp created_at = 2; string updated_by = 3; google.protobuf.Timestamp updated_at = 4; }
-message PingRequest { RequestContext context = 1; }
-message PingResponse { string service = 1; string status = 2; string version = 3; }
+
+// Metadata hỗ trợ tracing, auditing và idempotency.
+//
+// tenant_id và actor_id chỉ là context được truyền giữa các internal service.
+// Service nhận request phải xác thực hoặc ghi đè các giá trị này dựa trên
+// authenticated principal, không được tin trực tiếp dữ liệu do client gửi lên.
+message RequestContext {
+  string correlation_id = 1;
+  string tenant_id = 2;
+  string actor_id = 3;
+  string idempotency_key = 4;
+  string trace_id = 5;
+}
+
+message PageRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message PageResponse {
+  string next_page_token = 1;
+}
+
+message Money {
+  string currency_code = 1;
+  int64 minor_units = 2;
+}
+
+// Giá trị thập phân được biểu diễn bằng chuỗi base-10 để tránh sai số
+// floating-point.
+message Quantity {
+  string decimal_value = 1;
+  string unit = 2;
+}
+
+message DateRange {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+}
+
+message AuditInfo {
+  string created_by = 1;
+  google.protobuf.Timestamp created_at = 2;
+  string updated_by = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message PingRequest {
+  RequestContext context = 1;
+}
+
+message PingResponse {
+  string service = 1;
+  string status = 2;
+  string version = 3;
+}

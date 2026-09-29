@@ -1,6 +1,6 @@
 package com.htv.smartfarm.identity.api;
 
-import com.htv.smartfarm.identity.auth.AuthService;
+import com.htv.smartfarm.identity.oauth2.AuthService;
 import com.htv.smartfarm.identity.user.UserRepository;
 
 import java.util.*;

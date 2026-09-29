@@ -1,4 +1,4 @@
-package com.htv.smartfarm.identity.auth;
+package com.htv.smartfarm.identity.oauth2;
 
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.user.UserRepository;
