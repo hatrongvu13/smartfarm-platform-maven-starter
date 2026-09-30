@@ -1,11 +1,21 @@
 server:
   port: 8092
   ssl:
-    enabled: false
-    certificate: classpath:.local/identity-tls.crt
-    certificate-private-key: classpath:.local/identity-tls.key
+    enabled: true
+    certificate: ${IDENTITY_TLS_CERTIFICATE:classpath:.local/identity-tls.crt}
+    certificate-private-key: ${IDENTITY_TLS_PRIVATE_KEY:classpath:.local/identity-tls.key}
 
 smartfarm:
+  security:
+    jwt:
+      issuer: ${IDENTITY_ISSUER:https://localhost:8092}
+      jwk-set-uri: ${IDENTITY_JWK_SET_URI:https://localhost:8092/.well-known/jwks.json}
+      audiences:
+        - smartfarm-gateway
+        - smartfarm-identity
+      allow-local-http: false
+
   identity:
+    issuer: ${IDENTITY_ISSUER:https://localhost:8092}
     private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
     public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}

@@ -1,4 +1,7 @@
 package com.htv.smartfarm.identity.administration.application.model;
 
-public class RoleTypeData {
+public enum RoleTypeData {
+    TENANT,
+    SYSTEM,
+    PLATFORM
 }

@@ -1,4 +1,9 @@
-package com.htv.smartfarm.identity.grpc;
+package com.htv.smartfarm.identity.authorization.application.model;
 
-public class PermissionData {
+public record PermissionData(
+        String code,
+        String resourceType,
+        String action,
+        String description
+) {
 }

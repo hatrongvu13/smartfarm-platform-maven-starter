@@ -10,19 +10,19 @@ import org.springframework.stereotype.Component;
 public class GrpcRequestSecurity {
 
     public static final String PRINCIPAL_READ =
-            "SCOPE_identity.principal.read";
+            IdentityGrpcAuthorities.PRINCIPAL_READ;
 
     public static final String PRINCIPAL_UPDATE =
-            "SCOPE_identity.principal.update";
+            IdentityGrpcAuthorities.PRINCIPAL_UPDATE;
 
     public static final String PERMISSION_CHECK =
-            "SCOPE_identity.permission.check";
+            IdentityGrpcAuthorities.PERMISSION_CHECK;
 
     public static final String PRINCIPAL_IMPERSONATE =
-            "SCOPE_identity.principal.impersonate";
+            IdentityGrpcAuthorities.PRINCIPAL_IMPERSONATE;
 
     public static final String CROSS_TENANT =
-            "SCOPE_identity.tenant.cross";
+            IdentityGrpcAuthorities.CROSS_TENANT;
 
     private final GrpcCallerProvider callerProvider;
 
@@ -285,6 +285,86 @@ public class GrpcRequestSecurity {
             GrpcCaller caller,
             String tenantId,
             String subjectId
+    ) {
+    }
+
+    public SecuredAdminRequest authorizeTenantAdministration(
+            RequestContext requestContext,
+            String requiredAuthority
+    ) {
+        if (requestContext == null) {
+            throw Status.INVALID_ARGUMENT
+                    .withDescription("request context is required")
+                    .asRuntimeException();
+        }
+
+        GrpcCaller caller = callerProvider.currentCaller();
+
+        requireAuthority(
+                caller,
+                requiredAuthority
+        );
+
+        String tenantId = resolveTenant(
+                caller,
+                requestContext
+        );
+
+        validateContextActor(
+                caller,
+                requestContext
+        );
+
+        validateCorrelation(
+                caller,
+                requestContext
+        );
+
+        return new SecuredAdminRequest(
+                caller,
+                tenantId,
+                caller.subjectId()
+        );
+    }
+
+    public SecuredPlatformRequest authorizePlatformAdministration(
+            RequestContext requestContext,
+            String requiredAuthority
+    ) {
+        if (requestContext == null) {
+            throw Status.INVALID_ARGUMENT
+                    .withDescription("request context is required")
+                    .asRuntimeException();
+        }
+
+        GrpcCaller caller = callerProvider.currentCaller();
+
+        requireAuthority(
+                caller,
+                requiredAuthority
+        );
+
+        validateCorrelation(
+                caller,
+                requestContext
+        );
+
+        return new SecuredPlatformRequest(
+                caller,
+                caller.subjectId()
+        );
+    }
+
+    public record SecuredAdminRequest(
+            GrpcCaller caller,
+            String tenantId,
+            String actorId
+    ) {
+    }
+
+    public record SecuredPlatformRequest(
+            GrpcCaller caller,
+            String actorId
     ) {
     }
 }

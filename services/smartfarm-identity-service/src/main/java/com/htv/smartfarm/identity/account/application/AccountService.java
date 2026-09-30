@@ -6,13 +6,14 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 
+import com.htv.smartfarm.common.exception.ConflictException;
+import com.htv.smartfarm.common.exception.NotFoundException;
+import com.htv.smartfarm.common.exception.ValidationException;
 import com.htv.smartfarm.identity.account.application.command.CreateAccountCommand;
 import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.domain.UserProfileEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
 import com.htv.smartfarm.identity.account.repository.UserProfileRepository;
-import com.htv.smartfarm.identity.shared.exception.ConflictException;
-import com.htv.smartfarm.identity.shared.exception.EntityNotFoundException;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,8 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
 
     private static final int DEFAULT_LOCK_THRESHOLD = 5;
-    private static final Duration DEFAULT_LOCK_DURATION =
-            Duration.ofMinutes(15);
+    private static final Duration DEFAULT_LOCK_DURATION = Duration.ofMinutes(15);
+    private static final int MINIMUM_PASSWORD_LENGTH = 12;
+    private static final int MAXIMUM_PASSWORD_LENGTH = 128;
+    private static final String DEFAULT_LOCALE = "vi-VN";
+    private static final String DEFAULT_TIME_ZONE = "Asia/Ho_Chi_Minh";
 
     private final UserAccountRepository userAccountRepository;
     private final UserProfileRepository userProfileRepository;
@@ -46,34 +50,39 @@ public class AccountService {
     public String createAccount(CreateAccountCommand command) {
         validateCreateCommand(command);
 
-        String normalizedEmail = normalizeEmail(command.email());
+        String email = command.email().trim();
+        String normalizedEmail = normalizeEmail(email);
 
         if (userAccountRepository.existsByNormalizedEmail(normalizedEmail)) {
             throw new ConflictException(
+                    "EMAIL_ALREADY_ASSIGNED",
                     "Email is already assigned to another account"
             );
         }
 
         String userId = UUID.randomUUID().toString();
+        String displayName = normalizeDisplayName(command.displayName());
+        String locale = defaultIfBlank(command.locale(), DEFAULT_LOCALE);
+        String timeZone = defaultIfBlank(command.timeZone(), DEFAULT_TIME_ZONE);
 
         UserAccountEntity account = new UserAccountEntity(
                 userId,
-                command.email().trim(),
+                email,
                 passwordEncoder.encode(command.rawPassword())
         );
 
         UserProfileEntity profile = new UserProfileEntity(
                 account,
-                normalizeDisplayName(command.displayName()),
-                defaultIfBlank(command.locale(), "vi-VN"),
-                defaultIfBlank(command.timeZone(), "Asia/Ho_Chi_Minh")
+                displayName,
+                locale,
+                timeZone
         );
 
         profile.update(
-                normalizeDisplayName(command.displayName()),
+                displayName,
                 normalizeNullable(command.phoneNumber()),
-                defaultIfBlank(command.locale(), "vi-VN"),
-                defaultIfBlank(command.timeZone(), "Asia/Ho_Chi_Minh")
+                locale,
+                timeZone
         );
 
         userAccountRepository.save(account);
@@ -88,21 +97,18 @@ public class AccountService {
             String currentRawPassword,
             String newRawPassword
     ) {
+        requireText(userId, "userId");
         requireText(currentRawPassword, "currentRawPassword");
         validatePassword(newRawPassword);
 
-        UserAccountEntity account = userAccountRepository
-                .findByIdForUpdate(userId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "UserAccount",
-                        userId
-                ));
+        UserAccountEntity account = getAccountForUpdate(userId);
 
         if (!passwordEncoder.matches(
                 currentRawPassword,
                 account.getPasswordHash()
         )) {
-            throw new IllegalArgumentException(
+            throw new ValidationException(
+                    "CURRENT_PASSWORD_INVALID",
                     "Current password is invalid"
             );
         }
@@ -112,6 +118,7 @@ public class AccountService {
                 account.getPasswordHash()
         )) {
             throw new ConflictException(
+                    "PASSWORD_REUSE_NOT_ALLOWED",
                     "New password must differ from current password"
             );
         }
@@ -126,26 +133,19 @@ public class AccountService {
             String userId,
             String newRawPassword
     ) {
+        requireText(userId, "userId");
         validatePassword(newRawPassword);
 
-        UserAccountEntity account = userAccountRepository
-                .findByIdForUpdate(userId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "UserAccount",
-                        userId
-                ));
-
-        account.changePasswordHash(
-                passwordEncoder.encode(newRawPassword)
-        );
+        UserAccountEntity account = getAccountForUpdate(userId);
+        account.changePasswordHash(passwordEncoder.encode(newRawPassword));
     }
 
     @Transactional
-    public void recordLoginFailure(String normalizedEmail) {
+    public void recordLoginFailure(String email) {
+        String normalizedEmail = normalizeEmail(email);
+
         userAccountRepository
-                .findByNormalizedEmailForUpdate(
-                        normalizeEmail(normalizedEmail)
-                )
+                .findByNormalizedEmailForUpdate(normalizedEmail)
                 .ifPresent(account -> {
                     Instant lockedUntil = clock.instant()
                             .plus(DEFAULT_LOCK_DURATION);
@@ -159,14 +159,7 @@ public class AccountService {
 
     @Transactional
     public void recordLoginSuccess(String userId) {
-        UserAccountEntity account = userAccountRepository
-                .findByIdForUpdate(userId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "UserAccount",
-                        userId
-                ));
-
-        account.resetLoginFailure();
+        getAccountForUpdate(userId).resetLoginFailure();
     }
 
     @Transactional
@@ -186,9 +179,11 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public boolean isLoginAllowed(String userId) {
+        requireText(userId, "userId");
+
         UserAccountEntity account = userAccountRepository
                 .findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "UserAccount",
                         userId
                 ));
@@ -197,19 +192,20 @@ public class AccountService {
     }
 
     private UserAccountEntity getAccountForUpdate(String userId) {
+        requireText(userId, "userId");
+
         return userAccountRepository
                 .findByIdForUpdate(userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "UserAccount",
                         userId
                 ));
     }
 
-    private void validateCreateCommand(
-            CreateAccountCommand command
-    ) {
+    private void validateCreateCommand(CreateAccountCommand command) {
         if (command == null) {
-            throw new IllegalArgumentException(
+            throw new ValidationException(
+                    "CREATE_ACCOUNT_COMMAND_REQUIRED",
                     "Create account command must not be null"
             );
         }
@@ -222,9 +218,21 @@ public class AccountService {
     private void validatePassword(String password) {
         requireText(password, "password");
 
-        if (password.length() < 12) {
-            throw new IllegalArgumentException(
-                    "Password must contain at least 12 characters"
+        if (password.length() < MINIMUM_PASSWORD_LENGTH) {
+            throw new ValidationException(
+                    "PASSWORD_TOO_SHORT",
+                    "Password must contain at least "
+                            + MINIMUM_PASSWORD_LENGTH
+                            + " characters"
+            );
+        }
+
+        if (password.length() > MAXIMUM_PASSWORD_LENGTH) {
+            throw new ValidationException(
+                    "PASSWORD_TOO_LONG",
+                    "Password must not exceed "
+                            + MAXIMUM_PASSWORD_LENGTH
+                            + " characters"
             );
         }
     }
@@ -245,21 +253,16 @@ public class AccountService {
                 : value.trim();
     }
 
-    private String defaultIfBlank(
-            String value,
-            String defaultValue
-    ) {
+    private String defaultIfBlank(String value, String defaultValue) {
         return value == null || value.isBlank()
                 ? defaultValue
                 : value.trim();
     }
 
-    private String requireText(
-            String value,
-            String field
-    ) {
+    private String requireText(String value, String field) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(
+            throw new ValidationException(
+                    "REQUIRED_FIELD_MISSING",
                     field + " must not be blank"
             );
         }

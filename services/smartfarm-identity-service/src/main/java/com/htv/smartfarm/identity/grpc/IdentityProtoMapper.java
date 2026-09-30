@@ -55,6 +55,12 @@ public class IdentityProtoMapper {
             String subjectId,
             UpdatePrincipalProfileRequest request
     ) {
+        if (!request.hasExpectedVersion()) {
+            throw new IllegalArgumentException(
+                    "expected_version is required"
+            );
+        }
+
         PrincipalProfile profile = request.getProfile();
 
         return new UpdateProfileCommand(
@@ -147,6 +153,7 @@ public class IdentityProtoMapper {
             PrincipalData source
     ) {
         return TenantMembership.newBuilder()
+                .setMembershipId(source.membership().membershipId())
                 .setTenantId(
                         source.membership().tenantId()
                 )

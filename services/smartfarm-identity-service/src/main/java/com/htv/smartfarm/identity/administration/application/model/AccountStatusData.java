@@ -1,4 +1,7 @@
 package com.htv.smartfarm.identity.administration.application.model;
 
-public class AccountStatusData {
+public enum AccountStatusData {
+    ACTIVE,
+    LOCKED,
+    DISABLED
 }

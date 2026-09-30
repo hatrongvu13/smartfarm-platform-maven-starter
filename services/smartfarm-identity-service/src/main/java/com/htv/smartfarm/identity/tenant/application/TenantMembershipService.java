@@ -3,12 +3,12 @@ package com.htv.smartfarm.identity.tenant.application;
 import java.util.List;
 import java.util.UUID;
 
+import com.htv.smartfarm.common.exception.ConflictException;
+import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
 import com.htv.smartfarm.identity.authorization.repository.MembershipFarmRepository;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
-import com.htv.smartfarm.identity.shared.exception.ConflictException;
-import com.htv.smartfarm.identity.shared.exception.EntityNotFoundException;
 import com.htv.smartfarm.identity.tenant.application.model.TenantMembershipData;
 import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
@@ -46,6 +46,9 @@ public class TenantMembershipService {
             String tenantId,
             String userId
     ) {
+        requireText(tenantId, "tenantId");
+        requireText(userId, "userId");
+
         TenantEntity tenant = getEnabledTenant(tenantId);
         UserAccountEntity user = getUser(userId);
 
@@ -54,6 +57,7 @@ public class TenantMembershipService {
                 userId
         )) {
             throw new ConflictException(
+                    "TENANT_MEMBERSHIP_ALREADY_EXISTS",
                     "User is already a member of this tenant"
             );
         }
@@ -107,18 +111,44 @@ public class TenantMembershipService {
             String tenantId,
             String userId
     ) {
+        requireText(tenantId, "tenantId");
+        requireText(userId, "userId");
+
         TenantMembershipEntity membership = membershipRepository
                 .findByTenantIdAndUserId(tenantId, userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "TenantMembership",
                         tenantId + ":" + userId
                 ));
 
+        return toData(membership);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TenantMembershipData> findUserMemberships(
+            String userId
+    ) {
+        requireText(userId, "userId");
+
+        return membershipRepository
+                .findAllByUserIdOrderByTenantNameAsc(userId)
+                .stream()
+                .map(this::toData)
+                .toList();
+    }
+
+    private TenantMembershipData toData(
+            TenantMembershipEntity membership
+    ) {
         List<String> roles = membershipRoleRepository
-                .findRoleCodesByMembershipId(membership.getId());
+                .findRoleCodesByMembershipId(
+                        membership.getId()
+                );
 
         List<String> farms = membershipFarmRepository
-                .findFarmIdsByMembershipId(membership.getId());
+                .findFarmIdsByMembershipId(
+                        membership.getId()
+                );
 
         return new TenantMembershipData(
                 membership.getId(),
@@ -129,34 +159,16 @@ public class TenantMembershipService {
         );
     }
 
-    @Transactional(readOnly = true)
-    public List<TenantMembershipData> findUserMemberships(
-            String userId
-    ) {
-        return membershipRepository
-                .findAllByUserIdOrderByTenantNameAsc(userId)
-                .stream()
-                .map(membership -> new TenantMembershipData(
-                        membership.getId(),
-                        membership.getTenant().getId(),
-                        membership.getStatus(),
-                        membershipRoleRepository.findRoleCodesByMembershipId(
-                                membership.getId()
-                        ),
-                        membershipFarmRepository.findFarmIdsByMembershipId(
-                                membership.getId()
-                        )
-                ))
-                .toList();
-    }
-
     private TenantMembershipEntity getMembershipForUpdate(
             String tenantId,
             String userId
     ) {
+        requireText(tenantId, "tenantId");
+        requireText(userId, "userId");
+
         return membershipRepository
                 .findByTenantAndUserForUpdate(tenantId, userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "TenantMembership",
                         tenantId + ":" + userId
                 ));
@@ -165,13 +177,14 @@ public class TenantMembershipService {
     private TenantEntity getEnabledTenant(String tenantId) {
         TenantEntity tenant = tenantRepository
                 .findById(tenantId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "Tenant",
                         tenantId
                 ));
 
         if (!tenant.isEnabled()) {
             throw new ConflictException(
+                    "TENANT_DISABLED",
                     "Tenant is disabled"
             );
         }
@@ -182,9 +195,20 @@ public class TenantMembershipService {
     private UserAccountEntity getUser(String userId) {
         return userAccountRepository
                 .findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "UserAccount",
                         userId
                 ));
+    }
+
+    private void requireText(
+            String value,
+            String field
+    ) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(
+                    field + " must not be blank"
+            );
+        }
     }
 }

@@ -1,18 +1,20 @@
 package com.htv.smartfarm.identity.authorization.application;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
+import com.htv.smartfarm.common.exception.ConflictException;
+import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.identity.authorization.domain.MembershipRoleEntity;
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
 import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
 import com.htv.smartfarm.identity.authorization.domain.RolePermissionEntity;
+import com.htv.smartfarm.identity.authorization.domain.RolePermissionId;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
 import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
-import com.htv.smartfarm.identity.shared.exception.ConflictException;
-import com.htv.smartfarm.identity.shared.exception.EntityNotFoundException;
 import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
@@ -24,6 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RoleManagementService {
+
+    private static final String PLATFORM_ADMIN = "PLATFORM_ADMIN";
+    private static final String SUPERADMIN = "SUPERADMIN";
 
     private final TenantRepository tenantRepository;
     private final TenantMembershipRepository membershipRepository;
@@ -55,21 +60,25 @@ public class RoleManagementService {
             String name,
             boolean systemRole
     ) {
+        requireText(tenantId, "tenantId");
         requireText(code, "code");
         requireText(name, "name");
 
+        String normalizedCode = normalizeCode(code);
+
         if (roleRepository.existsByTenantIdAndCode(
                 tenantId,
-                code.trim()
+                normalizedCode
         )) {
             throw new ConflictException(
+                    "ROLE_CODE_ALREADY_EXISTS",
                     "Role code already exists in tenant"
             );
         }
 
         TenantEntity tenant = tenantRepository
                 .findById(tenantId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "Tenant",
                         tenantId
                 ));
@@ -77,7 +86,7 @@ public class RoleManagementService {
         RoleEntity role = new RoleEntity(
                 UUID.randomUUID().toString(),
                 tenant,
-                code.trim().toUpperCase(),
+                normalizedCode,
                 name.trim(),
                 systemRole
         );
@@ -97,25 +106,31 @@ public class RoleManagementService {
         requireText(resourceType, "resourceType");
         requireText(action, "action");
 
-        if (permissionRepository.existsById(code)) {
+        String normalizedCode = normalizeCode(code);
+        String normalizedResourceType = normalizeCode(resourceType);
+        String normalizedAction = normalizeCode(action);
+
+        if (permissionRepository.existsById(normalizedCode)) {
             throw new ConflictException(
+                    "PERMISSION_CODE_ALREADY_EXISTS",
                     "Permission code already exists"
             );
         }
 
         if (permissionRepository.existsByResourceTypeAndAction(
-                resourceType,
-                action
+                normalizedResourceType,
+                normalizedAction
         )) {
             throw new ConflictException(
+                    "PERMISSION_ALREADY_EXISTS",
                     "Permission already exists for resource and action"
             );
         }
 
         PermissionEntity permission = new PermissionEntity(
-                code.trim().toUpperCase(),
-                resourceType.trim().toUpperCase(),
-                action.trim().toUpperCase(),
+                normalizedCode,
+                normalizedResourceType,
+                normalizedAction,
                 normalizeNullable(description)
         );
 
@@ -128,20 +143,22 @@ public class RoleManagementService {
             String roleCode,
             String permissionCode
     ) {
+        requireText(permissionCode, "permissionCode");
+
         RoleEntity role = getRole(tenantId, roleCode);
+        String normalizedPermissionCode = normalizeCode(permissionCode);
 
         PermissionEntity permission = permissionRepository
-                .findById(permissionCode)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .findById(normalizedPermissionCode)
+                .orElseThrow(() -> NotFoundException.entity(
                         "Permission",
-                        permissionCode
+                        normalizedPermissionCode
                 ));
 
-        if (rolePermissionRepository
-                .existsByRoleIdAndPermissionCode(
-                        role.getId(),
-                        permission.getCode()
-                )) {
+        if (rolePermissionRepository.existsByRoleIdAndPermissionCode(
+                role.getId(),
+                permission.getCode()
+        )) {
             return;
         }
 
@@ -156,15 +173,21 @@ public class RoleManagementService {
             String roleCode,
             String permissionCode
     ) {
-        RoleEntity role = getRole(tenantId, roleCode);
+        requireText(permissionCode, "permissionCode");
 
-        rolePermissionRepository.deleteById(
-                new com.htv.smartfarm.identity.authorization.domain
-                        .RolePermissionId(
-                        role.getId(),
-                        permissionCode
-                )
+        RoleEntity role = getRole(tenantId, roleCode);
+        String normalizedPermissionCode = normalizeCode(permissionCode);
+
+        RolePermissionId id = new RolePermissionId(
+                role.getId(),
+                normalizedPermissionCode
         );
+
+        if (!rolePermissionRepository.existsById(id)) {
+            return;
+        }
+
+        rolePermissionRepository.deleteById(id);
     }
 
     @Transactional
@@ -174,28 +197,34 @@ public class RoleManagementService {
             String roleCode,
             String grantedBy
     ) {
+        requireText(tenantId, "tenantId");
+        requireText(userId, "userId");
+        requireText(roleCode, "roleCode");
         requireText(grantedBy, "grantedBy");
+
+        String normalizedRoleCode = normalizeCode(roleCode);
+        rejectPlatformRoleDelegation(normalizedRoleCode);
 
         TenantMembershipEntity membership = membershipRepository
                 .findByTenantAndUserForUpdate(tenantId, userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "TenantMembership",
                         tenantId + ":" + userId
                 ));
 
         if (membership.getStatus() != MembershipStatus.ACTIVE) {
             throw new ConflictException(
+                    "MEMBERSHIP_NOT_ACTIVE",
                     "Role can only be assigned to an active membership"
             );
         }
 
-        RoleEntity role = getRole(tenantId, roleCode);
+        RoleEntity role = getRole(tenantId, normalizedRoleCode);
 
-        if (membershipRoleRepository
-                .existsByMembershipIdAndRoleId(
-                        membership.getId(),
-                        role.getId()
-                )) {
+        if (membershipRoleRepository.existsByMembershipIdAndRoleId(
+                membership.getId(),
+                role.getId()
+        )) {
             return;
         }
 
@@ -203,7 +232,7 @@ public class RoleManagementService {
                 new MembershipRoleEntity(
                         membership,
                         role,
-                        grantedBy
+                        grantedBy.trim()
                 )
         );
     }
@@ -214,14 +243,21 @@ public class RoleManagementService {
             String userId,
             String roleCode
     ) {
+        requireText(tenantId, "tenantId");
+        requireText(userId, "userId");
+        requireText(roleCode, "roleCode");
+
+        String normalizedRoleCode = normalizeCode(roleCode);
+        rejectPlatformRoleDelegation(normalizedRoleCode);
+
         TenantMembershipEntity membership = membershipRepository
                 .findByTenantAndUserForUpdate(tenantId, userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "TenantMembership",
                         tenantId + ":" + userId
                 ));
 
-        RoleEntity role = getRole(tenantId, roleCode);
+        RoleEntity role = getRole(tenantId, normalizedRoleCode);
 
         membershipRoleRepository.deleteByMembershipIdAndRoleId(
                 membership.getId(),
@@ -237,22 +273,45 @@ public class RoleManagementService {
         RoleEntity role = getRole(tenantId, roleCode);
 
         return rolePermissionRepository
-                .findPermissionCodesByRoleIds(List.of(role.getId()));
+                .findPermissionCodesByRoleIds(
+                        List.of(role.getId())
+                );
     }
 
     private RoleEntity getRole(
             String tenantId,
             String roleCode
     ) {
+        requireText(tenantId, "tenantId");
+        requireText(roleCode, "roleCode");
+
+        String normalizedRoleCode = normalizeCode(roleCode);
+
         return roleRepository
                 .findByTenantIdAndCode(
                         tenantId,
-                        roleCode.trim().toUpperCase()
+                        normalizedRoleCode
                 )
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "Role",
-                        tenantId + ":" + roleCode
+                        tenantId + ":" + normalizedRoleCode
                 ));
+    }
+
+    private void rejectPlatformRoleDelegation(
+            String normalizedRoleCode
+    ) {
+        if (PLATFORM_ADMIN.equals(normalizedRoleCode)
+                || SUPERADMIN.equals(normalizedRoleCode)) {
+            throw new ConflictException(
+                    "PLATFORM_ROLE_DELEGATION_NOT_ALLOWED",
+                    "Platform roles cannot be delegated through tenant administration"
+            );
+        }
+    }
+
+    private String normalizeCode(String value) {
+        return value.trim().toUpperCase(Locale.ROOT);
     }
 
     private String normalizeNullable(String value) {

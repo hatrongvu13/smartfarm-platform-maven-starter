@@ -1,38 +1,42 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/smartfarm
-    username: postgres
-    password: root
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://192.168.200.60:5432/smartfarm}
+    username: ${IDENTITY_DB_USER:postgres}
+    password: ${IDENTITY_DB_PASSWORD:root}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      # Flyway owns the schema now; Hibernate only validates entities against it.
       ddl-auto: update
   flyway:
     enabled: true
-    # DB may already contain tables from the earlier ddl-auto phase; baseline so V1 applies cleanly.
     baseline-on-migrate: true
     baseline-version: 0
 
-# Identity is an INTERNAL service: bind to loopback so external clients cannot reach
-# it directly. All external auth traffic must enter through the gateway (port 8080).
 server:
-  address: 127.0.0.1
+  address: ${IDENTITY_BIND_ADDRESS:127.0.0.1}
 
 smartfarm:
+  security:
+    jwt:
+      issuer: ${IDENTITY_ISSUER:http://localhost:8092}
+      jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8092/.well-known/jwks.json}
+      audiences:
+        - smartfarm-gateway
+        - smartfarm-identity
+      allow-local-http: true
+
   identity:
-    issuer: http://localhost:8092
-    private-key-path: classpath:.local/identity-private.pem
-    public-key-path: classpath:.local/identity-public.pem
-    # Machine-to-machine (service) tokens — client-credentials flow (Hướng A).
-    # DEV secret only; in prod inject a real secret hash via env and keep this out of VCS.
+    issuer: ${IDENTITY_ISSUER:http://localhost:8092}
+    private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
+    public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}
+    bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:replace-with-a-long-random-password}
     service-token:
-      ttl: 5m
+      ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
       clients:
         gateway:
-          # bcrypt("dev-gateway-service-secret"); dev-only, override in prod.
-          secret: "$2a$12$YGIvX6qteWbknC9owzIGueP9fk7sgtyuOo9phPNEChG2TQ3UUuv1q"
+          secret: ${IDENTITY_GATEWAY_CLIENT_SECRET_HASH:$2a$12$YGIvX6qteWbknC9owzIGueP9fk7sgtyuOo9phPNEChG2TQ3UUuv1q}
           audiences:
+            - smartfarm-identity
             - smartfarm-livestock
             - smartfarm-health
             - smartfarm-inventory
@@ -40,41 +44,47 @@ smartfarm:
             - smartfarm-reporting
             - smartfarm-finance
           scopes-by-audience:
+            smartfarm-identity:
+              - identity:principal:read
+              - identity:principal:update
+              - identity:permission:check
+              - identity:user:read
+              - identity:user:create
+              - identity:user:disable
+              - identity:role:read
+              - identity:role:assign
+              - identity:permission:read
             smartfarm-livestock:
-              - "tasks:write"
-              - "farm:read"
+              - tasks:write
+              - farm:read
             smartfarm-health:
-              - "farm:read"
+              - farm:read
             smartfarm-inventory:
-              - "inventory:write"
-              - "inventory:read"
+              - inventory:write
+              - inventory:read
             smartfarm-order:
-              - "orders:write"
-              - "orders:read"
+              - orders:write
+              - orders:read
             smartfarm-reporting:
-              - "report:write"
-              - "report:read"
+              - report:write
+              - report:read
             smartfarm-finance:
-              - "finance:read"
+              - finance:read
         order:
-          # bcrypt("dev-order-service-secret"); dev-only, override in prod.
-          # The saga owner calls inventory (reserve/commit/release) and finance (record expense).
-          secret: "$2a$12$Ya54/cTObYqqsalBT5HpkOszgwjCKbFeGwxxqVqPwuVkkqyxXpYSe"
+          secret: ${IDENTITY_ORDER_CLIENT_SECRET_HASH:$2a$12$Ya54/cTObYqqsalBT5HpkOszgwjCKbFeGwxxqVqPwuVkkqyxXpYSe}
           audiences:
             - smartfarm-inventory
             - smartfarm-finance
           scopes-by-audience:
             smartfarm-inventory:
-              - "inventory:write"
-              - "inventory:read"
+              - inventory:write
+              - inventory:read
             smartfarm-finance:
-              - "finance:write"
+              - finance:write
         reporting:
-          # bcrypt("dev-reporting-service-secret"); dev-only, override in prod.
-          # Reporting pulls read-only data from source services to render reports.
-          secret: "$2a$12$jwPKV0PPruUEH24rIja3hu4yPatIvCt2l3y6Z48afeP5.3Zhkis1m"
+          secret: ${IDENTITY_REPORTING_CLIENT_SECRET_HASH:$2a$12$jwPKV0PPruUEH24rIja3hu4yPatIvCt2l3y6Z48afeP5.3Zhkis1m}
           audiences:
             - smartfarm-livestock
           scopes-by-audience:
             smartfarm-livestock:
-              - "farm:read"
+              - farm:read

@@ -1,0 +1,11 @@
+Before deployment:
+1. Rename V900 to the next unused Flyway version.
+2. Ensure the multi-tenant schema migrations for sf_user_account, sf_user_profile,
+   sf_tenant, sf_tenant_membership, sf_permission, sf_membership_role and
+   sf_membership_farm have already run.
+3. Do not drop legacy sf_role or sf_role_permission blindly because the new model
+   reuses those table names with a different key structure.
+4. Create tenant roles and permission catalog through reviewed SQL or the platform
+   administration gRPC API.
+5. Create the first administrator through a controlled one-time operation. The
+   legacy automatic bootstrap runner is intentionally removed.

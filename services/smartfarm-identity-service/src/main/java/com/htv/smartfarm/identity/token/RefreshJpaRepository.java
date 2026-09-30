@@ -7,16 +7,27 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-/** Spring Data JPA access to {@link RefreshEntity}. */
-public interface RefreshJpaRepository extends JpaRepository<RefreshEntity, String> {
+public interface RefreshJpaRepository
+        extends JpaRepository<RefreshEntity, String> {
 
     Optional<RefreshEntity> findByTokenHash(String tokenHash);
 
-    @Modifying
-    @Query("update RefreshEntity r set r.revoked = true where r.familyId = :family")
-    void revokeFamily(@Param("family") String family);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update RefreshEntity r set r.revoked = true where r.id = :id and r.revoked = false")
+    int consumeIfActive(@Param("id") String id);
 
-    @Modifying
-    @Query("update RefreshEntity r set r.revoked = true where r.userId = :user")
-    void revokeUser(@Param("user") String user);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update RefreshEntity r set r.revoked = true where r.familyId = :family")
+    int revokeFamily(@Param("family") String family);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update RefreshEntity r set r.revoked = true where r.userId = :userId")
+    int revokeUser(@Param("userId") String userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update RefreshEntity r set r.revoked = true where r.userId = :userId and r.tenantId = :tenantId")
+    int revokeUserInTenant(
+            @Param("userId") String userId,
+            @Param("tenantId") String tenantId
+    );
 }

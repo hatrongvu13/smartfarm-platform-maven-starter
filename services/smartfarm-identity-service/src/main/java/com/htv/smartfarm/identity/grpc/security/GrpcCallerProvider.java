@@ -1,10 +1,7 @@
 package com.htv.smartfarm.identity.grpc.security;
 
+import com.htv.smartfarm.security.core.SecurityIdentity;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
-
-import io.grpc.Status;
-
-import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
@@ -12,43 +9,15 @@ import org.springframework.stereotype.Component;
 public class GrpcCallerProvider {
 
     public GrpcCaller currentCaller() {
-        String subjectId =
-                GrpcSecurityContext.SUBJECT.get();
-
-        String tenantId =
-                GrpcSecurityContext.TENANT.get();
-
-        Set<String> authorities =
-                GrpcSecurityContext.authorities();
-
-        String correlationId =
-                GrpcSecurityContext.CORRELATION_ID.get();
-
-        if (!hasText(subjectId)) {
-            throw Status.UNAUTHENTICATED
-                    .withDescription(
-                            "Authenticated gRPC subject is missing"
-                    )
-                    .asRuntimeException();
-        }
-
-        if (!hasText(tenantId)) {
-            throw Status.UNAUTHENTICATED
-                    .withDescription(
-                            "Authenticated gRPC tenant is missing"
-                    )
-                    .asRuntimeException();
-        }
-
+        SecurityIdentity identity = GrpcSecurityContext.requireIdentity();
         return new GrpcCaller(
-                subjectId,
-                tenantId,
-                authorities,
-                correlationId
+                identity.subject(),
+                identity.clientId(),
+                identity.tenantId(),
+                identity.authorities(),
+                identity.audiences(),
+                identity.tokenType(),
+                GrpcSecurityContext.correlationId()
         );
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 }

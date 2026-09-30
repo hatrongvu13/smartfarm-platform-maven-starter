@@ -2,9 +2,11 @@ package com.htv.smartfarm.identity.authorization.application;
 
 import java.util.List;
 
+import com.htv.smartfarm.common.exception.ConflictException;
+import com.htv.smartfarm.common.exception.NotFoundException;
+import com.htv.smartfarm.common.exception.ValidationException;
 import com.htv.smartfarm.identity.authorization.domain.MembershipFarmEntity;
 import com.htv.smartfarm.identity.authorization.repository.MembershipFarmRepository;
-import com.htv.smartfarm.identity.shared.exception.EntityNotFoundException;
 import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
@@ -35,32 +37,27 @@ public class FarmScopeService {
             String userId,
             String farmId
     ) {
+        validateIdentifiers(tenantId, userId, farmId);
+
         TenantMembershipEntity membership =
                 getActiveMembership(tenantId, userId);
 
-        if (!farmDirectoryPort.existsInTenant(
-                tenantId,
-                farmId
-        )) {
-            throw new EntityNotFoundException(
+        if (!farmDirectoryPort.existsInTenant(tenantId, farmId)) {
+            throw NotFoundException.entity(
                     "Farm",
                     tenantId + ":" + farmId
             );
         }
 
-        if (membershipFarmRepository
-                .existsByMembershipIdAndFarmId(
-                        membership.getId(),
-                        farmId
-                )) {
+        if (membershipFarmRepository.existsByMembershipIdAndFarmId(
+                membership.getId(),
+                farmId
+        )) {
             return;
         }
 
         membershipFarmRepository.save(
-                new MembershipFarmEntity(
-                        membership,
-                        farmId
-                )
+                new MembershipFarmEntity(membership, farmId)
         );
     }
 
@@ -70,14 +67,15 @@ public class FarmScopeService {
             String userId,
             String farmId
     ) {
+        validateIdentifiers(tenantId, userId, farmId);
+
         TenantMembershipEntity membership =
                 getMembership(tenantId, userId);
 
-        membershipFarmRepository
-                .deleteByMembershipIdAndFarmId(
-                        membership.getId(),
-                        farmId
-                );
+        membershipFarmRepository.deleteByMembershipIdAndFarmId(
+                membership.getId(),
+                farmId
+        );
     }
 
     @Transactional(readOnly = true)
@@ -85,6 +83,9 @@ public class FarmScopeService {
             String tenantId,
             String userId
     ) {
+        requireText(tenantId, "tenantId");
+        requireText(userId, "userId");
+
         TenantMembershipEntity membership =
                 getMembership(tenantId, userId);
 
@@ -100,7 +101,8 @@ public class FarmScopeService {
                 getMembership(tenantId, userId);
 
         if (membership.getStatus() != MembershipStatus.ACTIVE) {
-            throw new IllegalStateException(
+            throw new ConflictException(
+                    "MEMBERSHIP_NOT_ACTIVE",
                     "Membership is not active"
             );
         }
@@ -114,9 +116,28 @@ public class FarmScopeService {
     ) {
         return membershipRepository
                 .findByTenantIdAndUserId(tenantId, userId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> NotFoundException.entity(
                         "TenantMembership",
                         tenantId + ":" + userId
                 ));
+    }
+
+    private void validateIdentifiers(
+            String tenantId,
+            String userId,
+            String farmId
+    ) {
+        requireText(tenantId, "tenantId");
+        requireText(userId, "userId");
+        requireText(farmId, "farmId");
+    }
+
+    private void requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new ValidationException(
+                    "REQUIRED_FIELD_MISSING",
+                    field + " must not be blank"
+            );
+        }
     }
 }

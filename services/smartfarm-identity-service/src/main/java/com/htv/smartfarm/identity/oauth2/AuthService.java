@@ -1,86 +1,167 @@
 package com.htv.smartfarm.identity.oauth2;
 
-import com.htv.smartfarm.identity.config.IdentitySettings;
-import com.htv.smartfarm.identity.user.UserRepository;
-import com.htv.smartfarm.identity.token.*;
-
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Instant;
-import java.util.*;
+import java.util.Base64;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
-import org.springframework.dao.DuplicateKeyException;
+import com.htv.smartfarm.identity.account.application.AccountService;
+import com.htv.smartfarm.identity.account.application.command.CreateAccountCommand;
+import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
+import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
+import com.htv.smartfarm.identity.authorization.domain.MembershipRoleEntity;
+import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
+import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
+import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
+import com.htv.smartfarm.identity.config.IdentitySettings;
+import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
+import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
+import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
+import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
+import com.htv.smartfarm.identity.token.RefreshRepository;
+import com.htv.smartfarm.identity.token.TokenService;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 @Service
 public class AuthService {
-    public record Tokens(String accessToken, String tokenType, long expiresIn, String refreshToken) {
+
+    public record Tokens(
+            String accessToken,
+            String tokenType,
+            long expiresIn,
+            String refreshToken
+    ) {
     }
 
-    private final UserRepository users;
+    private final UserAccountRepository accounts;
+    private final TenantRepository tenants;
+    private final TenantMembershipRepository memberships;
+    private final MembershipRoleRepository membershipRoles;
+    private final RoleRepository roles;
+    private final RolePermissionRepository rolePermissions;
+    private final AccountService accountService;
     private final RefreshRepository refresh;
     private final TokenService tokens;
     private final PasswordEncoder encoder;
     private final IdentitySettings settings;
+    private final Clock clock;
     private final SecureRandom random = new SecureRandom();
     private final String dummyHash;
 
-    public AuthService(UserRepository users, RefreshRepository refresh, TokenService tokens, PasswordEncoder encoder, IdentitySettings settings) {
-        this.users = users;
+    public AuthService(
+            UserAccountRepository accounts,
+            TenantRepository tenants,
+            TenantMembershipRepository memberships,
+            MembershipRoleRepository membershipRoles,
+            RoleRepository roles,
+            RolePermissionRepository rolePermissions,
+            AccountService accountService,
+            RefreshRepository refresh,
+            TokenService tokens,
+            PasswordEncoder encoder,
+            IdentitySettings settings,
+            Clock clock
+    ) {
+        this.accounts = accounts;
+        this.tenants = tenants;
+        this.memberships = memberships;
+        this.membershipRoles = membershipRoles;
+        this.roles = roles;
+        this.rolePermissions = rolePermissions;
+        this.accountService = accountService;
         this.refresh = refresh;
         this.tokens = tokens;
         this.encoder = encoder;
         this.settings = settings;
+        this.clock = clock;
         this.dummyHash = encoder.encode("dummy-password-not-for-login");
     }
 
     public static String email(String input) {
-        if (input == null || !input.matches("(?i)^[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,190}$"))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email");
-        return input.toLowerCase(Locale.ROOT);
+        if (input == null || !input.matches(
+                "(?i)^[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,190}$"
+        )) throw badRequest("Invalid email");
+        return input.trim().toLowerCase(Locale.ROOT);
     }
 
     public static void password(String value) {
-        if (value == null || value.length() < 12 || value.length() > 72)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password length must be 12..72");
+        if (value == null || value.length() < 12 || value.length() > 128) {
+            throw badRequest("Password length must be 12..128");
+        }
     }
 
     @Transactional
-    public String register(String email, String password) {
-        if (!settings.publicRegistration())
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Registration disabled");
-        password(password);
-        try {
-            UserRepository.User user = users.create(settings.registrationTenant(), email(email), encoder.encode(password));
-            users.assignRole(user.id(), "USER");
-            return user.id();
-        } catch (DuplicateKeyException ex) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account already exists");
+    public String register(String rawEmail, String rawPassword) {
+        if (!settings.publicRegistration()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Registration disabled"
+            );
         }
+        password(rawPassword);
+        String normalizedEmail = email(rawEmail);
+        var tenant = tenants.findByCodeAndEnabledTrue(
+                settings.registrationTenant()
+        ).orElseThrow(() -> badRequest("Registration tenant is unavailable"));
+        String userId = accountService.createAccount(new CreateAccountCommand(
+                normalizedEmail,
+                rawPassword,
+                normalizedEmail,
+                null,
+                "vi-VN",
+                "Asia/Ho_Chi_Minh"
+        ));
+        UserAccountEntity account = accounts.findById(userId).orElseThrow();
+        TenantMembershipEntity membership = new TenantMembershipEntity(
+                UUID.randomUUID().toString(), tenant, account
+        );
+        membership.activate();
+        memberships.save(membership);
+        roles.findByTenantIdAndCode(tenant.getId(), "USER")
+                .ifPresent(role -> membershipRoles.save(
+                        new MembershipRoleEntity(membership, role, userId)
+                ));
+        return userId;
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
-    public Tokens login(String tenant, String email, String password) {
-        if (tenant == null || tenant.isBlank() || password == null) throw unauthorized();
-        String normalized = email(email);
-        var found = users.findByEmail(tenant, normalized);
-        String hash = found.map(UserRepository.User::passwordHash).orElse(dummyHash);
-        boolean match = encoder.matches(password, hash);
-        if (found.isEmpty()) throw unauthorized();
-        var user = found.get();
-        long now = Instant.now().toEpochMilli();
-        if (!user.enabled() || (user.lockedUntil() != null && user.lockedUntil() > now)) throw unauthorized();
-        if (!match) {
-            int attempts = user.failedAttempts() + 1;
-            Long until = attempts >= settings.maxFailures() ? now + settings.lockDuration().toMillis() : null;
-            users.failed(user, attempts, until);
+    public Tokens login(String tenantId, String rawEmail, String rawPassword) {
+        if (tenantId == null || tenantId.isBlank() || rawPassword == null) {
             throw unauthorized();
         }
-        users.resetFailures(user.id());
-        return issue(user, UUID.randomUUID().toString());
+        String normalizedEmail = email(rawEmail);
+        UserAccountEntity account = accounts
+                .findByNormalizedEmailForUpdate(normalizedEmail)
+                .orElse(null);
+        String hash = account == null ? dummyHash : account.getPasswordHash();
+        boolean matched = encoder.matches(rawPassword, hash);
+        if (account == null || !matched) {
+            if (account != null) {
+                account.recordLoginFailure(
+                        settings.maxFailures(),
+                        clock.instant().plus(settings.lockDuration())
+                );
+            }
+            throw unauthorized();
+        }
+        if (!account.isLoginAllowed(clock.instant())) throw unauthorized();
+        TenantMembershipEntity membership = memberships
+                .findByTenantAndUserForUpdate(tenantId, account.getId())
+                .orElseThrow(AuthService::unauthorized);
+        if (!membership.getTenant().isEnabled()
+                || membership.getStatus() != MembershipStatus.ACTIVE) {
+            throw unauthorized();
+        }
+        account.resetLoginFailure();
+        return issue(account, membership, UUID.randomUUID().toString());
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
@@ -91,46 +172,88 @@ public class AuthService {
             refresh.revokeFamily(session.familyId());
             throw unauthorized();
         }
-        if (session.expiresAt() <= Instant.now().toEpochMilli()) throw unauthorized();
-        var user = users.findById(session.userId()).orElseThrow(AuthService::unauthorized);
-        if (!user.enabled()) throw unauthorized();
+        if (session.expiresAt() <= clock.instant().toEpochMilli()) {
+            throw unauthorized();
+        }
         if (!refresh.consume(session.id())) {
             refresh.revokeFamily(session.familyId());
             throw unauthorized();
         }
-        return issue(user, session.familyId());
+        UserAccountEntity account = accounts.findByIdForUpdate(session.userId())
+                .orElseThrow(AuthService::unauthorized);
+        if (!account.isLoginAllowed(clock.instant())) throw unauthorized();
+        TenantMembershipEntity membership = memberships
+                .findByTenantAndUserForUpdate(
+                        session.tenantId(), session.userId()
+                )
+                .orElseThrow(AuthService::unauthorized);
+        if (!membership.getTenant().isEnabled()
+                || membership.getStatus() != MembershipStatus.ACTIVE
+                || !settings.gatewayAudience().equals(session.audience())) {
+            throw unauthorized();
+        }
+        return issue(account, membership, session.familyId());
     }
 
     @Transactional
     public void logout(String raw) {
         if (raw == null || raw.isBlank()) return;
-        refresh.find(raw).ifPresent(s -> refresh.revokeFamily(s.familyId()));
+        refresh.find(raw).ifPresent(session ->
+                refresh.revokeFamily(session.familyId())
+        );
     }
 
-    @Transactional
-    public void disable(String id) {
-        users.setEnabled(id, false);
-        refresh.revokeUser(id);
-    }
-
-    @Transactional
-    public void changePassword(String id, String oldPassword, String newPassword) {
-        password(newPassword);
-        var user = users.findById(id).orElseThrow(AuthService::unauthorized);
-        if (!encoder.matches(oldPassword, user.passwordHash())) throw unauthorized();
-        users.setPassword(id, encoder.encode(newPassword));
-        refresh.revokeUser(id);
-    }
-
-    private Tokens issue(UserRepository.User user, String family) {
+    private Tokens issue(
+            UserAccountEntity account,
+            TenantMembershipEntity membership,
+            String familyId
+    ) {
+        List<String> roleIds = membershipRoles.findRoleIdsByMembershipId(
+                membership.getId()
+        );
+        List<String> roleCodes = membershipRoles.findRoleCodesByMembershipId(
+                membership.getId()
+        );
+        List<String> permissions = roleIds.isEmpty()
+                ? List.of()
+                : rolePermissions.findPermissionCodesByRoleIds(roleIds);
+        String accessToken = tokens.issueUserToken(
+                account.getId(),
+                membership.getTenant().getId(),
+                permissions,
+                roleCodes,
+                settings.accessTtl()
+        );
         byte[] bytes = new byte[48];
         random.nextBytes(bytes);
-        String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        refresh.insert(UUID.randomUUID().toString(), user.id(), family, raw, Instant.now().plus(settings.refreshTtl()).toEpochMilli());
-        return new Tokens(tokens.issue(user, users.scopes(user.id()), users.roles(user.id())), "Bearer", settings.accessTtl().toSeconds(), raw);
+        String rawRefresh = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(bytes);
+        refresh.insert(
+                UUID.randomUUID().toString(),
+                account.getId(),
+                membership.getTenant().getId(),
+                settings.gatewayAudience(),
+                familyId,
+                rawRefresh,
+                Instant.now(clock).plus(settings.refreshTtl()).toEpochMilli()
+        );
+        return new Tokens(
+                accessToken,
+                "Bearer",
+                settings.accessTtl().toSeconds(),
+                rawRefresh
+        );
     }
 
     private static ResponseStatusException unauthorized() {
-        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        return new ResponseStatusException(
+                HttpStatus.UNAUTHORIZED,
+                "Invalid credentials"
+        );
+    }
+
+    private static ResponseStatusException badRequest(String message) {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 }
