@@ -2,7 +2,7 @@ spring:
   application:
     name: smartfarm-identity-service
   profiles:
-    default: dev,dev-tls
+    default: dev
   sql:
     init:
       mode: always

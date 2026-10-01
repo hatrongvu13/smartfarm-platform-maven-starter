@@ -1,0 +1,31 @@
+spring:
+  graphql:
+    graphiql:
+      enabled: false
+
+smartfarm:
+  security:
+    jwt:
+      issuer: ${IDENTITY_ISSUER}
+      jwk-set-uri: ${IDENTITY_JWK_SET_URI}
+      audiences:
+        - smartfarm-gateway
+      allow-local-http: false
+
+  identity:
+    base-url: ${IDENTITY_HTTP_BASE_URL}
+    grpc-host: ${IDENTITY_GRPC_HOST}
+    grpc-port: ${IDENTITY_GRPC_PORT}
+    grpc-audience: smartfarm-identity
+
+  gateway:
+    service-client:
+      id: ${GATEWAY_SERVICE_CLIENT_ID:gateway}
+      secret: ${GATEWAY_SERVICE_CLIENT_SECRET:}
+
+  mqtt:
+    url: ${SMARTFARM_MQTT_URL}
+
+  events:
+    mqtt:
+      enabled: ${SMARTFARM_MQTT_EVENTS_ENABLED:true}

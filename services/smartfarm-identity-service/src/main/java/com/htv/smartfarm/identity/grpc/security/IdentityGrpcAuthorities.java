@@ -30,4 +30,18 @@ public final class IdentityGrpcAuthorities {
             "SCOPE_identity:platform:manage";
     public static final String PLATFORM_PERMISSION_MANAGE =
             "SCOPE_identity:platform:manage";
+    public static final String SECURITY_READ =
+            "SCOPE_identity:security:read";
+    public static final String MFA_ENROLL =
+            "SCOPE_identity:mfa:enroll";
+    public static final String MFA_DISABLE =
+            "SCOPE_identity:mfa:disable";
+    public static final String MFA_RECOVERY_REGENERATE =
+            "SCOPE_identity:mfa:recovery:regenerate";
+    public static final String USER_MFA_RESET =
+            "SCOPE_identity:user:mfa:reset";
+    public static final String USER_CREDENTIAL_RESET =
+            "SCOPE_identity:user:credential:reset";
+    public static final String USER_PROFILE_UPDATE =
+            "SCOPE_identity:user:profile:update";
 }

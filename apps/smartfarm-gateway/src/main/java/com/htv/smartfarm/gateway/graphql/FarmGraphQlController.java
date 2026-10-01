@@ -46,21 +46,17 @@ public class FarmGraphQlController {
     private final InventoryServiceGrpc.InventoryServiceBlockingStub inventory;
     private final FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance;
     private final ServiceTokenClient tokens;
-    private final org.springframework.web.reactive.function.client.WebClient identity;
-
-    public FarmGraphQlController(LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestockStub,
+public FarmGraphQlController(LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestockStub,
                                  FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orderStub,
                                  InventoryServiceGrpc.InventoryServiceBlockingStub gwInventoryStub,
                                  FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub gwFinanceStub,
-                                 ServiceTokenClient tokens,
-                                 org.springframework.web.reactive.function.client.WebClient identityWebClient) {
+                                 ServiceTokenClient tokens) {
         this.livestock = livestockStub;
         this.order = orderStub;
         this.inventory = gwInventoryStub;
         this.finance = gwFinanceStub;
         this.tokens = tokens;
-        this.identity = identityWebClient;
-    }
+}
 
     private Mono<Jwt> jwt() {
         return ReactiveSecurityContextHolder.getContext().map(c -> (Jwt) c.getAuthentication().getPrincipal());
@@ -309,81 +305,6 @@ public class FarmGraphQlController {
             }
             return out;
         }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    // ---- identity admin (read-only) ----
-    // GraphQL is a read-convenience surface: these resolvers reuse the SAME identity REST endpoints
-    // and the SAME identity:admin scope the /api/v1/admin/** proxy enforces. No new authority, no
-    // write path here — mutations (assign role, create role, grant permission) stay on REST.
-
-    @SuppressWarnings("unchecked")
-    private <T> Mono<T> identityGet(Jwt jwt, String path, Class<T> type) {
-        return identity.get().uri(path)
-                .header(org.springframework.http.HttpHeaders.AUTHORIZATION, "Bearer " + jwt.getTokenValue())
-                .retrieve().bodyToMono(type);
-    }
-
-    /** Danh sách người dùng trong tenant + vai trò + trạng thái. Read-only qua identity GET /admin/users. */
-    @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:admin')")
-    @SuppressWarnings("unchecked")
-    public Mono<List<Map<String, Object>>> users() {
-        return jwt().flatMap(jwt -> identityGet(jwt, "/api/v1/admin/users", Map.class).map(body -> {
-            Object list = ((Map<String, Object>) body).get("users");
-            List<Map<String, Object>> out = new ArrayList<>();
-            if (list instanceof List<?> rows) {
-                for (Object row : rows) {
-                    if (!(row instanceof Map<?, ?> r)) continue;
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id", str(r.get("id")));
-                    m.put("email", str(r.get("email")));
-                    m.put("enabled", Boolean.TRUE.equals(r.get("enabled")));
-                    m.put("locked", Boolean.TRUE.equals(r.get("locked")));
-                    m.put("roles", strList(r.get("roles")));
-                    out.add(m);
-                }
-            }
-            return out;
-        }));
-    }
-
-    /** Mọi vai trò và quyền nó cấp. Read-only qua identity GET /admin/roles ({CODE:[perms]}). */
-    @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:admin')")
-    @SuppressWarnings("unchecked")
-    public Mono<List<Map<String, Object>>> roles() {
-        return jwt().flatMap(jwt -> identityGet(jwt, "/api/v1/admin/roles", Map.class).map(body -> {
-            Object roles = ((Map<String, Object>) body).get("roles");
-            List<Map<String, Object>> out = new ArrayList<>();
-            if (roles instanceof Map<?, ?> byCode) {
-                for (Map.Entry<?, ?> e : byCode.entrySet()) {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("code", str(e.getKey()));
-                    m.put("permissions", strList(e.getValue()));
-                    out.add(m);
-                }
-            }
-            return out;
-        }));
-    }
-
-    /** Toàn bộ permission/scope hệ thống biết. Read-only qua identity GET /admin/permissions. */
-    @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:admin')")
-    @SuppressWarnings("unchecked")
-    public Mono<List<String>> permissions() {
-        return jwt().flatMap(jwt -> identityGet(jwt, "/api/v1/admin/permissions", Map.class)
-                .map(body -> strList(((Map<String, Object>) body).get("permissions"))));
-    }
-
-    private static String str(Object o) {
-        return o == null ? null : o.toString();
-    }
-
-    private static List<String> strList(Object o) {
-        List<String> out = new ArrayList<>();
-        if (o instanceof List<?> l) for (Object x : l) if (x != null) out.add(x.toString());
-        return out;
     }
 
     private static Map<String, Object> moneyMap(com.htv.smartfarm.proto.common.v1.Money mon) {

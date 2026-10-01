@@ -4,19 +4,70 @@ spring:
   main:
     web-application-type: reactive
   profiles:
-    default: dev
+    default:
+      - dev
   graphql:
     graphiql:
-      enabled: true
+      enabled: false
       path: /graphiql
     http:
       path: /graphql
+
 server:
   port: 8080
 
 smartfarm:
   security:
-    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-gateway}
+    jwt:
+      issuer: ${IDENTITY_ISSUER:http://localhost:8092}
+      jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8092/.well-known/jwks.json}
+      audiences:
+        - ${SMARTFARM_JWT_AUDIENCE:smartfarm-gateway}
+      allow-local-http: false
+    grpc:
+      enabled: false
+      audit-enabled: false
+      correlation-enabled: true
+      default-deadline: 5s
+    correlation:
+      header-name: x-correlation-id
+      max-length: 128
+      response-header-enabled: true
+
+  identity:
+    base-url: ${IDENTITY_HTTP_BASE_URL:http://localhost:8092}
+    grpc-host: ${IDENTITY_GRPC_HOST:localhost}
+    grpc-port: ${IDENTITY_GRPC_PORT:9092}
+    grpc-audience: smartfarm-identity
+
+  gateway:
+    service-client:
+      id: ${GATEWAY_SERVICE_CLIENT_ID:gateway}
+      secret: ${GATEWAY_SERVICE_CLIENT_SECRET:}
+
+  mqtt:
+    url: ${SMARTFARM_MQTT_URL:tcp://localhost:1883}
+
+  events:
+    mqtt:
+      enabled: ${SMARTFARM_MQTT_EVENTS_ENABLED:false}
+
+  livestock:
+    grpc-host: ${LIVESTOCK_GRPC_HOST:localhost}
+    grpc-port: ${LIVESTOCK_GRPC_PORT:9091}
+  inventory:
+    grpc-host: ${INVENTORY_GRPC_HOST:localhost}
+    grpc-port: ${INVENTORY_GRPC_PORT:9093}
+  order:
+    grpc-host: ${ORDER_GRPC_HOST:localhost}
+    grpc-port: ${ORDER_GRPC_PORT:9095}
+  reporting:
+    grpc-host: ${REPORTING_GRPC_HOST:localhost}
+    grpc-port: ${REPORTING_GRPC_PORT:9096}
+  finance:
+    grpc-host: ${FINANCE_GRPC_HOST:localhost}
+    grpc-port: ${FINANCE_GRPC_PORT:9097}
+
 management:
   endpoint:
     health:

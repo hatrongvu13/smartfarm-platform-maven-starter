@@ -25,18 +25,6 @@ public abstract class AuditableEntity {
     @Column(name = "entity_version", nullable = false)
     private long version;
 
-//    @PrePersist
-//    protected void onCreate() {
-//        Instant now = Instant.now();
-//        this.createdAt = now;
-//        this.updatedAt = now;
-//    }
-//
-//    @PreUpdate
-//    protected void onUpdate() {
-//        this.updatedAt = Instant.now();
-//    }
-
     public Instant getCreatedAt() {
         return createdAt;
     }

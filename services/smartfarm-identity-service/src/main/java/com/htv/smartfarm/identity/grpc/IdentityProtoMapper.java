@@ -66,7 +66,10 @@ public class IdentityProtoMapper {
         return new UpdateProfileCommand(
                 subjectId,
                 profile.getDisplayName(),
+                profile.getFirstName(),
+                profile.getLastName(),
                 profile.getPhoneNumber(),
+                profile.getAvatarUrl(),
                 profile.getLocale(),
                 profile.getTimeZone(),
                 toUpdateFields(request.getUpdateMask()),
@@ -146,6 +149,11 @@ public class IdentityProtoMapper {
                 .setTimeZone(
                         safe(source.profile().timeZone())
                 )
+                .setFirstName(safe(source.profile().firstName()))
+                .setLastName(safe(source.profile().lastName()))
+                .setAvatarUrl(safe(source.profile().avatarUrl()))
+                .setEmailVerified(source.profile().emailVerified())
+                .setPhoneVerified(source.profile().phoneVerified())
                 .build();
     }
 
@@ -242,8 +250,17 @@ public class IdentityProtoMapper {
             case "display_name",
                  "profile.display_name" -> "display_name";
 
+            case "first_name",
+                 "profile.first_name" -> "first_name";
+
+            case "last_name",
+                 "profile.last_name" -> "last_name";
+
             case "phone_number",
                  "profile.phone_number" -> "phone_number";
+
+            case "avatar_url",
+                 "profile.avatar_url" -> "avatar_url";
 
             case "locale",
                  "profile.locale" -> "locale";

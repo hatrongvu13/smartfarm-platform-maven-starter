@@ -23,10 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class PrincipalProfileService {
 
     private static final Set<String> ALLOWED_PROFILE_FIELDS = Set.of(
-            "display_name",
-            "phone_number",
-            "locale",
-            "time_zone"
+            "display_name", "first_name", "last_name", "phone_number",
+            "avatar_url", "locale", "time_zone"
     );
 
     private final UserProfileRepository userProfileRepository;
@@ -34,12 +32,10 @@ public class PrincipalProfileService {
     private final MembershipRoleRepository membershipRoleRepository;
     private final MembershipFarmRepository membershipFarmRepository;
 
-    public PrincipalProfileService(
-            UserProfileRepository userProfileRepository,
+    public PrincipalProfileService(UserProfileRepository userProfileRepository,
             TenantMembershipRepository membershipRepository,
             MembershipRoleRepository membershipRoleRepository,
-            MembershipFarmRepository membershipFarmRepository
-    ) {
+            MembershipFarmRepository membershipFarmRepository) {
         this.userProfileRepository = userProfileRepository;
         this.membershipRepository = membershipRepository;
         this.membershipRoleRepository = membershipRoleRepository;
@@ -47,167 +43,87 @@ public class PrincipalProfileService {
     }
 
     @Transactional(readOnly = true)
-    public PrincipalData getPrincipal(
-            String tenantId,
-            String subjectId
-    ) {
+    public PrincipalData getPrincipal(String tenantId, String subjectId) {
         requireText(tenantId, "tenantId");
         requireText(subjectId, "subjectId");
-
-        UserProfileEntity profile = userProfileRepository
-                .findWithAccountByUserId(subjectId)
-                .orElseThrow(() -> NotFoundException.entity(
-                        "UserProfile",
-                        subjectId
-                ));
-
-        TenantMembershipEntity membership = membershipRepository
-                .findByTenantIdAndUserId(tenantId, subjectId)
-                .orElseThrow(() -> NotFoundException.entity(
-                        "TenantMembership",
-                        tenantId + ":" + subjectId
-                ));
-
+        UserProfileEntity profile = profile(subjectId);
+        TenantMembershipEntity membership = membership(tenantId, subjectId);
         return toPrincipalData(profile, membership);
     }
 
     @Transactional
-    public PrincipalData updateProfile(
-            String tenantId,
-            UpdateProfileCommand command
-    ) {
+    public PrincipalData updateProfile(String tenantId, UpdateProfileCommand command) {
         requireText(tenantId, "tenantId");
         validateUpdateCommand(command);
-
-        UserProfileEntity profile = userProfileRepository
-                .findWithAccountByUserId(command.subjectId())
-                .orElseThrow(() -> NotFoundException.entity(
-                        "UserProfile",
-                        command.subjectId()
-                ));
-
+        UserProfileEntity profile = profile(command.subjectId());
         if (profile.getVersion() != command.expectedVersion()) {
-            throw new OptimisticConflictException(
-                    command.expectedVersion(),
-                    profile.getVersion()
-            );
+            throw new OptimisticConflictException(command.expectedVersion(), profile.getVersion());
         }
-
         Set<String> fields = command.updateFields();
-
-        String displayName = fields.contains("display_name")
-                ? requireText(command.displayName(), "displayName").trim()
-                : profile.getDisplayName();
-
-        String phoneNumber = fields.contains("phone_number")
-                ? normalizeNullable(command.phoneNumber())
-                : profile.getPhoneNumber();
-
-        String locale = fields.contains("locale")
-                ? requireText(command.locale(), "locale").trim()
-                : profile.getLocale();
-
-        String timeZone = fields.contains("time_zone")
-                ? requireText(command.timeZone(), "timeZone").trim()
-                : profile.getTimeZone();
-
-        profile.update(displayName, phoneNumber, locale, timeZone);
+        profile.update(
+                value(fields, "display_name", command.displayName(), profile.getDisplayName(), true, "displayName"),
+                value(fields, "first_name", command.firstName(), profile.getFirstName(), false, "firstName"),
+                value(fields, "last_name", command.lastName(), profile.getLastName(), false, "lastName"),
+                value(fields, "phone_number", command.phoneNumber(), profile.getPhoneNumber(), false, "phoneNumber"),
+                value(fields, "avatar_url", command.avatarUrl(), profile.getAvatarUrl(), false, "avatarUrl"),
+                value(fields, "locale", command.locale(), profile.getLocale(), true, "locale"),
+                value(fields, "time_zone", command.timeZone(), profile.getTimeZone(), true, "timeZone")
+        );
         userProfileRepository.flush();
-
-        TenantMembershipEntity membership = membershipRepository
-                .findByTenantIdAndUserId(tenantId, command.subjectId())
-                .orElseThrow(() -> NotFoundException.entity(
-                        "TenantMembership",
-                        tenantId + ":" + command.subjectId()
-                ));
-
-        return toPrincipalData(profile, membership);
+        return toPrincipalData(profile, membership(tenantId, command.subjectId()));
     }
 
-    private PrincipalData toPrincipalData(
-            UserProfileEntity profile,
-            TenantMembershipEntity membership
-    ) {
-        var roleCodes = membershipRoleRepository
-                .findRoleCodesByMembershipId(membership.getId());
+    private String value(Set<String> fields, String path, String requested,
+            String current, boolean required, String field) {
+        if (!fields.contains(path)) return current;
+        return required ? requireText(requested, field).trim() : normalizeNullable(requested);
+    }
 
-        var farmIds = membershipFarmRepository
-                .findFarmIdsByMembershipId(membership.getId());
+    private UserProfileEntity profile(String subjectId) {
+        return userProfileRepository.findWithAccountByUserId(subjectId)
+                .orElseThrow(() -> NotFoundException.entity("UserProfile", subjectId));
+    }
 
+    private TenantMembershipEntity membership(String tenantId, String subjectId) {
+        return membershipRepository.findByTenantIdAndUserId(tenantId, subjectId)
+                .orElseThrow(() -> NotFoundException.entity("TenantMembership", tenantId + ":" + subjectId));
+    }
+
+    private PrincipalData toPrincipalData(UserProfileEntity profile,
+            TenantMembershipEntity membership) {
+        var account = profile.getAccount();
         PrincipalProfileData profileData = new PrincipalProfileData(
-                profile.getDisplayName(),
-                profile.getAccount().getEmail(),
-                profile.getPhoneNumber(),
-                profile.getLocale(),
-                profile.getTimeZone()
-        );
-
+                profile.getDisplayName(), account.getEmail(), profile.getFirstName(),
+                profile.getLastName(), profile.getPhoneNumber(), profile.getAvatarUrl(),
+                profile.getLocale(), profile.getTimeZone(), account.isEmailVerified(),
+                account.isPhoneVerified());
         TenantMembershipData membershipData = new TenantMembershipData(
-                membership.getId(),
-                membership.getTenant().getId(),
-                membership.getStatus(),
-                roleCodes,
-                farmIds
-        );
-
-        return new PrincipalData(
-                profile.getAccount().getId(),
-                profileData,
-                profile.getAccount().isEnabled(),
-                membershipData,
-                profile.getCreatedAt(),
-                profile.getUpdatedAt(),
-                profile.getVersion()
-        );
+                membership.getId(), membership.getTenant().getId(), membership.getStatus(),
+                membershipRoleRepository.findRoleCodesByMembershipId(membership.getId()),
+                membershipFarmRepository.findFarmIdsByMembershipId(membership.getId()));
+        return new PrincipalData(account.getId(), profileData, account.isEnabled(), membershipData,
+                profile.getCreatedAt(), profile.getUpdatedAt(), profile.getVersion());
     }
 
     private void validateUpdateCommand(UpdateProfileCommand command) {
-        if (command == null) {
-            throw new ValidationException(
-                    "UPDATE_PROFILE_COMMAND_REQUIRED",
-                    "Update profile command must not be null"
-            );
-        }
-
+        if (command == null) throw new ValidationException(
+                "UPDATE_PROFILE_COMMAND_REQUIRED", "Update profile command must not be null");
         requireText(command.subjectId(), "subjectId");
-
-        if (command.expectedVersion() < 0) {
-            throw new ValidationException(
-                    "EXPECTED_VERSION_INVALID",
-                    "expectedVersion must not be negative"
-            );
-        }
-
-        if (command.updateFields() == null
-                || command.updateFields().isEmpty()) {
-            throw new ValidationException(
-                    "UPDATE_FIELDS_REQUIRED",
-                    "Update fields must not be empty"
-            );
-        }
-
-        if (!ALLOWED_PROFILE_FIELDS.containsAll(command.updateFields())) {
-            throw new ValidationException(
-                    "UPDATE_FIELDS_UNSUPPORTED",
-                    "Update contains unsupported profile fields"
-            );
-        }
+        if (command.expectedVersion() < 0) throw new ValidationException(
+                "EXPECTED_VERSION_INVALID", "expectedVersion must not be negative");
+        if (command.updateFields().isEmpty()) throw new ValidationException(
+                "UPDATE_FIELDS_REQUIRED", "Update fields must not be empty");
+        if (!ALLOWED_PROFILE_FIELDS.containsAll(command.updateFields())) throw new ValidationException(
+                "UPDATE_FIELDS_UNSUPPORTED", "Update contains unsupported profile fields");
     }
 
     private String normalizeNullable(String value) {
-        return value == null || value.isBlank()
-                ? null
-                : value.trim();
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String requireText(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new ValidationException(
-                    "REQUIRED_FIELD_MISSING",
-                    field + " must not be blank"
-            );
-        }
-
+        if (value == null || value.isBlank()) throw new ValidationException(
+                "REQUIRED_FIELD_MISSING", field + " must not be blank");
         return value;
     }
 }

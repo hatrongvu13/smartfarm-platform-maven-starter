@@ -16,25 +16,28 @@ import jakarta.persistence.Table;
 public class UserProfileEntity extends AuditableEntity {
 
     @Id
-    @Column(name = "user_id", length = 36)
+    @Column(name = "user_id", nullable = false, length = 36)
     private String userId;
 
     @MapsId
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "user_id",
-            nullable = false,
-            foreignKey = @jakarta.persistence.ForeignKey(
-                    name = "fk_user_profile_account"
-            )
-    )
+    @JoinColumn(name = "user_id", nullable = false)
     private UserAccountEntity account;
 
     @Column(name = "display_name", nullable = false, length = 150)
     private String displayName;
 
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
+
     @Column(name = "phone_number", length = 30)
     private String phoneNumber;
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
 
     @Column(name = "locale", nullable = false, length = 20)
     private String locale;
@@ -63,8 +66,31 @@ public class UserProfileEntity extends AuditableEntity {
             String locale,
             String timeZone
     ) {
+        update(
+                displayName,
+                this.firstName,
+                this.lastName,
+                phoneNumber,
+                this.avatarUrl,
+                locale,
+                timeZone
+        );
+    }
+
+    public void update(
+            String displayName,
+            String firstName,
+            String lastName,
+            String phoneNumber,
+            String avatarUrl,
+            String locale,
+            String timeZone
+    ) {
         this.displayName = displayName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.phoneNumber = phoneNumber;
+        this.avatarUrl = avatarUrl;
         this.locale = locale;
         this.timeZone = timeZone;
     }
@@ -81,8 +107,20 @@ public class UserProfileEntity extends AuditableEntity {
         return displayName;
     }
 
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
     public String getPhoneNumber() {
         return phoneNumber;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
     }
 
     public String getLocale() {

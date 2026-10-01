@@ -1,17 +1,24 @@
 spring:
   datasource:
-    url: ${IDENTITY_DB_URL:jdbc:postgresql://192.168.200.60:5432/smartfarm}
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/smartfarm}
     username: ${IDENTITY_DB_USER:postgres}
     password: ${IDENTITY_DB_PASSWORD:root}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
+    open-in-view: true
+  sql:
+    init:
+      mode: never
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: true
     baseline-version: 0
-
+logging:
+  level:
+    org.flywaydb: DEBUG
+    org.springframework.boot.autoconfigure.flyway: DEBUG
 server:
   address: ${IDENTITY_BIND_ADDRESS:127.0.0.1}
 
@@ -30,6 +37,7 @@ smartfarm:
     private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
     public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}
     bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:replace-with-a-long-random-password}
+    identity-audience: ${IDENTITY_AUDIENCE:smartfarm-identity}
     service-token:
       ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
       clients:
@@ -88,3 +96,10 @@ smartfarm:
           scopes-by-audience:
             smartfarm-livestock:
               - farm:read
+    mfa:
+      issuer: ${IDENTITY_MFA_ISSUER:SmartFarm}
+      challenge-ttl: ${IDENTITY_MFA_CHALLENGE_TTL:5m}
+      maximum-attempts: ${IDENTITY_MFA_MAXIMUM_ATTEMPTS:5}
+      recovery-code-count: ${IDENTITY_MFA_RECOVERY_CODE_COUNT:10}
+      encryption-key: ${IDENTITY_MFA_ENCRYPTION_KEY:GitxwqL/a1ALNdR0FxUvdaxNAwFi+BRxATfcvyI5P8k=}
+

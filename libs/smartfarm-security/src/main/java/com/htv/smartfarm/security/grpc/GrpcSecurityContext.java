@@ -1,53 +1,64 @@
 package com.htv.smartfarm.security.grpc;
 
+import java.util.Set;
+
+import com.htv.smartfarm.security.core.SecurityIdentity;
+
 import io.grpc.Context;
 import io.grpc.Status;
-
-import java.util.Set;
 
 public final class GrpcSecurityContext {
 
     private GrpcSecurityContext() {
     }
 
-    public static final Context.Key<String> SUBJECT =
-            Context.key("smartfarm-subject");
-
-    public static final Context.Key<String> TENANT =
-            Context.key("smartfarm-tenant");
+    public static final Context.Key<SecurityIdentity> IDENTITY =
+            Context.key("smartfarm-security-identity");
 
     public static final Context.Key<String> CORRELATION_ID =
             Context.key("smartfarm-correlation-id");
 
+    /**
+     * @deprecated use IDENTITY and requireIdentity().
+     */
+    @Deprecated(forRemoval = true)
+    public static final Context.Key<String> SUBJECT =
+            Context.key("smartfarm-subject");
+
+    /**
+     * @deprecated use IDENTITY and requireIdentity().
+     */
+    @Deprecated(forRemoval = true)
+    public static final Context.Key<String> TENANT =
+            Context.key("smartfarm-tenant");
+
+    /**
+     * @deprecated use IDENTITY and requireIdentity().
+     */
+    @Deprecated(forRemoval = true)
     public static final Context.Key<Set<String>> AUTHORITIES =
             Context.key("smartfarm-authorities");
 
-    public static String requireSubject() {
-        String subject = SUBJECT.get();
+    public static SecurityIdentity requireIdentity() {
+        SecurityIdentity identity = IDENTITY.get();
 
-        if (subject == null || subject.isBlank()) {
+        if (identity == null) {
             throw Status.UNAUTHENTICATED
                     .withDescription(
-                            "Authenticated gRPC subject is missing"
+                            "Authenticated gRPC identity is missing"
                     )
                     .asRuntimeException();
         }
 
-        return subject;
+        return identity;
+    }
+
+    public static String requireSubject() {
+        return requireIdentity().subject();
     }
 
     public static String requireTenant() {
-        String tenant = TENANT.get();
-
-        if (tenant == null || tenant.isBlank()) {
-            throw Status.UNAUTHENTICATED
-                    .withDescription(
-                            "Authenticated gRPC tenant is missing"
-                    )
-                    .asRuntimeException();
-        }
-
-        return tenant;
+        return requireIdentity().tenantId();
     }
 
     public static String correlationId() {
@@ -55,19 +66,20 @@ public final class GrpcSecurityContext {
     }
 
     public static Set<String> authorities() {
-        Set<String> authorities = AUTHORITIES.get();
-
-        return authorities == null
+        SecurityIdentity identity = IDENTITY.get();
+        return identity == null
                 ? Set.of()
-                : authorities;
+                : identity.authorities();
     }
 
     public static boolean hasAuthority(String authority) {
-        return authority != null
-                && authorities().contains(authority);
+        SecurityIdentity identity = IDENTITY.get();
+        return identity != null
+                && identity.hasAuthority(authority);
     }
 
     public static boolean isSuperAdmin() {
-        return authorities().contains("SCOPE_*");
+        SecurityIdentity identity = IDENTITY.get();
+        return identity != null && identity.isSuperAdmin();
     }
 }

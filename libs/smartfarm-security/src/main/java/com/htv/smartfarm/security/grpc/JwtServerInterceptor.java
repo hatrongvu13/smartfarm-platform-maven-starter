@@ -1,7 +1,9 @@
 package com.htv.smartfarm.security.grpc;
 
+import java.util.UUID;
+
 import com.htv.smartfarm.security.TokenVerifier;
-import com.htv.smartfarm.security.jwt.JwtAuthorities;
+import com.htv.smartfarm.security.core.SecurityIdentity;
 
 import io.grpc.Context;
 import io.grpc.Contexts;
@@ -11,14 +13,8 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 
-import java.util.Set;
-import java.util.UUID;
-
 /**
- * Fail closed.
- *
- * <p>Không tin tưởng x-tenant-id nếu chưa đối chiếu với tenant
- * trong JWT đã được xác minh.
+ * Fail-closed JWT authentication and exact-method authorization interceptor.
  */
 public final class JwtServerInterceptor implements ServerInterceptor {
 
@@ -75,9 +71,7 @@ public final class JwtServerInterceptor implements ServerInterceptor {
             return next.startCall(call, headers);
         }
 
-        String authorization = headers.get(
-                AUTHORIZATION_HEADER
-        );
+        String authorization = headers.get(AUTHORIZATION_HEADER);
 
         if (!isValidBearerHeader(authorization)) {
             return deny(
@@ -92,10 +86,10 @@ public final class JwtServerInterceptor implements ServerInterceptor {
                 .substring(BEARER_PREFIX.length())
                 .trim();
 
-        TokenVerifier.VerifiedToken principal;
+        SecurityIdentity identity;
 
         try {
-            principal = verifier.verify(rawToken);
+            identity = verifier.verify(rawToken);
         } catch (RuntimeException exception) {
             return deny(
                     call,
@@ -105,23 +99,19 @@ public final class JwtServerInterceptor implements ServerInterceptor {
             );
         }
 
-        if (!isValidPrincipal(principal)) {
+        if (identity == null) {
             return deny(
                     call,
                     Status.UNAUTHENTICATED.withDescription(
-                            "Verified token is missing required claims"
+                            "Verified identity is missing"
                     )
             );
         }
 
-        Set<String> authorities = principal.roles();
-
-        String tenantHeader = normalize(
-                headers.get(TENANT_HEADER)
-        );
+        String tenantHeader = normalize(headers.get(TENANT_HEADER));
 
         if (tenantHeader != null
-                && !tenantHeader.equals(principal.tenantId())) {
+                && !tenantHeader.equals(identity.tenantId())) {
             return deny(
                     call,
                     Status.PERMISSION_DENIED.withDescription(
@@ -133,10 +123,7 @@ public final class JwtServerInterceptor implements ServerInterceptor {
         String requiredAuthority =
                 policy.requiredAuthority(fullMethodName);
 
-        if (!hasRequiredAuthority(
-                authorities,
-                requiredAuthority
-        )) {
+        if (!hasRequiredAuthority(identity, requiredAuthority)) {
             return deny(
                     call,
                     Status.PERMISSION_DENIED.withDescription(
@@ -149,21 +136,23 @@ public final class JwtServerInterceptor implements ServerInterceptor {
         String correlationId = resolveCorrelationId(headers);
 
         Context context = Context.current()
-                .withValue(
-                        GrpcSecurityContext.SUBJECT,
-                        principal.subject()
-                )
-                .withValue(
-                        GrpcSecurityContext.TENANT,
-                        principal.tenantId()
-                )
-                .withValue(
-                        GrpcSecurityContext.AUTHORITIES,
-                        Set.copyOf(authorities)
-                )
+                .withValue(GrpcSecurityContext.IDENTITY, identity)
                 .withValue(
                         GrpcSecurityContext.CORRELATION_ID,
                         correlationId
+                )
+                /* Transitional legacy keys. Remove in phase 3B. */
+                .withValue(
+                        GrpcSecurityContext.SUBJECT,
+                        identity.subject()
+                )
+                .withValue(
+                        GrpcSecurityContext.TENANT,
+                        identity.tenantId()
+                )
+                .withValue(
+                        GrpcSecurityContext.AUTHORITIES,
+                        identity.authorities()
                 );
 
         return Contexts.interceptCall(
@@ -175,7 +164,7 @@ public final class JwtServerInterceptor implements ServerInterceptor {
     }
 
     private boolean hasRequiredAuthority(
-            Set<String> authorities,
+            SecurityIdentity identity,
             String requiredAuthority
     ) {
         if (requiredAuthority == null
@@ -183,8 +172,8 @@ public final class JwtServerInterceptor implements ServerInterceptor {
             return true;
         }
 
-        return authorities.contains(requiredAuthority)
-                || JwtAuthorities.isSuperAdmin(authorities);
+        return identity.hasAuthority(requiredAuthority)
+                || identity.isSuperAdmin();
     }
 
     private boolean isValidBearerHeader(String authorization) {
@@ -196,47 +185,24 @@ public final class JwtServerInterceptor implements ServerInterceptor {
                 .isBlank();
     }
 
-    private boolean isValidPrincipal(
-            TokenVerifier.VerifiedToken principal
-    ) {
-        return principal != null
-                && hasText(principal.subject())
-                && hasText(principal.tenantId())
-                && principal.roles() != null;
-    }
-
     private String resolveCorrelationId(Metadata headers) {
-        /*
-         * Ưu tiên giá trị đã được correlation interceptor chuẩn hóa.
-         */
         String correlationId = normalize(
                 GrpcSecurityContext.CORRELATION_ID.get()
         );
 
-        /*
-         * Fallback khi correlation interceptor không được bật hoặc
-         * JwtServerInterceptor được sử dụng độc lập.
-         */
         if (correlationId == null) {
             correlationId = normalize(
                     headers.get(CORRELATION_HEADER)
             );
         }
 
-        if (!isValidCorrelationId(correlationId)) {
+        if (correlationId == null
+                || correlationId.length()
+                > MAX_CORRELATION_ID_LENGTH) {
             return UUID.randomUUID().toString();
         }
 
         return correlationId;
-    }
-
-    private boolean isValidCorrelationId(
-            String correlationId
-    ) {
-        return correlationId != null
-                && !correlationId.isBlank()
-                && correlationId.length()
-                <= MAX_CORRELATION_ID_LENGTH;
     }
 
     private String normalize(String value) {
@@ -245,17 +211,11 @@ public final class JwtServerInterceptor implements ServerInterceptor {
                 : value.trim();
     }
 
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
-    }
-
-    private static <ReqT, RespT>
-    ServerCall.Listener<ReqT> deny(
+    private static <ReqT, RespT> ServerCall.Listener<ReqT> deny(
             ServerCall<ReqT, RespT> call,
             Status status
     ) {
         call.close(status, new Metadata());
-
         return new ServerCall.Listener<>() {
         };
     }

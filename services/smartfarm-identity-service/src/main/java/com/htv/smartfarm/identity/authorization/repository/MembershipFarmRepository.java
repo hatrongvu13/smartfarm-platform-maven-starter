@@ -14,35 +14,41 @@ public interface MembershipFarmRepository
         extends JpaRepository<MembershipFarmEntity, MembershipFarmId> {
 
     @Query("""
-            select mf.farmId
+            select mf.id.farmId
             from MembershipFarmEntity mf
-            where mf.membership.id = :membershipId
-            order by mf.farmId
+            where mf.id.membershipId = :membershipId
+            order by mf.id.farmId
             """)
     List<String> findFarmIdsByMembershipId(
             @Param("membershipId") String membershipId
     );
 
-    boolean existsByMembershipIdAndFarmId(
+    boolean existsByIdMembershipIdAndIdFarmId(
             String membershipId,
             String farmId
     );
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(
+            clearAutomatically = true,
+            flushAutomatically = true
+    )
     @Query("""
             delete from MembershipFarmEntity mf
-            where mf.membership.id = :membershipId
-              and mf.farmId = :farmId
+            where mf.id.membershipId = :membershipId
+              and mf.id.farmId = :farmId
             """)
     int deleteByMembershipIdAndFarmId(
             @Param("membershipId") String membershipId,
             @Param("farmId") String farmId
     );
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(
+            clearAutomatically = true,
+            flushAutomatically = true
+    )
     @Query("""
             delete from MembershipFarmEntity mf
-            where mf.membership.id = :membershipId
+            where mf.id.membershipId = :membershipId
             """)
     int deleteAllByMembershipId(
             @Param("membershipId") String membershipId

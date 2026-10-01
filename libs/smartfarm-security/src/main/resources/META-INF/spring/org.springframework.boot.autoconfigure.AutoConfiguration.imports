@@ -1,1 +1,2 @@
+com.htv.smartfarm.security.autoconfigure.SmartFarmSecurityPropertiesAutoConfiguration
 com.htv.smartfarm.security.grpc.autoconfigure.SmartFarmGrpcSecurityAutoConfiguration

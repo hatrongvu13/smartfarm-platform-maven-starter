@@ -1,7 +1,7 @@
 server:
   port: 8092
   ssl:
-    enabled: true
+    enabled: false
     certificate: ${IDENTITY_TLS_CERTIFICATE:classpath:.local/identity-tls.crt}
     certificate-private-key: ${IDENTITY_TLS_PRIVATE_KEY:classpath:.local/identity-tls.key}
 
@@ -17,5 +17,3 @@ smartfarm:
 
   identity:
     issuer: ${IDENTITY_ISSUER:https://localhost:8092}
-    private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
-    public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}

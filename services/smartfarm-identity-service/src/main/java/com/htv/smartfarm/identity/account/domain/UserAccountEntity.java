@@ -46,6 +46,18 @@ public class UserAccountEntity extends AuditableEntity {
     @Column(name = "locked_until")
     private Instant lockedUntil;
 
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
+    @Column(name = "phone_verified_at")
+    private Instant phoneVerifiedAt;
+
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
+
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
+
     protected UserAccountEntity() {
     }
 
@@ -69,6 +81,7 @@ public class UserAccountEntity extends AuditableEntity {
 
     public void changePasswordHash(String passwordHash) {
         this.passwordHash = requireText(passwordHash, "passwordHash");
+        this.passwordChangedAt = Instant.now();
         resetLoginFailure();
     }
 
@@ -134,5 +147,22 @@ public class UserAccountEntity extends AuditableEntity {
 
     public Instant getLockedUntil() {
         return lockedUntil;
+    }
+
+    public Instant getEmailVerifiedAt() { return emailVerifiedAt; }
+    public Instant getPhoneVerifiedAt() { return phoneVerifiedAt; }
+    public Instant getLastLoginAt() { return lastLoginAt; }
+    public Instant getPasswordChangedAt() { return passwordChangedAt; }
+    public boolean isEmailVerified() { return emailVerifiedAt != null; }
+    public boolean isPhoneVerified() { return phoneVerifiedAt != null; }
+    public void recordLoginSuccess(Instant occurredAt) {
+        this.lastLoginAt = Objects.requireNonNull(occurredAt);
+        resetLoginFailure();
+    }
+    public void markEmailVerified(Instant occurredAt) {
+        this.emailVerifiedAt = Objects.requireNonNull(occurredAt);
+    }
+    public void markPhoneVerified(Instant occurredAt) {
+        this.phoneVerifiedAt = Objects.requireNonNull(occurredAt);
     }
 }

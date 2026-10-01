@@ -27,6 +27,20 @@ public class AuthController {
     public record Registration(String email, String password) { }
     public record Login(String tenantId, String email, String password) { }
     public record Refresh(String refreshToken) { }
+    public record MfaVerification(
+            String challengeToken,
+            String method,
+            String code
+    ) { }
+    public record TotpEnrollmentBegin(
+            String challengeToken,
+            String displayName
+    ) { }
+    public record TotpEnrollmentConfirm(
+            String challengeToken,
+            String authenticatorId,
+            String code
+    ) { }
 
     @GetMapping(
             value = "/.well-known/jwks.json",
@@ -39,7 +53,9 @@ public class AuthController {
     }
 
     @PostMapping("/api/v1/auth/register")
-    public Map<String, String> register(@RequestBody Registration request) {
+    public Map<String, String> register(
+            @RequestBody Registration request
+    ) {
         return Map.of(
                 "userId",
                 auth.register(request.email(), request.password())
@@ -47,7 +63,9 @@ public class AuthController {
     }
 
     @PostMapping("/api/v1/auth/login")
-    public AuthService.Tokens login(@RequestBody Login request) {
+    public AuthService.AuthenticationResponse login(
+            @RequestBody Login request
+    ) {
         return auth.login(
                 request.tenantId(),
                 request.email(),
@@ -55,13 +73,51 @@ public class AuthController {
         );
     }
 
+    @PostMapping("/api/v1/auth/mfa/enrollment/begin")
+    public com.htv.smartfarm.identity.mfa.application.model.TotpEnrollment
+    beginRequiredTotpEnrollment(
+            @RequestBody TotpEnrollmentBegin request
+    ) {
+        return auth.beginRequiredTotpEnrollment(
+                request.challengeToken(),
+                request.displayName()
+        );
+    }
+
+    @PostMapping("/api/v1/auth/mfa/enrollment/confirm")
+    public AuthService.EnrollmentConfirmationResponse
+    confirmRequiredTotpEnrollment(
+            @RequestBody TotpEnrollmentConfirm request
+    ) {
+        return auth.confirmRequiredTotpEnrollment(
+                request.challengeToken(),
+                request.authenticatorId(),
+                request.code()
+        );
+    }
+
+    @PostMapping("/api/v1/auth/mfa/verify")
+    public AuthService.AuthenticationResponse verifyMfa(
+            @RequestBody MfaVerification request
+    ) {
+        return auth.verifyMfa(
+                request.challengeToken(),
+                request.method(),
+                request.code()
+        );
+    }
+
     @PostMapping("/api/v1/auth/refresh")
-    public AuthService.Tokens refresh(@RequestBody Refresh request) {
+    public AuthService.Tokens refresh(
+            @RequestBody Refresh request
+    ) {
         return auth.rotate(request.refreshToken());
     }
 
     @PostMapping("/api/v1/auth/logout")
-    public ResponseEntity<Void> logout(@RequestBody Refresh request) {
+    public ResponseEntity<Void> logout(
+            @RequestBody Refresh request
+    ) {
         auth.logout(request.refreshToken());
         return ResponseEntity.noContent().build();
     }

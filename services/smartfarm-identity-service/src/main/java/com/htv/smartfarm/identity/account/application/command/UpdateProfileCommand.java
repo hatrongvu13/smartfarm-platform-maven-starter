@@ -5,14 +5,16 @@ import java.util.Set;
 public record UpdateProfileCommand(
         String subjectId,
         String displayName,
+        String firstName,
+        String lastName,
         String phoneNumber,
+        String avatarUrl,
         String locale,
         String timeZone,
         Set<String> updateFields,
         long expectedVersion
 ) {
-
     public UpdateProfileCommand {
-        updateFields = Set.copyOf(updateFields);
+        updateFields = updateFields == null ? Set.of() : Set.copyOf(updateFields);
     }
 }

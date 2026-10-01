@@ -72,6 +72,47 @@ public class GrpcRequestSecurity {
         return callerProvider.currentCaller();
     }
 
+    public SecuredRequest authorizeCredentialSelf(
+            RequestContext requestContext,
+            String requestedSubjectId,
+            String requiredAuthority
+    ) {
+        if (requestContext == null) {
+            throw Status.INVALID_ARGUMENT
+                    .withDescription("request context is required")
+                    .asRuntimeException();
+        }
+
+        GrpcCaller caller = callerProvider.currentCaller();
+        requireAuthority(caller, requiredAuthority);
+        String tenantId = resolveTenant(caller, requestContext);
+        String actorId = normalize(requestContext.getActorId());
+
+        if (actorId == null) {
+            actorId = normalize(caller.subjectId());
+        }
+
+        if (actorId == null) {
+            throw Status.UNAUTHENTICATED
+                    .withDescription("Authenticated actor is missing")
+                    .asRuntimeException();
+        }
+
+        String subjectId = normalize(requestedSubjectId);
+        if (subjectId == null) {
+            subjectId = actorId;
+        }
+
+        if (!subjectId.equals(actorId)) {
+            throw Status.PERMISSION_DENIED
+                    .withDescription("Credential self-service cannot target another principal")
+                    .asRuntimeException();
+        }
+
+        validateCorrelation(caller, requestContext);
+        return new SecuredRequest(caller, tenantId, subjectId);
+    }
+
     private SecuredRequest authorizeSubjectRequest(
             RequestContext requestContext,
             String requestedSubjectId,

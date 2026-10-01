@@ -18,7 +18,7 @@ public interface MembershipRoleRepository
             select mr
             from MembershipRoleEntity mr
             join fetch mr.role r
-            where mr.membership.id = :membershipId
+            where mr.id.membershipId = :membershipId
             order by r.code
             """)
     List<MembershipRoleEntity> findAllWithRoleByMembershipId(
@@ -26,27 +26,25 @@ public interface MembershipRoleRepository
     );
 
     @Query("""
-            select r.id
+            select mr.id.roleId
             from MembershipRoleEntity mr
-            join mr.role r
-            where mr.membership.id = :membershipId
+            where mr.id.membershipId = :membershipId
             """)
     List<String> findRoleIdsByMembershipId(
             @Param("membershipId") String membershipId
     );
 
     @Query("""
-            select r.code
+            select mr.role.code
             from MembershipRoleEntity mr
-            join mr.role r
-            where mr.membership.id = :membershipId
-            order by r.code
+            where mr.id.membershipId = :membershipId
+            order by mr.role.code
             """)
     List<String> findRoleCodesByMembershipId(
             @Param("membershipId") String membershipId
     );
 
-    boolean existsByMembershipIdAndRoleId(
+    boolean existsByIdMembershipIdAndIdRoleId(
             String membershipId,
             String roleId
     );
@@ -54,8 +52,8 @@ public interface MembershipRoleRepository
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             delete from MembershipRoleEntity mr
-            where mr.membership.id = :membershipId
-              and mr.role.id = :roleId
+            where mr.id.membershipId = :membershipId
+              and mr.id.roleId = :roleId
             """)
     int deleteByMembershipIdAndRoleId(
             @Param("membershipId") String membershipId,
@@ -65,7 +63,7 @@ public interface MembershipRoleRepository
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             delete from MembershipRoleEntity mr
-            where mr.membership.id = :membershipId
+            where mr.id.membershipId = :membershipId
             """)
     int deleteAllByMembershipId(
             @Param("membershipId") String membershipId
@@ -74,7 +72,7 @@ public interface MembershipRoleRepository
     @Query("""
             select count(mr)
             from MembershipRoleEntity mr
-            where mr.role.id in :roleIds
+            where mr.id.roleId in :roleIds
             """)
     long countAssignmentsByRoleIds(
             @Param("roleIds") Collection<String> roleIds

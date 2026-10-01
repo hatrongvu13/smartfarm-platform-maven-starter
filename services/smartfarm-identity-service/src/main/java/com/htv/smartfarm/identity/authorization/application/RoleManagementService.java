@@ -155,7 +155,7 @@ public class RoleManagementService {
                         normalizedPermissionCode
                 ));
 
-        if (rolePermissionRepository.existsByRoleIdAndPermissionCode(
+        if (rolePermissionRepository.existsByIdRoleIdAndIdPermissionCode(
                 role.getId(),
                 permission.getCode()
         )) {
@@ -221,7 +221,7 @@ public class RoleManagementService {
 
         RoleEntity role = getRole(tenantId, normalizedRoleCode);
 
-        if (membershipRoleRepository.existsByMembershipIdAndRoleId(
+        if (membershipRoleRepository.existsByIdMembershipIdAndIdRoleId(
                 membership.getId(),
                 role.getId()
         )) {

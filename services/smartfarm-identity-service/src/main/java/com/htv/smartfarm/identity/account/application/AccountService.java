@@ -14,6 +14,7 @@ import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.domain.UserProfileEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
 import com.htv.smartfarm.identity.account.repository.UserProfileRepository;
+import com.htv.smartfarm.identity.token.RefreshRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -33,17 +34,20 @@ public class AccountService {
     private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final RefreshRepository refreshRepository;
 
     public AccountService(
             UserAccountRepository userAccountRepository,
             UserProfileRepository userProfileRepository,
             PasswordEncoder passwordEncoder,
-            Clock clock
+            Clock clock,
+            RefreshRepository refreshRepository
     ) {
         this.userAccountRepository = userAccountRepository;
         this.userProfileRepository = userProfileRepository;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.refreshRepository = refreshRepository;
     }
 
     @Transactional
@@ -85,8 +89,8 @@ public class AccountService {
                 timeZone
         );
 
-        userAccountRepository.save(account);
-        userProfileRepository.save(profile);
+        userAccountRepository.saveAndFlush(account);
+        userProfileRepository.saveAndFlush(profile);
 
         return userId;
     }
@@ -126,6 +130,7 @@ public class AccountService {
         account.changePasswordHash(
                 passwordEncoder.encode(newRawPassword)
         );
+        refreshRepository.revokeUser(userId);
     }
 
     @Transactional
@@ -138,6 +143,7 @@ public class AccountService {
 
         UserAccountEntity account = getAccountForUpdate(userId);
         account.changePasswordHash(passwordEncoder.encode(newRawPassword));
+        refreshRepository.revokeUser(userId);
     }
 
     @Transactional

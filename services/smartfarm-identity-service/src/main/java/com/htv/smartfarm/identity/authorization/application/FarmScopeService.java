@@ -49,10 +49,11 @@ public class FarmScopeService {
             );
         }
 
-        if (membershipFarmRepository.existsByMembershipIdAndFarmId(
-                membership.getId(),
-                farmId
-        )) {
+        if (membershipFarmRepository
+                .existsByIdMembershipIdAndIdFarmId(
+                        membership.getId(),
+                        farmId
+                )) {
             return;
         }
 

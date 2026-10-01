@@ -1,7 +1,10 @@
-package com.htv.smartfarm.security.grpc.autoconfigure;
+package com.htv.smartfarm.security.autoconfigure;
+
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import com.htv.smartfarm.security.TokenVerifier;
-import com.htv.smartfarm.security.config.SecurityProperties;
+import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
 import com.htv.smartfarm.security.grpc.JwtServerInterceptor;
@@ -18,9 +21,6 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -30,12 +30,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.grpc.server.GlobalServerInterceptor;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 
-@AutoConfiguration
+@AutoConfiguration(
+        after = SmartFarmSecurityPropertiesAutoConfiguration.class
+)
 @ConditionalOnClass({
         BindableService.class,
         GlobalServerInterceptor.class
@@ -49,54 +49,18 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 )
 public class SmartFarmGrpcSecurityAutoConfiguration {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(
-                    SmartFarmGrpcSecurityAutoConfiguration.class
-            );
-
-    private static final Metadata.Key<String> CORRELATION_HEADER =
-            Metadata.Key.of(
-                    "x-correlation-id",
-                    Metadata.ASCII_STRING_MARSHALLER
-            );
-
-    private static final int MAX_CORRELATION_LENGTH = 128;
-
-    @Bean
-    @ConditionalOnMissingBean(SecurityProperties.class)
-    SecurityProperties smartFarmSecurityProperties(
-            Environment environment
-    ) {
-        boolean allowLocalHttp =
-                environment.acceptsProfiles(
-                        Profiles.of("dev & !prod")
-                )
-                        && environment.getProperty(
-                        "smartfarm.security.allow-local-http",
-                        Boolean.class,
-                        false
-                );
-
-        return new SecurityProperties(
-                environment.getRequiredProperty(
-                        "smartfarm.security.issuer"
-                ),
-                environment.getRequiredProperty(
-                        "smartfarm.security.jwk-set-uri"
-                ),
-                environment.getRequiredProperty(
-                        "smartfarm.security.audience"
-                ),
-                allowLocalHttp
-        );
-    }
+    private static final Logger log = LoggerFactory.getLogger(
+            SmartFarmGrpcSecurityAutoConfiguration.class
+    );
 
     @Bean
     @ConditionalOnMissingBean(JwtDecoder.class)
     JwtDecoder smartFarmGrpcJwtDecoder(
-            SecurityProperties properties
+            SmartFarmSecurityProperties properties
     ) {
-        return JwtSecurityFactory.servletDecoder(properties);
+        return JwtSecurityFactory.servletDecoder(
+                properties.jwt()
+        );
     }
 
     @Bean
@@ -117,43 +81,53 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
     @Order(10)
     @GlobalServerInterceptor
     @ConditionalOnProperty(
-            prefix = "smartfarm.security.grpc.correlation",
-            name = "enabled",
+            prefix = "smartfarm.security.grpc",
+            name = "correlation-enabled",
             havingValue = "true",
             matchIfMissing = true
     )
-    ServerInterceptor smartFarmCorrelationInterceptor() {
-        return new ServerInterceptor() {
+    ServerInterceptor smartFarmCorrelationInterceptor(
+            SmartFarmSecurityProperties properties
+    ) {
+        SmartFarmSecurityProperties.Correlation correlation =
+                properties.correlation();
 
+        Metadata.Key<String> correlationHeader = Metadata.Key.of(
+                correlation.headerName(),
+                Metadata.ASCII_STRING_MARSHALLER
+        );
+
+        return new ServerInterceptor() {
             @Override
-            public <ReqT, RespT>
-            ServerCall.Listener<ReqT> interceptCall(
+            public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
                     ServerCall<ReqT, RespT> call,
                     Metadata headers,
                     ServerCallHandler<ReqT, RespT> next
             ) {
                 String correlationId = normalizeCorrelationId(
-                        headers.get(CORRELATION_HEADER)
+                        headers.get(correlationHeader),
+                        correlation.maxLength()
                 );
 
-                Context context = Context.current()
-                        .withValue(
-                                GrpcSecurityContext.CORRELATION_ID,
-                                correlationId
-                        );
+                Context context = Context.current().withValue(
+                        GrpcSecurityContext.CORRELATION_ID,
+                        correlationId
+                );
 
                 ServerCall<ReqT, RespT> responseCall =
                         new ForwardingServerCall
                                 .SimpleForwardingServerCall<>(call) {
-
                             @Override
                             public void sendHeaders(
                                     Metadata responseHeaders
                             ) {
-                                responseHeaders.put(
-                                        CORRELATION_HEADER,
-                                        correlationId
-                                );
+                                if (correlation
+                                        .isResponseHeaderEnabled()) {
+                                    responseHeaders.put(
+                                            correlationHeader,
+                                            correlationId
+                                    );
+                                }
 
                                 super.sendHeaders(responseHeaders);
                             }
@@ -187,17 +161,15 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
     @Order(30)
     @GlobalServerInterceptor
     @ConditionalOnProperty(
-            prefix = "smartfarm.security.grpc.audit",
-            name = "enabled",
+            prefix = "smartfarm.security.grpc",
+            name = "audit-enabled",
             havingValue = "true",
             matchIfMissing = true
     )
     ServerInterceptor smartFarmAuditInterceptor() {
         return new ServerInterceptor() {
-
             @Override
-            public <ReqT, RespT>
-            ServerCall.Listener<ReqT> interceptCall(
+            public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
                     ServerCall<ReqT, RespT> call,
                     Metadata headers,
                     ServerCallHandler<ReqT, RespT> next
@@ -214,7 +186,6 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
                 ServerCall<ReqT, RespT> auditedCall =
                         new ForwardingServerCall
                                 .SimpleForwardingServerCall<>(call) {
-
                             @Override
                             public void close(
                                     Status status,
@@ -249,12 +220,12 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
     }
 
     private static String normalizeCorrelationId(
-            String correlationId
+            String correlationId,
+            int maximumLength
     ) {
         if (correlationId == null
                 || correlationId.isBlank()
-                || correlationId.length()
-                > MAX_CORRELATION_LENGTH) {
+                || correlationId.length() > maximumLength) {
             return UUID.randomUUID().toString();
         }
 

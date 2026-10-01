@@ -4,6 +4,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
 @Embeddable
@@ -12,7 +13,10 @@ public class RolePermissionId implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    @Column(name = "role_id", nullable = false, length = 36)
     private String roleId;
+
+    @Column(name = "permission_code", nullable = false, length = 80)
     private String permissionCode;
 
     protected RolePermissionId() {
@@ -33,14 +37,8 @@ public class RolePermissionId implements Serializable {
 
     @Override
     public boolean equals(Object other) {
-        if (this == other) {
-            return true;
-        }
-
-        if (!(other instanceof RolePermissionId that)) {
-            return false;
-        }
-
+        if (this == other) return true;
+        if (!(other instanceof RolePermissionId that)) return false;
         return Objects.equals(roleId, that.roleId)
                 && Objects.equals(permissionCode, that.permissionCode);
     }

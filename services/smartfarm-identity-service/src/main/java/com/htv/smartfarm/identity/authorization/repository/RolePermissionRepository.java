@@ -15,15 +15,10 @@ import org.springframework.data.repository.query.Param;
 public interface RolePermissionRepository
         extends JpaRepository<RolePermissionEntity, RolePermissionId> {
 
-    @EntityGraph(attributePaths = {
-            "role",
-            "permission"
-    })
-    List<RolePermissionEntity> findAllByRoleId(
-            String roleId
-    );
+    @EntityGraph(attributePaths = {"role", "permission"})
+    List<RolePermissionEntity> findAllByIdRoleId(String roleId);
 
-    boolean existsByRoleIdAndPermissionCode(
+    boolean existsByIdRoleIdAndIdPermissionCode(
             String roleId,
             String permissionCode
     );
@@ -31,7 +26,7 @@ public interface RolePermissionRepository
     @Query("""
             select count(rp)
             from RolePermissionEntity rp
-            where rp.role.id in :roleIds
+            where rp.id.roleId in :roleIds
               and rp.permission.resourceType = :resourceType
               and rp.permission.action = :action
             """)
@@ -42,10 +37,10 @@ public interface RolePermissionRepository
     );
 
     @Query("""
-            select distinct rp.permission.code
+            select distinct rp.id.permissionCode
             from RolePermissionEntity rp
-            where rp.role.id in :roleIds
-            order by rp.permission.code
+            where rp.id.roleId in :roleIds
+            order by rp.id.permissionCode
             """)
     List<String> findPermissionCodesByRoleIds(
             @Param("roleIds") Collection<String> roleIds
@@ -54,9 +49,7 @@ public interface RolePermissionRepository
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             delete from RolePermissionEntity rp
-            where rp.role.id = :roleId
+            where rp.id.roleId = :roleId
             """)
-    int deleteAllByRoleId(
-            @Param("roleId") String roleId
-    );
+    int deleteAllByRoleId(@Param("roleId") String roleId);
 }

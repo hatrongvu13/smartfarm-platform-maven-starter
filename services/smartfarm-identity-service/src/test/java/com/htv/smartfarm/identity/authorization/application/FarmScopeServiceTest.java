@@ -65,7 +65,7 @@ class FarmScopeServiceTest {
                 FARM_ID
         )).thenReturn(true);
 
-        when(membershipFarmRepository.existsByMembershipIdAndFarmId(
+        when(membershipFarmRepository.existsByIdMembershipIdAndIdFarmId(
                 MEMBERSHIP_ID,
                 FARM_ID
         )).thenReturn(false);
@@ -92,7 +92,7 @@ class FarmScopeServiceTest {
                 FARM_ID
         )).thenReturn(true);
 
-        when(membershipFarmRepository.existsByMembershipIdAndFarmId(
+        when(membershipFarmRepository.existsByIdMembershipIdAndIdFarmId(
                 MEMBERSHIP_ID,
                 FARM_ID
         )).thenReturn(true);

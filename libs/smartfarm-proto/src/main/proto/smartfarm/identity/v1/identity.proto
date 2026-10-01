@@ -6,37 +6,121 @@ option java_package = "com.htv.smartfarm.proto.identity.v1";
 option java_multiple_files = true;
 option java_outer_classname = "IdentityProto";
 
-import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "smartfarm/common/v1/common.proto";
 
-// Internal identity directory and authorization contract.
+// ============================================================
+// IDENTITY DIRECTORY
+// ============================================================
 //
-// Service này không phát hành access token, refresh token hoặc authorization
-// code. Các OAuth2/OIDC endpoint vẫn do Spring Authorization Server đảm nhiệm.
+// Contract nội bộ phục vụ tra cứu principal, cập nhật profile
+// và kiểm tra quyền.
+//
+// Service này không phát hành access token, refresh token,
+// authorization code hoặc thay thế các endpoint OAuth2/OIDC.
 service IdentityDirectoryService {
 
-  // Lấy thông tin principal trong phạm vi một tenant.
-  rpc GetPrincipal(GetPrincipalRequest) returns (GetPrincipalResponse);
+  rpc GetPrincipal(GetPrincipalRequest)
+      returns (GetPrincipalResponse);
 
-  // Cập nhật các thuộc tính hồ sơ an toàn.
-  // Không cập nhật password, credential hoặc OAuth2 session.
   rpc UpdatePrincipalProfile(UpdatePrincipalProfileRequest)
       returns (UpdatePrincipalProfileResponse);
 
-  // Kiểm tra một hành động trên resource trong tenant hiện tại.
   rpc CheckPermission(CheckPermissionRequest)
       returns (CheckPermissionResponse);
 
-  // Kiểm tra nhiều quyền trong một lần gọi để tránh N+1 gRPC.
   rpc BatchCheckPermissions(BatchCheckPermissionsRequest)
       returns (BatchCheckPermissionsResponse);
 
-  // Kiểm tra kết nối nội bộ.
   rpc Ping(smartfarm.common.v1.PingRequest)
       returns (smartfarm.common.v1.PingResponse);
 }
+
+// ============================================================
+// TENANT IDENTITY ADMINISTRATION
+// ============================================================
+//
+// Quản trị người dùng, membership, role và permission trong
+// tenant đã được xác thực.
+//
+// tenant_id trong RequestContext phải được đối chiếu với tenant
+// trong JWT bởi gRPC interceptor hoặc application security.
+service IdentityAdministrationService {
+
+  // Liệt kê role khả dụng trong tenant cùng permission được cấp.
+  rpc ListRoles(ListRolesRequest)
+      returns (ListRolesResponse);
+
+  // Lấy chi tiết một role trong tenant.
+  rpc GetRole(GetRoleRequest)
+      returns (GetRoleResponse);
+
+  // Liệt kê permission catalog mà tenant có thể sử dụng.
+  rpc ListPermissions(ListPermissionsRequest)
+      returns (ListPermissionsResponse);
+
+  // Liệt kê người dùng và membership của tenant.
+  rpc ListUsers(ListUsersRequest)
+      returns (ListUsersResponse);
+
+  // Lấy account, membership, role và effective permission
+  // của một người dùng trong tenant.
+  rpc GetUserAuthorization(GetUserAuthorizationRequest)
+      returns (GetUserAuthorizationResponse);
+
+  // Tạo account mới hoặc liên kết account hiện có vào tenant.
+  rpc CreateUser(CreateUserRequest)
+      returns (CreateUserResponse);
+
+  // Gán role thuộc tenant cho membership.
+  rpc AssignRole(AssignRoleRequest)
+      returns (AssignRoleResponse);
+
+  // Gỡ role khỏi membership.
+  rpc RevokeRole(RevokeRoleRequest)
+      returns (RevokeRoleResponse);
+
+  // Vô hiệu hóa membership trong tenant hiện tại.
+  // Không vô hiệu hóa account toàn cục.
+  rpc DisableMembership(DisableMembershipRequest)
+      returns (UpdateMembershipStatusResponse);
+
+  // Kích hoạt lại membership trong tenant hiện tại.
+  rpc EnableMembership(EnableMembershipRequest)
+      returns (UpdateMembershipStatusResponse);
+
+  // Tạm ngưng membership trong tenant hiện tại.
+  rpc SuspendMembership(SuspendMembershipRequest)
+      returns (UpdateMembershipStatusResponse);
+}
+
+// ============================================================
+// PLATFORM AUTHORIZATION ADMINISTRATION
+// ============================================================
+//
+// Chỉ dành cho platform administrator.
+//
+// Service này quản trị từ vựng permission và role template
+// cấp hệ thống. Không sử dụng cho tenant administrator.
+service PlatformAuthorizationAdministrationService {
+
+  rpc ListPlatformRoles(ListPlatformRolesRequest)
+      returns (ListPlatformRolesResponse);
+
+  rpc CreatePlatformRole(CreatePlatformRoleRequest)
+      returns (CreatePlatformRoleResponse);
+
+  rpc GrantPlatformPermission(GrantPlatformPermissionRequest)
+      returns (GrantPlatformPermissionResponse);
+
+  rpc RevokePlatformPermission(RevokePlatformPermissionRequest)
+      returns (RevokePlatformPermissionResponse);
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
 
 enum MembershipStatus {
   MEMBERSHIP_STATUS_UNSPECIFIED = 0;
@@ -46,28 +130,62 @@ enum MembershipStatus {
   MEMBERSHIP_STATUS_DISABLED = 4;
 }
 
+enum RoleType {
+  ROLE_TYPE_UNSPECIFIED = 0;
+
+  // Role thuộc một tenant cụ thể.
+  ROLE_TYPE_TENANT = 1;
+
+  // Role do hệ thống cung cấp, tenant không được sửa.
+  ROLE_TYPE_SYSTEM = 2;
+
+  // Role cấp platform, không được gán qua tenant API.
+  ROLE_TYPE_PLATFORM = 3;
+}
+
+enum AccountStatus {
+  ACCOUNT_STATUS_UNSPECIFIED = 0;
+  ACCOUNT_STATUS_ACTIVE = 1;
+  ACCOUNT_STATUS_LOCKED = 2;
+  ACCOUNT_STATUS_DISABLED = 3;
+}
+
+// ============================================================
+// DIRECTORY MODELS
+// ============================================================
+
 message PrincipalProfile {
   string display_name = 1;
   string email = 2;
   string phone_number = 3;
   string locale = 4;
   string time_zone = 5;
+
+  string first_name = 6;
+  string last_name = 7;
+  string avatar_url = 8;
+  string country_code = 9;
+  string address = 10;
+
+  bool email_verified = 11;
+  bool phone_verified = 12;
 }
 
 message TenantMembership {
-  string tenant_id = 1;
-  MembershipStatus status = 2;
-  repeated string roles = 3;
-  repeated string farm_ids = 4;
+  string membership_id = 1;
+  string tenant_id = 2;
+  MembershipStatus status = 3;
+  repeated string roles = 4;
+  repeated string farm_ids = 5;
 }
 
 message Principal {
-  // Stable OAuth2/OIDC subject identifier.
+  // Stable OAuth2/OIDC subject.
   string subject_id = 1;
 
   PrincipalProfile profile = 2;
 
-  // Trạng thái toàn cục của tài khoản.
+  // Trạng thái account toàn cục.
   bool active = 3;
 
   // Membership của tenant được yêu cầu.
@@ -76,16 +194,14 @@ message Principal {
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
 
-  // Dùng cho optimistic concurrency khi cập nhật profile.
+  // Optimistic locking version của profile.
   int64 version = 7;
 }
 
 message GetPrincipalRequest {
   smartfarm.common.v1.RequestContext context = 1;
 
-  // Nếu rỗng, server có thể sử dụng subject của authenticated principal.
-  //
-  // Chỉ trusted service có quyền đọc subject khác.
+  // Nếu rỗng, server sử dụng subject đã xác thực.
   string subject_id = 2;
 }
 
@@ -96,17 +212,11 @@ message GetPrincipalResponse {
 message UpdatePrincipalProfileRequest {
   smartfarm.common.v1.RequestContext context = 1;
   string subject_id = 2;
-
   PrincipalProfile profile = 3;
-
-  // Chỉ cho phép:
-  // display_name, phone_number, locale và time_zone.
-  //
-  // email nên được thay đổi qua luồng xác minh email riêng.
   google.protobuf.FieldMask update_mask = 4;
 
-  // Giá trị version nhận được từ lần đọc gần nhất.
-  int64 expected_version = 5;
+  // Dùng optional để phân biệt không gửi và gửi giá trị 0.
+  optional int64 expected_version = 5;
 }
 
 message UpdatePrincipalProfileResponse {
@@ -127,14 +237,6 @@ message CheckPermissionRequest {
 
 message CheckPermissionResponse {
   bool allowed = 1;
-
-  // Mã ổn định cho machine processing, ví dụ:
-  // ALLOWED_BY_ROLE
-  // ACCOUNT_DISABLED
-  // MEMBERSHIP_NOT_FOUND
-  // MEMBERSHIP_SUSPENDED
-  // ROLE_NOT_GRANTED
-  // RESOURCE_OUT_OF_SCOPE
   string reason_code = 2;
 }
 
@@ -152,4 +254,398 @@ message PermissionDecision {
 
 message BatchCheckPermissionsResponse {
   repeated PermissionDecision decisions = 1;
+}
+
+// ============================================================
+// AUTHORIZATION CATALOG MODELS
+// ============================================================
+
+message PermissionInfo {
+  string code = 1;
+  string resource_type = 2;
+  string action = 3;
+  string description = 4;
+}
+
+message RoleInfo {
+  string role_id = 1;
+  string tenant_id = 2;
+  string code = 3;
+  string name = 4;
+  RoleType type = 5;
+  repeated PermissionInfo permissions = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  int64 version = 9;
+}
+
+// ============================================================
+// USER ADMINISTRATION MODELS
+// ============================================================
+
+message UserSummary {
+  string subject_id = 1;
+  string membership_id = 2;
+  string tenant_id = 3;
+  string email = 4;
+  string display_name = 5;
+  AccountStatus account_status = 6;
+  MembershipStatus membership_status = 7;
+  repeated string roles = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message UserAuthorization {
+  string subject_id = 1;
+  string membership_id = 2;
+  string tenant_id = 3;
+  AccountStatus account_status = 4;
+  MembershipStatus membership_status = 5;
+  repeated RoleInfo roles = 6;
+  repeated PermissionInfo effective_permissions = 7;
+  repeated string farm_ids = 8;
+}
+
+// ============================================================
+// ROLE QUERIES
+// ============================================================
+
+message ListRolesRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  smartfarm.common.v1.PageRequest page = 2;
+
+  // Nếu true, response chứa permission của từng role.
+  bool include_permissions = 3;
+}
+
+message ListRolesResponse {
+  repeated RoleInfo roles = 1;
+  smartfarm.common.v1.PageResponse page = 2;
+}
+
+message GetRoleRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+
+  oneof identifier {
+    string role_id = 2;
+    string role_code = 3;
+  }
+}
+
+message GetRoleResponse {
+  RoleInfo role = 1;
+}
+
+// ============================================================
+// PERMISSION QUERIES
+// ============================================================
+
+message ListPermissionsRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  smartfarm.common.v1.PageRequest page = 2;
+
+  // Tùy chọn lọc theo resource type.
+  string resource_type = 3;
+}
+
+message ListPermissionsResponse {
+  repeated PermissionInfo permissions = 1;
+  smartfarm.common.v1.PageResponse page = 2;
+}
+
+// ============================================================
+// USER QUERIES
+// ============================================================
+
+message ListUsersRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  smartfarm.common.v1.PageRequest page = 2;
+
+  // Tìm kiếm theo email hoặc display name.
+  string search_text = 3;
+
+  // Nếu UNSPECIFIED thì không lọc theo trạng thái.
+  MembershipStatus membership_status = 4;
+
+  // Tùy chọn lọc user có role này.
+  string role_code = 5;
+}
+
+message ListUsersResponse {
+  repeated UserSummary users = 1;
+  smartfarm.common.v1.PageResponse page = 2;
+}
+
+message GetUserAuthorizationRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+}
+
+message GetUserAuthorizationResponse {
+  UserAuthorization authorization = 1;
+}
+
+// ============================================================
+// CREATE USER
+// ============================================================
+
+message CreateUserRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+
+  string email = 2;
+
+  // Credential nhạy cảm.
+  //
+  // Chỉ sử dụng trên TLS/mTLS, không log request payload và
+  // không lưu plaintext.
+  string initial_password = 3;
+
+  string display_name = 4;
+  string phone_number = 5;
+  string locale = 6;
+  string time_zone = 7;
+
+  // Role mặc định, ví dụ USER.
+  // Nếu rỗng, application service áp dụng role mặc định.
+  repeated string initial_role_codes = 8;
+
+  // Nếu true, membership được ACTIVE ngay.
+  // Nếu false, membership bắt đầu ở trạng thái INVITED.
+  bool activate_immediately = 9;
+}
+
+message CreateUserResponse {
+  string subject_id = 1;
+  string membership_id = 2;
+  string tenant_id = 3;
+  MembershipStatus membership_status = 4;
+
+  // True nếu account đã tồn tại và chỉ tạo thêm membership.
+  bool existing_account = 5;
+}
+
+// ============================================================
+// ROLE ASSIGNMENT
+// ============================================================
+
+message AssignRoleRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string role_code = 3;
+}
+
+message AssignRoleResponse {
+  string subject_id = 1;
+  string membership_id = 2;
+  string tenant_id = 3;
+  repeated string role_codes = 4;
+}
+
+message RevokeRoleRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string role_code = 3;
+}
+
+message RevokeRoleResponse {
+  string subject_id = 1;
+  string membership_id = 2;
+  string tenant_id = 3;
+  repeated string role_codes = 4;
+}
+
+// ============================================================
+// MEMBERSHIP STATUS
+// ============================================================
+
+message DisableMembershipRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string reason = 3;
+}
+
+message EnableMembershipRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+}
+
+message SuspendMembershipRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string reason = 3;
+}
+
+message UpdateMembershipStatusResponse {
+  string subject_id = 1;
+  string membership_id = 2;
+  string tenant_id = 3;
+  MembershipStatus status = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// ============================================================
+// PLATFORM ROLE ADMINISTRATION
+// ============================================================
+
+message ListPlatformRolesRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  smartfarm.common.v1.PageRequest page = 2;
+  bool include_permissions = 3;
+}
+
+message ListPlatformRolesResponse {
+  repeated RoleInfo roles = 1;
+  smartfarm.common.v1.PageResponse page = 2;
+}
+
+message CreatePlatformRoleRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+
+  // Pattern đề xuất: [A-Z][A-Z0-9_]{1,39}
+  string role_code = 2;
+
+  string role_name = 3;
+  string description = 4;
+
+  repeated string permission_codes = 5;
+}
+
+message CreatePlatformRoleResponse {
+  RoleInfo role = 1;
+}
+
+message GrantPlatformPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string role_code = 2;
+  string permission_code = 3;
+}
+
+message GrantPlatformPermissionResponse {
+  RoleInfo role = 1;
+}
+
+message RevokePlatformPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string role_code = 2;
+  string permission_code = 3;
+}
+
+message RevokePlatformPermissionResponse {
+  RoleInfo role = 1;
+}
+
+
+// ============================================================
+// IDENTITY CREDENTIAL MANAGEMENT
+// ============================================================
+
+service IdentityCredentialService {
+  rpc GetSecurityProfile(GetSecurityProfileRequest)
+      returns (GetSecurityProfileResponse);
+
+  rpc BeginTotpEnrollment(BeginTotpEnrollmentRequest)
+      returns (BeginTotpEnrollmentResponse);
+
+  rpc ConfirmTotpEnrollment(ConfirmTotpEnrollmentRequest)
+      returns (ConfirmTotpEnrollmentResponse);
+
+  rpc DisableOwnMfa(DisableOwnMfaRequest)
+      returns (DisableOwnMfaResponse);
+
+  rpc RegenerateRecoveryCodes(RegenerateRecoveryCodesRequest)
+      returns (RegenerateRecoveryCodesResponse);
+
+  rpc ResetUserMfa(ResetUserMfaRequest)
+      returns (ResetUserMfaResponse);
+
+  rpc ChangeOwnPassword(ChangeOwnPasswordRequest)
+      returns (ChangeOwnPasswordResponse);
+}
+
+message AuthenticatorInfo {
+  string authenticator_id = 1;
+  string type = 2;
+  string status = 3;
+  string display_name = 4;
+}
+
+message SecurityProfileInfo {
+  string subject_id = 1;
+  bool totp_required = 2;
+  bool totp_enabled = 3;
+  repeated AuthenticatorInfo authenticators = 4;
+}
+
+message GetSecurityProfileRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+}
+
+message GetSecurityProfileResponse {
+  SecurityProfileInfo security_profile = 1;
+}
+
+message BeginTotpEnrollmentRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string display_name = 3;
+}
+
+message BeginTotpEnrollmentResponse {
+  string authenticator_id = 1;
+  string otpauth_uri = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message ConfirmTotpEnrollmentRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string authenticator_id = 3;
+  string code = 4;
+}
+
+message ConfirmTotpEnrollmentResponse {
+  string authenticator_id = 1;
+  repeated string recovery_codes = 2;
+}
+
+message DisableOwnMfaRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string authenticator_id = 3;
+}
+
+message DisableOwnMfaResponse {
+  bool disabled = 1;
+}
+
+message RegenerateRecoveryCodesRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string authenticator_id = 3;
+}
+
+message RegenerateRecoveryCodesResponse {
+  repeated string recovery_codes = 1;
+}
+
+message ResetUserMfaRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+}
+
+message ResetUserMfaResponse {
+  bool reset = 1;
+}
+
+message ChangeOwnPasswordRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string current_password = 3;
+  string new_password = 4;
+}
+
+message ChangeOwnPasswordResponse {
+  bool changed = 1;
 }

@@ -1,193 +1,96 @@
 type Query {
   platformStatus: PlatformStatus!
-
-  "Danh sách công việc theo farm (lọc tuỳ chọn theo trạng thái/người nhận)."
-  tasks(farmId: ID!, status: String, assigneeId: String, limit: Int): [Task!]!
-  "Một công việc theo id."
+  tasks(farmId: ID!, status: String, assigneeId: ID, limit: Int): [Task!]!
   task(id: ID!): Task
-
-  "Danh sách đơn hàng theo farm (lọc tuỳ chọn theo trạng thái)."
   orders(farmId: ID!, status: String, limit: Int): [Order!]!
-  "Một đơn hàng theo id."
   order(id: ID!): Order
-
-  """
-  Tổng hợp cho màn hình Dashboard trong MỘT round-trip: đếm task theo trạng thái, đếm task quá hạn
-  (nhận/báo cáo), đếm đơn theo trạng thái, và trả kèm danh sách rút gọn task quá hạn + đơn FAILED gần đây.
-  Thay cho việc FE gọi nhiều list rồi tự đếm. Cần cả scope farm:read và orders:read.
-  """
   dashboard(farmId: ID!, recentLimit: Int): Dashboard!
-
-  "Tồn kho tại một (item, warehouse): on-hand / reserved / available. Cần scope inventory:read."
   warehouseInventory(itemId: ID!, warehouseId: ID!): StockBalance
-
-  "Chi phí theo lô (feed/medicine/labor/other/total + số con). Cần scope report:read."
   batchCost(farmId: ID!, batchId: ID!): BatchCost
-
-  "Dòng tiền theo khoảng thời gian (inflow/outflow/net). from/to là epoch ms; bỏ trống = toàn bộ. Cần scope report:read."
   cashFlow(farmId: ID!, fromEpochMs: Float, toEpochMs: Float): CashFlow
-
-  "Các điểm tồn kho dưới ngưỡng đặt lại theo farm. Cần scope inventory:read."
   lowStock(farmId: ID!, limit: Int): [StockBalance!]!
+  me: Principal!
+  users(filter: UserFilter, page: PageInput): UserConnection!
+  userAuthorization(subjectId: ID!): UserAuthorization!
+  roles(page: PageInput): RoleConnection!
+  permissions(page: PageInput): PermissionConnection!
+  mySecurityProfile: SecurityProfile!
+}
+input PageInput { size: Int = 20, token: String }
+input UserFilter { searchText: String, roleCode: String }
+enum AccountStatus { ACTIVE LOCKED DISABLED UNSPECIFIED }
+enum MembershipStatus { INVITED ACTIVE SUSPENDED DISABLED UNSPECIFIED }
+enum RoleType { TENANT SYSTEM PLATFORM UNSPECIFIED }
+type PlatformStatus { name: String!, status: String!, tenantId: String! }
+type Principal { subjectId: ID!, active: Boolean!, version: Float!, profile: PrincipalProfile!, membership: Membership!, createdAt: String!, updatedAt: String! }
+type PrincipalProfile { displayName: String!, email: String!, firstName: String, lastName: String, phoneNumber: String, avatarUrl: String, locale: String!, timeZone: String!, emailVerified: Boolean!, phoneVerified: Boolean! }
+type Membership { membershipId: ID!, tenantId: ID!, status: MembershipStatus!, roles: [String!]!, farmIds: [ID!]! }
+type UserSummary { subjectId: ID!, membershipId: ID!, tenantId: ID!, email: String!, displayName: String!, accountStatus: AccountStatus!, membershipStatus: MembershipStatus!, roles: [String!]!, createdAt: String!, updatedAt: String! }
+type UserConnection { nodes: [UserSummary!]!, nextPageToken: String! }
+type Permission { code: String!, resourceType: String!, action: String!, description: String! }
+type PermissionConnection { nodes: [Permission!]!, nextPageToken: String! }
+type Role { roleId: ID!, tenantId: ID!, code: String!, name: String!, type: RoleType!, permissions: [Permission!]!, createdAt: String!, updatedAt: String!, version: Float! }
+type RoleConnection { nodes: [Role!]!, nextPageToken: String! }
+type UserAuthorization { subjectId: ID!, membershipId: ID!, tenantId: ID!, accountStatus: AccountStatus!, membershipStatus: MembershipStatus!, roles: [Role!]!, effectivePermissions: [Permission!]!, farmIds: [ID!]! }
+type Money { currency: String!, minor: Float! }
+type Quantity { value: String!, unit: String }
+type StockBalance { itemId: String!, warehouseId: String!, onHand: Quantity!, reserved: Quantity!, available: Quantity! }
+type BatchCost { batchId: ID!, farmId: ID!, feedCost: Money!, medicineCost: Money!, laborCost: Money!, otherCost: Money!, totalCost: Money!, animalCount: Int! }
+type CashFlow { farmId: ID!, inflow: Money!, outflow: Money!, net: Money! }
+type Dashboard { farmId: ID!, generatedAt: Float!, tasks: TaskSummary!, orders: OrderSummary!, overdueTasks: [Task!]!, failedOrders: [Order!]! }
+type TaskSummary { total: Int!, created: Int!, assigned: Int!, accepted: Int!, completed: Int!, cancelled: Int!, overdueAccept: Int!, overdueReport: Int! }
+type OrderSummary { total: Int!, created: Int!, stockReserved: Int!, financePosted: Int!, completed: Int!, failed: Int!, cancelled: Int! }
+type Task { taskId: ID!, farmId: ID!, title: String!, type: String!, status: String!, assigneeId: ID, dueAt: Float, assignedAt: Float, acceptDeadlineAt: Float, acceptedAt: Float, reportDueAt: Float, reportedAt: Float, completedAt: Float }
+type Order { orderId: ID!, farmId: ID!, batchId: ID, status: String!, totalMinor: Float!, failureReason: String, lines: [OrderLine!]! }
+type OrderLine { itemId: ID!, quantity: Float!, unit: String, unitPriceMinor: Float, warehouseId: ID }
 
-  """
-  Danh sách người dùng trong tenant của người gọi kèm vai trò + trạng thái.
-  Mặt đọc quản trị (thay cho GET /admin/users) — dùng cho màn hình Quản trị người dùng. Cần scope identity:admin.
-  """
-  users: [UserSummary!]!
 
-  """
-  Toàn bộ vai trò và các quyền (permission/scope) mỗi vai trò cấp.
-  Dùng để admin quyết định gán gì cho ai. Cần scope identity:admin.
-  """
-  roles: [Role!]!
-
-  """
-  Toàn bộ quyền (permission/scope) hệ thống biết — từ vựng để cấp cho vai trò.
-  Cần scope identity:admin.
-  """
-  permissions: [String!]!
+type Mutation {
+  updateMyProfile(input: UpdateProfileInput!): Principal!
+  beginTotpEnrollment(displayName: String): TotpEnrollment!
+  confirmTotpEnrollment(authenticatorId: ID!, code: String!): TotpEnrollmentConfirmation!
+  disableMyMfa(authenticatorId: ID!): Boolean!
+  regenerateRecoveryCodes(authenticatorId: ID!): RecoveryCodeSet!
+  changeMyPassword(currentPassword: String!, newPassword: String!): Boolean!
+  resetUserMfa(subjectId: ID!): Boolean!
 }
 
-"Tóm tắt một người dùng cho màn hình quản trị (không lộ mật khẩu/hash)."
-type UserSummary {
-  id: ID!
-  email: String!
-  "Tài khoản còn hoạt động (chưa bị disable)."
-  enabled: Boolean!
-  "Đang bị khoá tạm thời do đăng nhập sai (lockedUntil > hiện tại)."
-  locked: Boolean!
-  "Các vai trò đã gán, sắp xếp."
-  roles: [String!]!
+input UpdateProfileInput {
+  expectedVersion: Float!
+  displayName: String
+  firstName: String
+  lastName: String
+  phoneNumber: String
+  avatarUrl: String
+  locale: String
+  timeZone: String
 }
 
-"Một vai trò và các quyền nó cấp."
-type Role {
-  code: String!
-  "Các permission/scope vai trò này cấp (có thể gồm ký tự đại diện '*' cho super-admin)."
-  permissions: [String!]!
+type SecurityProfile {
+  subjectId: ID!
+  totpRequired: Boolean!
+  totpEnabled: Boolean!
+  authenticators: [Authenticator!]!
 }
 
-"Dòng tiền tổng hợp theo khoảng thời gian."
-type CashFlow {
-  farmId: String!
-  inflow: Money!
-  outflow: Money!
-  net: Money!
-}
-
-"Số tiền theo minor units (vd VND: 1 = 1 đồng)."
-type Money {
-  currency: String!
-  minor: Float!
-}
-
-"Số lượng dạng chuỗi thập phân + đơn vị."
-type Quantity {
-  value: String!
-  unit: String
-}
-
-"Tồn kho tại một điểm (item × warehouse)."
-type StockBalance {
-  itemId: String!
-  warehouseId: String!
-  onHand: Quantity!
-  reserved: Quantity!
-  available: Quantity!
-}
-
-"Chi phí tổng hợp theo lô (batch)."
-type BatchCost {
-  batchId: String!
-  farmId: String!
-  feedCost: Money!
-  medicineCost: Money!
-  laborCost: Money!
-  otherCost: Money!
-  totalCost: Money!
-  animalCount: Int!
-}
-
-"Tổng hợp Dashboard theo farm (tính server-side từ cùng nguồn gRPC như REST)."
-type Dashboard {
-  farmId: String!
-  "Thời điểm tính (epoch ms) — mốc dùng để xác định quá hạn."
-  generatedAt: Float!
-  tasks: TaskSummary!
-  orders: OrderSummary!
-  "Task đang quá hạn (nhận hoặc báo cáo), rút gọn để hiển thị nhanh."
-  overdueTasks: [Task!]!
-  "Đơn FAILED gần đây, rút gọn."
-  failedOrders: [Order!]!
-}
-
-"Đếm task theo trạng thái + quá hạn."
-type TaskSummary {
-  total: Int!
-  created: Int!
-  assigned: Int!
-  accepted: Int!
-  completed: Int!
-  cancelled: Int!
-  "Task ASSIGNED mà đã quá acceptDeadlineAt."
-  overdueAccept: Int!
-  "Task ACCEPTED mà đã quá reportDueAt."
-  overdueReport: Int!
-}
-
-"Đếm đơn theo trạng thái."
-type OrderSummary {
-  total: Int!
-  created: Int!
-  stockReserved: Int!
-  financePosted: Int!
-  completed: Int!
-  failed: Int!
-  cancelled: Int!
-}
-
-type PlatformStatus {
-  name: String!
-  status: String!
-  tenantId: String!
-}
-
-"Công việc chăn nuôi (livestock task) kèm các mốc giám sát quá hạn."
-type Task {
-  taskId: ID!
-  farmId: String!
-  title: String!
+type Authenticator {
+  authenticatorId: ID!
   type: String!
   status: String!
-  assigneeId: String
-  dueAt: Float
-  assignedAt: Float
-  acceptDeadlineAt: Float
-  acceptedAt: Float
-  reportDueAt: Float
-  reportedAt: Float
-  completedAt: Float
+  displayName: String!
 }
 
-"Đơn hàng (saga) với tổng tiền theo minor units."
-type Order {
-  orderId: ID!
-  farmId: String!
-  batchId: String
-  status: String!
-  totalMinor: Float!
-  failureReason: String
-  "Các dòng hàng của đơn; mỗi dòng có thể ở kho (warehouse) riêng."
-  lines: [OrderLine!]!
+type TotpEnrollment {
+  authenticatorId: ID!
+  otpauthUri: String!
+  expiresAt: String!
 }
 
-"Một dòng hàng trong đơn — hỗ trợ warehouse-per-line (mỗi dòng lấy hàng từ kho riêng)."
-type OrderLine {
-  itemId: String!
-  quantity: Float!
-  unit: String
-  unitPriceMinor: Float
-  "Kho cấp hàng cho dòng này; rỗng = dùng batchId cấp đơn (tương thích ngược)."
-  warehouseId: String
+type TotpEnrollmentConfirmation {
+  authenticatorId: ID!
+  recoveryCodes: [String!]!
+}
+
+type RecoveryCodeSet {
+  recoveryCodes: [String!]!
 }
