@@ -2,6 +2,7 @@ package com.htv.smartfarm.order.config;
 
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
 
+import java.time.Clock;
 import java.util.Map;
 import java.util.Set;
 
@@ -22,7 +23,17 @@ public class OrderGrpcPolicyConfiguration {
                         "smartfarm.order.v1.FarmOrderService/PlaceOrder", "SCOPE_orders:write",
                         "smartfarm.order.v1.FarmOrderService/GetOrder", "SCOPE_orders:read",
                         "smartfarm.order.v1.FarmOrderService/ListOrders", "SCOPE_orders:read",
-                        "smartfarm.order.v1.FarmOrderService/CancelOrder", "SCOPE_orders:write"),
+                        "smartfarm.order.v1.FarmOrderService/CancelOrder", "SCOPE_orders:write",
+                        "smartfarm.order.v1.FarmOrderService/CreateDraftOrder", "SCOPE_orders:write",
+                        "smartfarm.order.v1.FarmOrderService/UpdateDraftOrder", "SCOPE_orders:write",
+                        "smartfarm.order.v1.FarmOrderService/DeleteDraftOrder", "SCOPE_orders:write",
+                        "smartfarm.order.v1.FarmOrderService/SubmitDraftOrder", "SCOPE_orders:write"),
                 Set.of("grpc.health.v1.Health/Check", "grpc.health.v1.Health/Watch"));
     }
+
+    @Bean
+    Clock orderClock() {
+        return Clock.systemUTC();
+    }
+
 }

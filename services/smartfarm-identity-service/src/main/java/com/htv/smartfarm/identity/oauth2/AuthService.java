@@ -29,6 +29,9 @@ import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 import com.htv.smartfarm.identity.token.RefreshRepository;
 import com.htv.smartfarm.identity.token.TokenService;
+import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
+
+import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -142,6 +145,7 @@ public class AuthService {
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
     private final String dummyHash;
+    private IdentityIntegrationEventPublisher events;
 
     public AuthService(
             UserAccountRepository accounts,
@@ -178,6 +182,13 @@ public class AuthService {
         this.dummyHash = encoder.encode("dummy-password-not-for-login");
     }
 
+    @Autowired
+    void setIdentityIntegrationEventPublisher(
+            IdentityIntegrationEventPublisher events
+    ) {
+        this.events = events;
+    }
+
     public static String email(String input) {
         if (input == null || !input.matches(
                 "(?i)^[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,190}$"
@@ -208,15 +219,19 @@ public class AuthService {
         ).orElseThrow(() -> badRequest(
                 "Registration tenant is unavailable"
         ));
+        CreateAccountCommand createCommand = new CreateAccountCommand(
+                normalizedEmail,
+                rawPassword,
+                normalizedEmail,
+                null,
+                "vi-VN",
+                "Asia/Ho_Chi_Minh"
+        );
         String userId = accountService.createAccount(
-                new CreateAccountCommand(
-                        normalizedEmail,
-                        rawPassword,
-                        normalizedEmail,
-                        null,
-                        "vi-VN",
-                        "Asia/Ho_Chi_Minh"
-                )
+                createCommand,
+                tenant.getId(),
+                "self-registration",
+                null
         );
         UserAccountEntity account = accounts.findById(userId).orElseThrow();
         TenantMembershipEntity membership = new TenantMembershipEntity(
@@ -257,10 +272,27 @@ public class AuthService {
 
         if (account == null || !matched) {
             if (account != null) {
+                boolean wasLocked = account.getLockedUntil() != null
+                        && account.getLockedUntil().isAfter(clock.instant());
                 account.recordLoginFailure(
                         settings.maxFailures(),
                         clock.instant().plus(settings.lockDuration())
                 );
+                boolean lockedNow = !wasLocked
+                        && account.getLockedUntil() != null
+                        && account.getLockedUntil().isAfter(clock.instant());
+                if (account.getFailedAttempts() == 1 || lockedNow) {
+                    publishLoginFailure(
+                            tenantId,
+                            account,
+                            "PASSWORD",
+                            account.getFailedAttempts(),
+                            lockedNow
+                    );
+                }
+                if (lockedNow) {
+                    publishAccountLocked(tenantId, account, "PASSWORD_FAILURE_THRESHOLD");
+                }
             }
             throw unauthorized();
         }
@@ -319,6 +351,12 @@ public class AuthService {
         }
 
         account.recordLoginSuccess(clock.instant());
+        publishLoginSucceeded(
+                tenantId,
+                account,
+                "PASSWORD",
+                false
+        );
         return AuthenticationResponse.completed(
                 issue(account, membership, UUID.randomUUID().toString())
         );
@@ -352,9 +390,12 @@ public class AuthService {
             );
             TotpEnrollmentConfirmation confirmation =
                     authenticatorService.confirmTotpEnrollment(
+                            pending.getTenantId(),
                             pending.getUserId(),
                             authenticatorId,
-                            code
+                            code,
+                            pending.getUserId(),
+                            pending.getId()
                     );
             var challenge = mfaChallenges.completeEnrollment(challengeToken);
             UserAccountEntity account = accounts.findByIdForUpdate(
@@ -434,6 +475,12 @@ public class AuthService {
             }
 
             account.recordLoginSuccess(clock.instant());
+            publishLoginSucceeded(
+                    challenge.getTenantId(),
+                    account,
+                    normalizedMethod,
+                    true
+            );
             return AuthenticationResponse.completed(
                     issue(
                             account,
@@ -487,6 +534,81 @@ public class AuthService {
         if (raw == null || raw.isBlank()) return;
         refresh.find(raw).ifPresent(session ->
                 refresh.revokeFamily(session.familyId())
+        );
+    }
+
+    private void publishLoginSucceeded(
+            String tenantId,
+            UserAccountEntity account,
+            String authenticationMethod,
+            boolean mfaUsed
+    ) {
+        if (events == null || tenantId == null || tenantId.isBlank()) return;
+        events.publish(
+                tenantId,
+                account.getId(),
+                null,
+                null,
+                "identity.login.succeeded",
+                "user-security",
+                account.getId(),
+                0,
+                java.util.Map.of(
+                        "subjectId", account.getId(),
+                        "authenticationMethod", authenticationMethod,
+                        "mfaUsed", mfaUsed,
+                        "occurredAt", clock.instant().toString()
+                )
+        );
+    }
+
+    private void publishLoginFailure(
+            String tenantId,
+            UserAccountEntity account,
+            String authenticationStage,
+            int attemptCount,
+            boolean locked
+    ) {
+        if (events == null || tenantId == null || tenantId.isBlank()) return;
+        events.publish(
+                tenantId,
+                account.getId(),
+                null,
+                null,
+                "identity.login.failed",
+                "user-security",
+                account.getId(),
+                0,
+                java.util.Map.of(
+                        "subjectId", account.getId(),
+                        "authenticationStage", authenticationStage,
+                        "attemptCount", attemptCount,
+                        "locked", locked
+                )
+        );
+    }
+
+    private void publishAccountLocked(
+            String tenantId,
+            UserAccountEntity account,
+            String reasonCode
+    ) {
+        if (events == null || tenantId == null || tenantId.isBlank()) return;
+        events.publish(
+                tenantId,
+                account.getId(),
+                null,
+                null,
+                "identity.account.locked",
+                "user-account",
+                account.getId(),
+                0,
+                java.util.Map.of(
+                        "subjectId", account.getId(),
+                        "reasonCode", reasonCode,
+                        "failedAttempts", account.getFailedAttempts(),
+                        "lockedUntil", account.getLockedUntil().toString()
+                )
         );
     }
 

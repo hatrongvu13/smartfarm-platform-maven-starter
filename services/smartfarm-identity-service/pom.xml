@@ -16,6 +16,11 @@
     <description>Auth server: login, JWT issuance, refresh rotation, RBAC admin.</description>
 
     <dependencies>
+        <!-- MQTT lifecycle for Identity integration events. Publishing is added in Phase 1B. -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
@@ -81,6 +86,14 @@
         <dependency>
             <groupId>com.htv.smartfarm</groupId>
             <artifactId>smartfarm-common-kernel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
     </dependencies>
 

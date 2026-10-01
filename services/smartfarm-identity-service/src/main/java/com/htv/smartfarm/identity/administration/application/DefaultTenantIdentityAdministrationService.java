@@ -150,15 +150,24 @@ public class DefaultTenantIdentityAdministrationService
         if (existing) {
             subjectId = account.getId();
         } else {
-            subjectId = accountService.createAccount(new CreateAccountCommand(
-                    command.email(), command.initialPassword(), command.displayName(), command.phoneNumber(),
-                    command.locale(), command.timeZone()));
+            subjectId = accountService.createAccount(
+                    new CreateAccountCommand(
+                            command.email(), command.initialPassword(), command.displayName(), command.phoneNumber(),
+                            command.locale(), command.timeZone()),
+                    command.tenantId(),
+                    command.actorId(),
+                    null
+            );
         }
         if (membershipRepository.existsByTenantIdAndUserId(command.tenantId(), subjectId)) {
             throw new ConflictException("TENANT_MEMBERSHIP_ALREADY_EXISTS", "User is already a member of this tenant");
         }
-        tenantMembershipService.inviteUser(command.tenantId(), subjectId);
-        if (command.activateImmediately()) tenantMembershipService.activateMembership(command.tenantId(), subjectId);
+        tenantMembershipService.inviteUser(
+                command.tenantId(), subjectId, command.actorId(), null);
+        if (command.activateImmediately()) {
+            tenantMembershipService.activateMembership(
+                    command.tenantId(), subjectId, command.actorId(), null, "Activated during user creation");
+        }
         TenantMembershipEntity membership = membershipRepository.findByTenantAndUserForUpdate(command.tenantId(), subjectId)
                 .orElseThrow(() -> NotFoundException.entity("TenantMembership", command.tenantId() + ":" + subjectId));
         for (String codeValue : new LinkedHashSet<>(command.initialRoleCodes())) {
@@ -190,7 +199,7 @@ public class DefaultTenantIdentityAdministrationService
     @Override
     @Transactional
     public UserAuthorizationData disableMembership(String tenantId, String subjectId, String actorId, String reason) {
-        tenantMembershipService.disableMembership(tenantId, subjectId);
+        tenantMembershipService.disableMembership(tenantId, subjectId, actorId, null, reason);
         refreshRepository.revokeUserInTenant(subjectId, tenantId);
         return getUserAuthorization(tenantId, subjectId);
     }
@@ -198,14 +207,14 @@ public class DefaultTenantIdentityAdministrationService
     @Override
     @Transactional
     public UserAuthorizationData enableMembership(String tenantId, String subjectId, String actorId) {
-        tenantMembershipService.activateMembership(tenantId, subjectId);
+        tenantMembershipService.activateMembership(tenantId, subjectId, actorId, null, "Enabled by administrator");
         return getUserAuthorization(tenantId, subjectId);
     }
 
     @Override
     @Transactional
     public UserAuthorizationData suspendMembership(String tenantId, String subjectId, String actorId, String reason) {
-        tenantMembershipService.suspendMembership(tenantId, subjectId);
+        tenantMembershipService.suspendMembership(tenantId, subjectId, actorId, null, reason);
         refreshRepository.revokeUserInTenant(subjectId, tenantId);
         return getUserAuthorization(tenantId, subjectId);
     }

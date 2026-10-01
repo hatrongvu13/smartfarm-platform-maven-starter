@@ -15,6 +15,9 @@ import com.htv.smartfarm.identity.account.domain.UserProfileEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
 import com.htv.smartfarm.identity.account.repository.UserProfileRepository;
 import com.htv.smartfarm.identity.token.RefreshRepository;
+import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
+
+import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class AccountService {
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final RefreshRepository refreshRepository;
+    private IdentityIntegrationEventPublisher events;
 
     public AccountService(
             UserAccountRepository userAccountRepository,
@@ -50,8 +54,25 @@ public class AccountService {
         this.refreshRepository = refreshRepository;
     }
 
+    @Autowired
+    void setIdentityIntegrationEventPublisher(
+            IdentityIntegrationEventPublisher events
+    ) {
+        this.events = events;
+    }
+
     @Transactional
     public String createAccount(CreateAccountCommand command) {
+        return createAccount(command, null, null, null);
+    }
+
+    @Transactional
+    public String createAccount(
+            CreateAccountCommand command,
+            String tenantId,
+            String actorId,
+            String correlationId
+    ) {
         validateCreateCommand(command);
 
         String email = command.email().trim();
@@ -92,6 +113,19 @@ public class AccountService {
         userAccountRepository.saveAndFlush(account);
         userProfileRepository.saveAndFlush(profile);
 
+        publishIfTenant(
+                tenantId,
+                actorId,
+                correlationId,
+                "identity.user.created",
+                userId,
+                java.util.Map.of(
+                        "subjectId", userId,
+                        "email", account.getEmail(),
+                        "displayName", profile.getDisplayName(),
+                        "enabled", account.isEnabled()
+                )
+        );
         return userId;
     }
 
@@ -100,6 +134,18 @@ public class AccountService {
             String userId,
             String currentRawPassword,
             String newRawPassword
+    ) {
+        changePassword(userId, currentRawPassword, newRawPassword, null, userId, null);
+    }
+
+    @Transactional
+    public void changePassword(
+            String userId,
+            String currentRawPassword,
+            String newRawPassword,
+            String tenantId,
+            String actorId,
+            String correlationId
     ) {
         requireText(userId, "userId");
         requireText(currentRawPassword, "currentRawPassword");
@@ -131,6 +177,18 @@ public class AccountService {
                 passwordEncoder.encode(newRawPassword)
         );
         refreshRepository.revokeUser(userId);
+        publishIfTenant(
+                tenantId,
+                actorId,
+                correlationId,
+                "identity.password.changed",
+                userId,
+                java.util.Map.of(
+                        "subjectId", userId,
+                        "changeType", "SELF_SERVICE",
+                        "sessionsRevoked", true
+                )
+        );
     }
 
     @Transactional
@@ -138,12 +196,35 @@ public class AccountService {
             String userId,
             String newRawPassword
     ) {
+        resetPassword(userId, newRawPassword, null, userId, null);
+    }
+
+    @Transactional
+    public void resetPassword(
+            String userId,
+            String newRawPassword,
+            String tenantId,
+            String actorId,
+            String correlationId
+    ) {
         requireText(userId, "userId");
         validatePassword(newRawPassword);
 
         UserAccountEntity account = getAccountForUpdate(userId);
         account.changePasswordHash(passwordEncoder.encode(newRawPassword));
         refreshRepository.revokeUser(userId);
+        publishIfTenant(
+                tenantId,
+                actorId,
+                correlationId,
+                "identity.password.changed",
+                userId,
+                java.util.Map.of(
+                        "subjectId", userId,
+                        "changeType", "ADMIN_RESET",
+                        "sessionsRevoked", true
+                )
+        );
     }
 
     @Transactional
@@ -170,17 +251,62 @@ public class AccountService {
 
     @Transactional
     public void enableAccount(String userId) {
-        getAccountForUpdate(userId).enable();
+        enableAccount(userId, null, userId, null);
+    }
+
+    @Transactional
+    public void enableAccount(
+            String userId,
+            String tenantId,
+            String actorId,
+            String correlationId
+    ) {
+        UserAccountEntity account = getAccountForUpdate(userId);
+        boolean changed = !account.isEnabled();
+        account.enable();
+        if (changed) publishAccountStatus(
+                tenantId, actorId, correlationId,
+                "identity.account.enabled", account, "ENABLED");
     }
 
     @Transactional
     public void disableAccount(String userId) {
-        getAccountForUpdate(userId).disable();
+        disableAccount(userId, null, userId, null);
+    }
+
+    @Transactional
+    public void disableAccount(
+            String userId,
+            String tenantId,
+            String actorId,
+            String correlationId
+    ) {
+        UserAccountEntity account = getAccountForUpdate(userId);
+        boolean changed = account.isEnabled();
+        account.disable();
+        refreshRepository.revokeUser(userId);
+        if (changed) publishAccountStatus(
+                tenantId, actorId, correlationId,
+                "identity.account.disabled", account, "DISABLED");
     }
 
     @Transactional
     public void unlockAccount(String userId) {
-        getAccountForUpdate(userId).resetLoginFailure();
+        unlockAccount(userId, null, userId, null);
+    }
+
+    @Transactional
+    public void unlockAccount(
+            String userId,
+            String tenantId,
+            String actorId,
+            String correlationId
+    ) {
+        UserAccountEntity account = getAccountForUpdate(userId);
+        account.resetLoginFailure();
+        publishAccountStatus(
+                tenantId, actorId, correlationId,
+                "identity.account.unlocked", account, "ACTIVE");
     }
 
     @Transactional(readOnly = true)
@@ -195,6 +321,50 @@ public class AccountService {
                 ));
 
         return account.isLoginAllowed(clock.instant());
+    }
+
+    private void publishAccountStatus(
+            String tenantId,
+            String actorId,
+            String correlationId,
+            String eventType,
+            UserAccountEntity account,
+            String status
+    ) {
+        publishIfTenant(
+                tenantId,
+                actorId,
+                correlationId,
+                eventType,
+                account.getId(),
+                java.util.Map.of(
+                        "subjectId", account.getId(),
+                        "status", status,
+                        "sessionsRevoked", "DISABLED".equals(status)
+                )
+        );
+    }
+
+    private void publishIfTenant(
+            String tenantId,
+            String actorId,
+            String correlationId,
+            String eventType,
+            String aggregateId,
+            java.util.Map<String, Object> data
+    ) {
+        if (events == null || tenantId == null || tenantId.isBlank()) return;
+        events.publish(
+                tenantId,
+                actorId,
+                correlationId,
+                null,
+                eventType,
+                "user-account",
+                aggregateId,
+                0,
+                data
+        );
     }
 
     private UserAccountEntity getAccountForUpdate(String userId) {

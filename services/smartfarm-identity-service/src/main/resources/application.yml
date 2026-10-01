@@ -29,6 +29,54 @@ smartfarm:
     bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:replace-with-a-long-random-password}
     # Machine-to-machine service tokens. Default has NO clients — a profile (dev/prod)
     # must whitelist each caller before any service token can be minted.
+
+    mqtt:
+      enabled: ${IDENTITY_MQTT_ENABLED:true}
+      broker-uri: ${IDENTITY_MQTT_URL:tcp://localhost:1883}
+      client-id: ${IDENTITY_MQTT_CLIENT_ID:smartfarm-identity-service}
+      username: ${IDENTITY_MQTT_USERNAME:}
+      password: ${IDENTITY_MQTT_PASSWORD:}
+      qos: ${IDENTITY_MQTT_QOS:1}
+      clean-session: false
+      connection-timeout: 10s
+      keep-alive: 15s
+      initial-retry: 5s
+      maximum-fast-retry: 15s
+      degraded-after-attempts: 30
+      degraded-retry: 60s
+      probe-after: 10m
+      probe-interval: 5m
+
+      commands:
+        enabled: ${IDENTITY_MQTT_COMMANDS_ENABLED:false}
+        topic-filter: ${IDENTITY_MQTT_COMMAND_TOPIC_FILTER:smartfarm/+/identity/command/+/v1}
+        qos: ${IDENTITY_MQTT_COMMAND_QOS:1}
+        maximum-payload-bytes: ${IDENTITY_MQTT_COMMAND_MAXIMUM_PAYLOAD_BYTES:65536}
+        allowed-types:
+          - identity.membership.enable
+          - identity.membership.suspend
+          - identity.membership.disable
+          - identity.role.assign
+          - identity.role.revoke
+        retention: ${IDENTITY_MQTT_COMMAND_RETENTION:30d}
+        cleanup-interval: ${IDENTITY_MQTT_COMMAND_CLEANUP_INTERVAL:1h}
+        dispatch-interval: ${IDENTITY_MQTT_COMMAND_DISPATCH_INTERVAL:1s}
+        dispatch-batch-size: ${IDENTITY_MQTT_COMMAND_DISPATCH_BATCH_SIZE:25}
+        maximum-attempts: ${IDENTITY_MQTT_COMMAND_MAXIMUM_ATTEMPTS:5}
+        initial-retry: ${IDENTITY_MQTT_COMMAND_INITIAL_RETRY:5s}
+        maximum-retry: ${IDENTITY_MQTT_COMMAND_MAXIMUM_RETRY:5m}
+        processing-timeout: ${IDENTITY_MQTT_COMMAND_PROCESSING_TIMEOUT:2m}
+
+    outbox:
+      enabled: ${IDENTITY_OUTBOX_ENABLED:true}
+      batch-size: ${IDENTITY_OUTBOX_BATCH_SIZE:50}
+      poll-interval: ${IDENTITY_OUTBOX_POLL_INTERVAL:2s}
+      maximum-attempts: ${IDENTITY_OUTBOX_MAXIMUM_ATTEMPTS:12}
+      initial-retry: ${IDENTITY_OUTBOX_INITIAL_RETRY:5s}
+      maximum-retry: ${IDENTITY_OUTBOX_MAXIMUM_RETRY:5m}
+      publishing-timeout: ${IDENTITY_OUTBOX_PUBLISHING_TIMEOUT:2m}
+      published-retention: ${IDENTITY_OUTBOX_PUBLISHED_RETENTION:7d}
+      cleanup-interval: ${IDENTITY_OUTBOX_CLEANUP_INTERVAL:1h}
     service-token:
       ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
       clients: {}

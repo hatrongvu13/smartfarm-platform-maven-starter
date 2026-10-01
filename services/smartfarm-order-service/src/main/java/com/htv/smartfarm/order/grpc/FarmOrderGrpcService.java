@@ -1,5 +1,16 @@
 package com.htv.smartfarm.order.grpc;
 
+import com.google.protobuf.Empty;
+import com.google.protobuf.Timestamp;
+import com.htv.smartfarm.order.application.CreateOrderDraftCommand;
+import com.htv.smartfarm.order.application.OrderDraftData;
+import com.htv.smartfarm.order.application.OrderDraftLineCommand;
+import com.htv.smartfarm.order.application.OrderDraftService;
+import com.htv.smartfarm.order.application.OrderPage;
+import com.htv.smartfarm.order.application.OrderQueryFilter;
+import com.htv.smartfarm.order.application.OrderQueryService;
+import com.htv.smartfarm.order.application.OrderVersionConflictException;
+import com.htv.smartfarm.order.application.UpdateOrderDraftCommand;
 import com.htv.smartfarm.order.domain.OrderEntity;
 import com.htv.smartfarm.order.domain.OrderJpaRepository;
 import com.htv.smartfarm.order.domain.OrderLineEntity;
@@ -32,11 +43,21 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     private final OrderJpaRepository orders;
     private final OrderLineJpaRepository lines;
     private final OrderSagaOrchestrator saga;
+    private final OrderDraftService drafts;
+    private final OrderQueryService queries;
 
-    public FarmOrderGrpcService(OrderJpaRepository orders, OrderLineJpaRepository lines, OrderSagaOrchestrator saga) {
+    public FarmOrderGrpcService(
+            OrderJpaRepository orders,
+            OrderLineJpaRepository lines,
+            OrderSagaOrchestrator saga,
+            OrderDraftService drafts,
+            OrderQueryService queries
+    ) {
         this.orders = orders;
         this.lines = lines;
         this.saga = saga;
+        this.drafts = drafts;
+        this.queries = queries;
     }
 
     private static String tenant() {
@@ -46,7 +67,13 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     }
 
     private static String actor() {
-        return GrpcSecurityContext.SUBJECT.get();
+        String value = GrpcSecurityContext.SUBJECT.get();
+        if (value == null || value.isBlank()) throw Status.UNAUTHENTICATED.asRuntimeException();
+        return value;
+    }
+
+    private static void requireContext(boolean present) {
+        if (!present) throw new IllegalArgumentException("request context is required");
     }
 
     @Override
@@ -118,44 +145,93 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public void getOrder(GetOrderRequest req, StreamObserver<OrderResponse> out) {
-        try {
-            var order = orders.findByTenantIdAndId(tenant(), req.getOrderId()).orElse(null);
-            if (order == null) {
-                out.onError(Status.NOT_FOUND.withDescription("order not found").asRuntimeException());
-                return;
-            }
-            out.onNext(OrderResponse.newBuilder()
-                    .setOrder(toProto(order, lines.findByOrderIdOrderByLineNo(order.getId()))).build());
-            out.onCompleted();
-        } catch (io.grpc.StatusRuntimeException e) {
-            out.onError(e);
-        } catch (RuntimeException e) {
-            out.onError(Status.INTERNAL.withDescription("get order failed").asRuntimeException());
-        }
+    public void createDraftOrder(
+            CreateDraftOrderRequest req,
+            StreamObserver<OrderResponse> out
+    ) {
+        execute(out, "create draft order failed", () -> {
+            requireContext(req.hasContext());
+            var data = drafts.create(new CreateOrderDraftCommand(
+                    tenant(), actor(), req.getContext().getCorrelationId(),
+                    required(req.getContext().getIdempotencyKey(), "idempotency_key"),
+                    required(req.getFarmId(), "farm_id"), emptyToNull(req.getBatchId()),
+                    toDraftLines(req.getLinesList())));
+            return OrderResponse.newBuilder().setOrder(toProto(data)).build();
+        });
     }
 
     @Override
-    @Transactional(readOnly = true)
+    public void updateDraftOrder(
+            UpdateDraftOrderRequest req,
+            StreamObserver<OrderResponse> out
+    ) {
+        execute(out, "update draft order failed", () -> {
+            requireContext(req.hasContext());
+            var data = drafts.update(new UpdateOrderDraftCommand(
+                    tenant(), actor(), req.getContext().getCorrelationId(),
+                    required(req.getOrderId(), "order_id"), req.getExpectedVersion(),
+                    required(req.getFarmId(), "farm_id"), emptyToNull(req.getBatchId()),
+                    toDraftLines(req.getLinesList())));
+            return OrderResponse.newBuilder().setOrder(toProto(data)).build();
+        });
+    }
+
+    @Override
+    public void deleteDraftOrder(
+            DeleteDraftOrderRequest req,
+            StreamObserver<Empty> out
+    ) {
+        execute(out, "delete draft order failed", () -> {
+            requireContext(req.hasContext());
+            drafts.delete(tenant(), required(req.getOrderId(), "order_id"), req.getExpectedVersion());
+            return Empty.getDefaultInstance();
+        });
+    }
+
+    @Override
+    public void submitDraftOrder(
+            SubmitDraftOrderRequest req,
+            StreamObserver<OrderResponse> out
+    ) {
+        execute(out, "submit draft order failed", () -> {
+            requireContext(req.hasContext());
+            var data = drafts.submit(
+                    tenant(), required(req.getOrderId(), "order_id"),
+                    req.getExpectedVersion(), actor());
+            return OrderResponse.newBuilder().setOrder(toProto(data)).build();
+        });
+    }
+
+    @Override
+    public void getOrder(GetOrderRequest req, StreamObserver<OrderResponse> out) {
+        execute(out, "get order failed", () -> {
+            requireContext(req.hasContext());
+            return OrderResponse.newBuilder()
+                    .setOrder(toProto(queries.get(tenant(), required(req.getOrderId(), "order_id"))))
+                    .build();
+        });
+    }
+
+    @Override
     public void listOrders(ListOrdersRequest req, StreamObserver<ListOrdersResponse> out) {
-        try {
-            if (req.getFarmId().isBlank()) throw new IllegalArgumentException("farm_id required");
-            int limit = req.hasPage() && req.getPage().getPageSize() > 0 ? req.getPage().getPageSize() : 50;
-            String statusFilter = req.getStatus() == OrderStatus.ORDER_STATUS_UNSPECIFIED ? null : req.getStatus().name();
-            var list = orders.list(tenant(), req.getFarmId(), statusFilter,
-                    org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 200))));
-            var b = ListOrdersResponse.newBuilder();
-            for (OrderEntity o : list) b.addOrders(toProto(o, lines.findByOrderIdOrderByLineNo(o.getId())));
-            out.onNext(b.build());
-            out.onCompleted();
-        } catch (IllegalArgumentException e) {
-            out.onError(Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
-        } catch (io.grpc.StatusRuntimeException e) {
-            out.onError(e);
-        } catch (RuntimeException e) {
-            out.onError(Status.INTERNAL.withDescription("list orders failed").asRuntimeException());
-        }
+        execute(out, "list orders failed", () -> {
+            requireContext(req.hasContext());
+            int pageSize = req.hasPage() ? req.getPage().getPageSize() : 0;
+            String pageToken = req.hasPage() ? req.getPage().getPageToken() : "";
+            Long createdFrom = req.hasCreatedRange() && req.getCreatedRange().hasFrom()
+                    ? toEpochMillis(req.getCreatedRange().getFrom()) : null;
+            Long createdTo = req.hasCreatedRange() && req.getCreatedRange().hasTo()
+                    ? toEpochMillis(req.getCreatedRange().getTo()) : null;
+            OrderPage page = queries.list(new OrderQueryFilter(
+                    tenant(), emptyToNull(req.getFarmId()),
+                    req.getStatus() == OrderStatus.ORDER_STATUS_UNSPECIFIED ? null : req.getStatus().name(),
+                    emptyToNull(req.getWarehouseId()), createdFrom, createdTo, pageSize, pageToken));
+            ListOrdersResponse.Builder response = ListOrdersResponse.newBuilder();
+            page.orders().stream().map(FarmOrderGrpcService::toProto).forEach(response::addOrders);
+            response.setPage(com.htv.smartfarm.proto.common.v1.PageResponse.newBuilder()
+                    .setNextPageToken(page.nextPageToken()));
+            return response.build();
+        });
     }
 
     @Override
@@ -198,7 +274,10 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
                 .setOrderId(o.getId())
                 .setFarmId(o.getFarmId())
                 .setStatus(status(o.getStatus()))
-                .setTotal(Money.newBuilder().setCurrencyCode(o.getCurrencyCode()).setMinorUnits(o.getTotalMinor()));
+                .setTotal(Money.newBuilder().setCurrencyCode(o.getCurrencyCode()).setMinorUnits(o.getTotalMinor()))
+                .setVersion(o.getVersion())
+                .setCreatedAt(toTimestamp(o.getCreatedAt()))
+                .setUpdatedAt(toTimestamp(o.getUpdatedAt()));
         if (o.getBatchId() != null) b.setBatchId(o.getBatchId());
         if (o.getFailureReason() != null) b.setFailureReason(o.getFailureReason());
         for (OrderLineEntity ln : lineRows) {
@@ -208,9 +287,95 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
                             .setDecimalValue(ln.getQuantity()).setUnit(ln.getQuantityUnit()))
                     .setUnitPrice(Money.newBuilder()
                             .setCurrencyCode(o.getCurrencyCode()).setMinorUnits(ln.getUnitPriceMinor()))
-                    .setWarehouseId(ln.getWarehouseId()));
+                    .setWarehouseId(ln.getWarehouseId())
+                    .setLineId(ln.getId())
+                    .setLineNo(ln.getLineNo())
+                    .setLineTotalMinor(ln.getLineTotalMinor())
+                    .setVersion(ln.getVersion()));
         }
         return b.build();
+    }
+
+    private static FarmOrder toProto(OrderDraftData value) {
+        FarmOrder.Builder result = FarmOrder.newBuilder()
+                .setOrderId(value.orderId())
+                .setFarmId(value.farmId())
+                .setStatus(status(value.status()))
+                .setTotal(Money.newBuilder()
+                        .setCurrencyCode(value.currencyCode())
+                        .setMinorUnits(value.totalMinor()))
+                .setVersion(value.version())
+                .setCreatedAt(toTimestamp(value.createdAt()))
+                .setUpdatedAt(toTimestamp(value.updatedAt()));
+        if (value.batchId() != null) result.setBatchId(value.batchId());
+        value.lines().forEach(line -> result.addLines(OrderLine.newBuilder()
+                .setLineId(line.lineId())
+                .setLineNo(line.lineNo())
+                .setItemId(line.itemId())
+                .setWarehouseId(line.warehouseId())
+                .setQuantity(com.htv.smartfarm.proto.common.v1.Quantity.newBuilder()
+                        .setDecimalValue(line.quantity()).setUnit(line.quantityUnit()))
+                .setUnitPrice(Money.newBuilder()
+                        .setCurrencyCode(value.currencyCode()).setMinorUnits(line.unitPriceMinor()))
+                .setLineTotalMinor(line.lineTotalMinor())
+                .setVersion(line.version())));
+        return result.build();
+    }
+
+    private static java.util.List<OrderDraftLineCommand> toDraftLines(
+            java.util.List<OrderLine> values
+    ) {
+        java.util.ArrayList<OrderDraftLineCommand> result = new java.util.ArrayList<>();
+        for (int index = 0; index < values.size(); index++) {
+            OrderLine line = values.get(index);
+            if (!line.hasQuantity() || !line.hasUnitPrice()) {
+                throw new IllegalArgumentException("line " + index + " requires quantity and unit_price");
+            }
+            result.add(new OrderDraftLineCommand(
+                    line.getItemId(), line.getWarehouseId(),
+                    line.getQuantity().getDecimalValue(), line.getQuantity().getUnit(),
+                    line.getUnitPrice().getCurrencyCode(), line.getUnitPrice().getMinorUnits()));
+        }
+        return java.util.List.copyOf(result);
+    }
+
+    private static Timestamp toTimestamp(long epochMillis) {
+        return Timestamp.newBuilder()
+                .setSeconds(Math.floorDiv(epochMillis, 1000L))
+                .setNanos((int) Math.floorMod(epochMillis, 1000L) * 1_000_000)
+                .build();
+    }
+
+    private static long toEpochMillis(Timestamp value) {
+        return Math.addExact(Math.multiplyExact(value.getSeconds(), 1000L), value.getNanos() / 1_000_000L);
+    }
+
+    private static String required(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " required");
+        return value.trim();
+    }
+
+    @FunctionalInterface
+    private interface GrpcAction<T> { T execute(); }
+
+    private static <T> void execute(StreamObserver<T> out, String internalMessage, GrpcAction<T> action) {
+        try {
+            T value = action.execute();
+            out.onNext(value);
+            out.onCompleted();
+        } catch (OrderVersionConflictException exception) {
+            out.onError(Status.ABORTED.withDescription(exception.getMessage()).asRuntimeException());
+        } catch (IllegalArgumentException exception) {
+            String message = exception.getMessage();
+            Status status = "order not found".equals(message) ? Status.NOT_FOUND : Status.INVALID_ARGUMENT;
+            out.onError(status.withDescription(message).asRuntimeException());
+        } catch (IllegalStateException exception) {
+            out.onError(Status.FAILED_PRECONDITION.withDescription(exception.getMessage()).asRuntimeException());
+        } catch (io.grpc.StatusRuntimeException exception) {
+            out.onError(exception);
+        } catch (RuntimeException exception) {
+            out.onError(Status.INTERNAL.withDescription(internalMessage).asRuntimeException());
+        }
     }
 
     private static OrderStatus status(String s) {

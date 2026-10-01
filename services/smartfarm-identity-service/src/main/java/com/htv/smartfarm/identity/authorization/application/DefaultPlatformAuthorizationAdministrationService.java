@@ -65,9 +65,11 @@ public class DefaultPlatformAuthorizationAdministrationService
             List<String> permissionCodes, String actorId) {
         TenantEntity tenant = platformTenant();
         String code = normalize(roleCode);
-        String id = roleManagementService.createRole(tenant.getId(), code, roleName, true);
+        String id = roleManagementService.createRole(
+                tenant.getId(), code, roleName, true, actorId, null);
         for (String permissionCode : new LinkedHashSet<>(permissionCodes == null ? List.of() : permissionCodes)) {
-            roleManagementService.grantPermissionToRole(tenant.getId(), code, permissionCode);
+            roleManagementService.grantPermissionToRole(
+                    tenant.getId(), code, permissionCode, actorId, null);
         }
         RoleEntity role = roleRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.entity("Role", id));
@@ -78,7 +80,8 @@ public class DefaultPlatformAuthorizationAdministrationService
     @Transactional
     public RoleData grantPermission(String roleCode, String permissionCode, String actorId) {
         TenantEntity tenant = platformTenant();
-        roleManagementService.grantPermissionToRole(tenant.getId(), normalize(roleCode), permissionCode);
+        roleManagementService.grantPermissionToRole(
+                tenant.getId(), normalize(roleCode), permissionCode, actorId, null);
         return roleData(tenant.getId(), roleCode);
     }
 
@@ -86,7 +89,8 @@ public class DefaultPlatformAuthorizationAdministrationService
     @Transactional
     public RoleData revokePermission(String roleCode, String permissionCode, String actorId) {
         TenantEntity tenant = platformTenant();
-        roleManagementService.revokePermissionFromRole(tenant.getId(), normalize(roleCode), permissionCode);
+        roleManagementService.revokePermissionFromRole(
+                tenant.getId(), normalize(roleCode), permissionCode, actorId, null);
         return roleData(tenant.getId(), roleCode);
     }
 

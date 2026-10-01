@@ -1,18 +1,124 @@
 syntax = "proto3";
+
 package smartfarm.order.v1;
+
 option java_package = "com.htv.smartfarm.proto.order.v1";
 option java_multiple_files = true;
 option java_outer_classname = "OrderProto";
+
 import "smartfarm/common/v1/common.proto";
+import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-// Contract for a future Order/Saga owner. No order service is implemented in the starter.
-service FarmOrderService { rpc PlaceOrder(PlaceOrderRequest) returns (OrderResponse); rpc GetOrder(GetOrderRequest) returns (OrderResponse); rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse); rpc CancelOrder(CancelOrderRequest) returns (OrderResponse); }
-enum OrderStatus { ORDER_STATUS_UNSPECIFIED = 0; ORDER_STATUS_CREATED = 1; ORDER_STATUS_STOCK_RESERVED = 2; ORDER_STATUS_TASK_SCHEDULED = 3; ORDER_STATUS_FINANCE_POSTED = 4; ORDER_STATUS_COMPLETED = 5; ORDER_STATUS_FAILED = 6; ORDER_STATUS_CANCELLED = 7; }
-message OrderLine { string item_id = 1; smartfarm.common.v1.Quantity quantity = 2; smartfarm.common.v1.Money unit_price = 3; string warehouse_id = 4; }
-message FarmOrder { string order_id = 1; string farm_id = 2; string batch_id = 3; repeated OrderLine lines = 4; OrderStatus status = 5; smartfarm.common.v1.Money total = 6; google.protobuf.Timestamp created_at = 7; string failure_reason = 8; }
-message PlaceOrderRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; string batch_id = 3; repeated OrderLine lines = 4; }
-message GetOrderRequest { smartfarm.common.v1.RequestContext context = 1; string order_id = 2; }
-message OrderResponse { FarmOrder order = 1; }
-message ListOrdersRequest { smartfarm.common.v1.RequestContext context = 1; string farm_id = 2; OrderStatus status = 3; smartfarm.common.v1.PageRequest page = 4; }
-message ListOrdersResponse { repeated FarmOrder orders = 1; smartfarm.common.v1.PageResponse page = 2; }
-message CancelOrderRequest { smartfarm.common.v1.RequestContext context = 1; string order_id = 2; string reason = 3; }
+
+service FarmOrderService {
+  rpc PlaceOrder(PlaceOrderRequest) returns (OrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (OrderResponse);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (OrderResponse);
+
+  rpc CreateDraftOrder(CreateDraftOrderRequest) returns (OrderResponse);
+  rpc UpdateDraftOrder(UpdateDraftOrderRequest) returns (OrderResponse);
+  rpc DeleteDraftOrder(DeleteDraftOrderRequest) returns (google.protobuf.Empty);
+  rpc SubmitDraftOrder(SubmitDraftOrderRequest) returns (OrderResponse);
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_CREATED = 1;
+  ORDER_STATUS_STOCK_RESERVED = 2;
+  ORDER_STATUS_TASK_SCHEDULED = 3;
+  ORDER_STATUS_FINANCE_POSTED = 4;
+  ORDER_STATUS_COMPLETED = 5;
+  ORDER_STATUS_FAILED = 6;
+  ORDER_STATUS_CANCELLED = 7;
+  ORDER_STATUS_DRAFT = 8;
+  ORDER_STATUS_MANUAL_REVIEW = 9;
+}
+
+message OrderLine {
+  string item_id = 1;
+  smartfarm.common.v1.Quantity quantity = 2;
+  smartfarm.common.v1.Money unit_price = 3;
+  string warehouse_id = 4;
+  string line_id = 5;
+  int32 line_no = 6;
+  int64 line_total_minor = 7;
+  int64 version = 8;
+}
+
+message FarmOrder {
+  string order_id = 1;
+  string farm_id = 2;
+  string batch_id = 3;
+  repeated OrderLine lines = 4;
+  OrderStatus status = 5;
+  smartfarm.common.v1.Money total = 6;
+  google.protobuf.Timestamp created_at = 7;
+  string failure_reason = 8;
+  int64 version = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message PlaceOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string farm_id = 2;
+  string batch_id = 3;
+  repeated OrderLine lines = 4;
+}
+
+message CreateDraftOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string farm_id = 2;
+  string batch_id = 3;
+  repeated OrderLine lines = 4;
+}
+
+message UpdateDraftOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string order_id = 2;
+  int64 expected_version = 3;
+  string farm_id = 4;
+  string batch_id = 5;
+  repeated OrderLine lines = 6;
+}
+
+message DeleteDraftOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string order_id = 2;
+  int64 expected_version = 3;
+}
+
+message SubmitDraftOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string order_id = 2;
+  int64 expected_version = 3;
+}
+
+message GetOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string order_id = 2;
+}
+
+message OrderResponse {
+  FarmOrder order = 1;
+}
+
+message ListOrdersRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string farm_id = 2;
+  OrderStatus status = 3;
+  smartfarm.common.v1.PageRequest page = 4;
+  string warehouse_id = 5;
+  smartfarm.common.v1.DateRange created_range = 6;
+}
+
+message ListOrdersResponse {
+  repeated FarmOrder orders = 1;
+  smartfarm.common.v1.PageResponse page = 2;
+}
+
+message CancelOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string order_id = 2;
+  string reason = 3;
+}

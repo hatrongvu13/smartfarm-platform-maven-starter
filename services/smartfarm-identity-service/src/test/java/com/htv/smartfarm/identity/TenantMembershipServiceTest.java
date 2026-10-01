@@ -20,6 +20,7 @@ import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
+import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,9 @@ class TenantMembershipServiceTest {
     private MembershipFarmRepository membershipFarmRepository;
 
     @Mock
+    private IdentityIntegrationEventPublisher events;
+
+    @Mock
     private TenantEntity tenant;
 
     @Mock
@@ -67,7 +71,8 @@ class TenantMembershipServiceTest {
                 userAccountRepository,
                 membershipRepository,
                 membershipRoleRepository,
-                membershipFarmRepository
+                membershipFarmRepository,
+                events
         );
     }
 

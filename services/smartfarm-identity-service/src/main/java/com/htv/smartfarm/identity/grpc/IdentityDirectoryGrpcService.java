@@ -112,7 +112,9 @@ public class IdentityDirectoryGrpcService
                     var updatedPrincipal =
                             principalProfileService.updateProfile(
                                     securedRequest.tenantId(),
-                                    command
+                                    command,
+                                    request.getContext().getActorId(),
+                                    request.getContext().getCorrelationId()
                             );
 
                     return UpdatePrincipalProfileResponse.newBuilder()

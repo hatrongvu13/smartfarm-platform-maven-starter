@@ -19,6 +19,9 @@ import com.htv.smartfarm.identity.mfa.domain.MfaChallengePurpose;
 import com.htv.smartfarm.identity.mfa.repository.MfaChallengeRepository;
 import com.htv.smartfarm.identity.mfa.repository.RecoveryCodeRepository;
 import com.htv.smartfarm.identity.mfa.repository.UserAuthenticatorRepository;
+import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
+
+import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,7 @@ public class MfaChallengeService {
     private final MfaProperties properties;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
+    private IdentityIntegrationEventPublisher events;
 
     public MfaChallengeService(
             MfaChallengeRepository challenges,
@@ -51,6 +55,13 @@ public class MfaChallengeService {
         this.totp = totp;
         this.properties = properties;
         this.clock = clock;
+    }
+
+    @Autowired
+    void setIdentityIntegrationEventPublisher(
+            IdentityIntegrationEventPublisher events
+    ) {
+        this.events = events;
     }
 
     @Transactional
@@ -92,7 +103,10 @@ public class MfaChallengeService {
         );
 
         if (step < 0) {
+            boolean wasLocked = challenge.getStatus()
+                    == com.htv.smartfarm.identity.mfa.domain.MfaChallengeStatus.LOCKED;
             challenge.recordFailure(properties.getMaximumAttempts(), now);
+            publishMfaFailure(challenge, "TOTP", wasLocked);
             throw new IllegalArgumentException("TOTP code is invalid");
         }
 
@@ -111,7 +125,10 @@ public class MfaChallengeService {
         Instant now = clock.instant();
 
         if (recoveryCode == null) {
+            boolean wasLocked = challenge.getStatus()
+                    == com.htv.smartfarm.identity.mfa.domain.MfaChallengeStatus.LOCKED;
             challenge.recordFailure(properties.getMaximumAttempts(), now);
+            publishMfaFailure(challenge, "RECOVERY_CODE", wasLocked);
             throw new IllegalArgumentException("Recovery code is invalid");
         }
 
@@ -181,6 +198,35 @@ public class MfaChallengeService {
             return List.of("TOTP", "RECOVERY_CODE");
         }
         return List.of("TOTP");
+    }
+
+    private void publishMfaFailure(
+            MfaChallengeEntity challenge,
+            String method,
+            boolean wasLocked
+    ) {
+        if (events == null || challenge.getPurpose() != MfaChallengePurpose.LOGIN) return;
+        boolean lockedNow = !wasLocked
+                && challenge.getStatus()
+                == com.htv.smartfarm.identity.mfa.domain.MfaChallengeStatus.LOCKED;
+        if (challenge.getAttemptCount() != 1 && !lockedNow) return;
+        events.publish(
+                challenge.getTenantId(),
+                challenge.getUserId(),
+                challenge.getId(),
+                null,
+                "identity.login.failed",
+                "user-security",
+                challenge.getUserId(),
+                0,
+                java.util.Map.of(
+                        "subjectId", challenge.getUserId(),
+                        "authenticationStage", "MFA",
+                        "authenticationMethod", method,
+                        "attemptCount", challenge.getAttemptCount(),
+                        "challengeLocked", lockedNow
+                )
+        );
     }
 
     private UserAuthenticatorSelection activeTotp(String userId) {

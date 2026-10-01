@@ -20,6 +20,7 @@ import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
+import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class RoleManagementService {
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final MembershipRoleRepository membershipRoleRepository;
+    private final IdentityIntegrationEventPublisher events;
 
     public RoleManagementService(
             TenantRepository tenantRepository,
@@ -43,7 +45,8 @@ public class RoleManagementService {
             RoleRepository roleRepository,
             PermissionRepository permissionRepository,
             RolePermissionRepository rolePermissionRepository,
-            MembershipRoleRepository membershipRoleRepository
+            MembershipRoleRepository membershipRoleRepository,
+            IdentityIntegrationEventPublisher events
     ) {
         this.tenantRepository = tenantRepository;
         this.membershipRepository = membershipRepository;
@@ -51,6 +54,7 @@ public class RoleManagementService {
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.membershipRoleRepository = membershipRoleRepository;
+        this.events = events;
     }
 
     @Transactional
@@ -59,6 +63,18 @@ public class RoleManagementService {
             String code,
             String name,
             boolean systemRole
+    ) {
+        return createRole(tenantId, code, name, systemRole, null, null);
+    }
+
+    @Transactional
+    public String createRole(
+            String tenantId,
+            String code,
+            String name,
+            boolean systemRole,
+            String actorId,
+            String correlationId
     ) {
         requireText(tenantId, "tenantId");
         requireText(code, "code");
@@ -92,6 +108,22 @@ public class RoleManagementService {
         );
 
         roleRepository.save(role);
+        events.publish(
+                tenantId,
+                actorId,
+                correlationId,
+                null,
+                "identity.role.created",
+                "role",
+                role.getId(),
+                role.getVersion(),
+                java.util.Map.of(
+                        "roleId", role.getId(),
+                        "roleCode", role.getCode(),
+                        "name", role.getName(),
+                        "systemRole", role.isSystemRole()
+                )
+        );
         return role.getId();
     }
 
@@ -143,6 +175,17 @@ public class RoleManagementService {
             String roleCode,
             String permissionCode
     ) {
+        grantPermissionToRole(tenantId, roleCode, permissionCode, null, null);
+    }
+
+    @Transactional
+    public void grantPermissionToRole(
+            String tenantId,
+            String roleCode,
+            String permissionCode,
+            String actorId,
+            String correlationId
+    ) {
         requireText(permissionCode, "permissionCode");
 
         RoleEntity role = getRole(tenantId, roleCode);
@@ -165,6 +208,23 @@ public class RoleManagementService {
         rolePermissionRepository.save(
                 new RolePermissionEntity(role, permission)
         );
+        events.publish(
+                tenantId,
+                actorId,
+                correlationId,
+                null,
+                "identity.role.permission-granted",
+                "role",
+                role.getId(),
+                role.getVersion(),
+                java.util.Map.of(
+                        "roleId", role.getId(),
+                        "roleCode", role.getCode(),
+                        "permissionCode", permission.getCode(),
+                        "resourceType", permission.getResourceType(),
+                        "action", permission.getAction()
+                )
+        );
     }
 
     @Transactional
@@ -172,6 +232,17 @@ public class RoleManagementService {
             String tenantId,
             String roleCode,
             String permissionCode
+    ) {
+        revokePermissionFromRole(tenantId, roleCode, permissionCode, null, null);
+    }
+
+    @Transactional
+    public void revokePermissionFromRole(
+            String tenantId,
+            String roleCode,
+            String permissionCode,
+            String actorId,
+            String correlationId
     ) {
         requireText(permissionCode, "permissionCode");
 
@@ -188,6 +259,21 @@ public class RoleManagementService {
         }
 
         rolePermissionRepository.deleteById(id);
+        events.publish(
+                tenantId,
+                actorId,
+                correlationId,
+                null,
+                "identity.role.permission-revoked",
+                "role",
+                role.getId(),
+                role.getVersion(),
+                java.util.Map.of(
+                        "roleId", role.getId(),
+                        "roleCode", role.getCode(),
+                        "permissionCode", normalizedPermissionCode
+                )
+        );
     }
 
     @Transactional
@@ -235,6 +321,22 @@ public class RoleManagementService {
                         grantedBy.trim()
                 )
         );
+        events.publish(
+                tenantId,
+                grantedBy,
+                null,
+                null,
+                "identity.role.assigned",
+                "membership",
+                membership.getId(),
+                0,
+                java.util.Map.of(
+                        "membershipId", membership.getId(),
+                        "subjectId", userId,
+                        "roleId", role.getId(),
+                        "roleCode", role.getCode()
+                )
+        );
     }
 
     @Transactional
@@ -259,9 +361,28 @@ public class RoleManagementService {
 
         RoleEntity role = getRole(tenantId, normalizedRoleCode);
 
+        boolean assigned = membershipRoleRepository
+                .existsByIdMembershipIdAndIdRoleId(membership.getId(), role.getId());
+        if (!assigned) return;
         membershipRoleRepository.deleteByMembershipIdAndRoleId(
                 membership.getId(),
                 role.getId()
+        );
+        events.publish(
+                tenantId,
+                userId,
+                null,
+                null,
+                "identity.role.revoked",
+                "membership",
+                membership.getId(),
+                0,
+                java.util.Map.of(
+                        "membershipId", membership.getId(),
+                        "subjectId", userId,
+                        "roleId", role.getId(),
+                        "roleCode", role.getCode()
+                )
         );
     }
 

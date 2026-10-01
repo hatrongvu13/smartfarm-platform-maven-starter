@@ -110,7 +110,7 @@ public class OrderSagaOrchestrator {
             }
             // keep the first reservation on the order for read-model/back-compat display
             if (!orderLines.isEmpty()) order.setReservationId(orderLines.get(0).getReservationId());
-            order.setStatus("ORDER_STATUS_STOCK_RESERVED");
+            order.markStockReserved(actor, System.currentTimeMillis());
             saveAndEmit(order);
             AUDIT.info("order_step ok step=reserve order_id={} tenant={} actor_id={} lines={}",
                     order.getId(), order.getTenantId(), safe(actor), orderLines.size());
@@ -128,7 +128,7 @@ public class OrderSagaOrchestrator {
                             .setReferenceId(order.getId()))
                     .build());
             order.setExpenseTxnId(txn.getTransaction().getTransactionId());
-            order.setStatus("ORDER_STATUS_FINANCE_POSTED");
+            order.markFinancePosted(actor, System.currentTimeMillis());
             saveAndEmit(order);
             AUDIT.info("order_step ok step=expense order_id={} tenant={} actor_id={} txn_id={}",
                     order.getId(), order.getTenantId(), safe(actor), txn.getTransaction().getTransactionId());
@@ -141,7 +141,7 @@ public class OrderSagaOrchestrator {
                         .setReservationId(line.getReservationId())
                         .build());
             }
-            order.setStatus("ORDER_STATUS_COMPLETED");
+            order.complete(actor, System.currentTimeMillis());
             saveAndEmit(order);
             AUDIT.info("order_completed order_id={} tenant={} actor_id={}", order.getId(), order.getTenantId(), safe(actor));
             return order;
@@ -168,8 +168,7 @@ public class OrderSagaOrchestrator {
         if (anyHeld) {
             compensate(order, orderLines, actor, reason == null || reason.isBlank() ? "cancelled by user" : reason);
         }
-        order.setStatus("ORDER_STATUS_CANCELLED");
-        order.setFailureReason(reason == null ? "" : reason);
+        order.cancel(reason, actor, System.currentTimeMillis());
         saveAndEmit(order);
         AUDIT.info("order_cancelled order_id={} tenant={} actor_id={} reason={}",
                 order.getId(), order.getTenantId(), safe(actor), reason == null ? "-" : reason);
@@ -207,8 +206,7 @@ public class OrderSagaOrchestrator {
                 }
             }
         }
-        order.setStatus("ORDER_STATUS_FAILED");
-        order.setFailureReason(reason);
+        order.fail(reason, actor, System.currentTimeMillis());
         saveAndEmit(order);
         AUDIT.warn("order_failed order_id={} tenant={} actor_id={} reason={}",
                 order.getId(), order.getTenantId(), safe(actor), reason);

@@ -144,7 +144,9 @@ public class IdentityCredentialGrpcService
             authenticatorService.disableAuthenticator(
                     secured.tenantId(),
                     secured.subjectId(),
-                    request.getAuthenticatorId()
+                    request.getAuthenticatorId(),
+                    secured.subjectId(),
+                    request.getContext().getCorrelationId()
             );
             return DisableOwnMfaResponse.newBuilder()
                     .setDisabled(true)
@@ -166,8 +168,11 @@ public class IdentityCredentialGrpcService
                     IdentityGrpcAuthorities.MFA_RECOVERY_REGENERATE
             );
             var codes = authenticatorService.regenerateRecoveryCodes(
+                    secured.tenantId(),
                     secured.subjectId(),
-                    request.getAuthenticatorId()
+                    request.getAuthenticatorId(),
+                    secured.subjectId(),
+                    request.getContext().getCorrelationId()
             );
             return RegenerateRecoveryCodesResponse.newBuilder()
                     .addAllRecoveryCodes(codes)
@@ -187,7 +192,12 @@ public class IdentityCredentialGrpcService
                     request.getContext(),
                     IdentityGrpcAuthorities.USER_MFA_RESET
             );
-            administrationService.resetUserMfa(request.getSubjectId());
+            administrationService.resetUserMfa(
+                    request.getContext().getTenantId(),
+                    request.getSubjectId(),
+                    request.getContext().getActorId(),
+                    request.getContext().getCorrelationId()
+            );
             return ResetUserMfaResponse.newBuilder()
                     .setReset(true)
                     .build();
@@ -211,7 +221,10 @@ public class IdentityCredentialGrpcService
             accountService.changePassword(
                     secured.subjectId(),
                     request.getCurrentPassword(),
-                    request.getNewPassword()
+                    request.getNewPassword(),
+                    secured.tenantId(),
+                    secured.subjectId(),
+                    request.getContext().getCorrelationId()
             );
             return ChangeOwnPasswordResponse.newBuilder()
                     .setChanged(true)

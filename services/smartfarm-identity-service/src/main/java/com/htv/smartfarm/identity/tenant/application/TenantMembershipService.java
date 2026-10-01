@@ -10,10 +10,12 @@ import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
 import com.htv.smartfarm.identity.authorization.repository.MembershipFarmRepository;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
 import com.htv.smartfarm.identity.tenant.application.model.TenantMembershipData;
+import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
+import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,25 +28,35 @@ public class TenantMembershipService {
     private final TenantMembershipRepository membershipRepository;
     private final MembershipRoleRepository membershipRoleRepository;
     private final MembershipFarmRepository membershipFarmRepository;
+    private final IdentityIntegrationEventPublisher events;
 
     public TenantMembershipService(
             TenantRepository tenantRepository,
             UserAccountRepository userAccountRepository,
             TenantMembershipRepository membershipRepository,
             MembershipRoleRepository membershipRoleRepository,
-            MembershipFarmRepository membershipFarmRepository
+            MembershipFarmRepository membershipFarmRepository,
+            IdentityIntegrationEventPublisher events
     ) {
         this.tenantRepository = tenantRepository;
         this.userAccountRepository = userAccountRepository;
         this.membershipRepository = membershipRepository;
         this.membershipRoleRepository = membershipRoleRepository;
         this.membershipFarmRepository = membershipFarmRepository;
+        this.events = events;
+    }
+
+    @Transactional
+    public String inviteUser(String tenantId, String userId) {
+        return inviteUser(tenantId, userId, userId, null);
     }
 
     @Transactional
     public String inviteUser(
             String tenantId,
-            String userId
+            String userId,
+            String actorId,
+            String correlationId
     ) {
         requireText(tenantId, "tenantId");
         requireText(userId, "userId");
@@ -70,40 +82,110 @@ public class TenantMembershipService {
                 );
 
         membershipRepository.save(membership);
+        events.publish(
+                tenantId,
+                actorId,
+                correlationId,
+                null,
+                "identity.membership.created",
+                "membership",
+                membership.getId(),
+                0,
+                java.util.Map.of(
+                        "membershipId", membership.getId(),
+                        "subjectId", userId,
+                        "status", membership.getStatus().name()
+                )
+        );
         return membership.getId();
+    }
+
+    @Transactional
+    public void activateMembership(String tenantId, String userId) {
+        activateMembership(tenantId, userId, userId, null, null);
     }
 
     @Transactional
     public void activateMembership(
             String tenantId,
-            String userId
+            String userId,
+            String actorId,
+            String correlationId,
+            String reason
     ) {
-        TenantMembershipEntity membership =
-                getMembershipForUpdate(tenantId, userId);
+        transition(tenantId, userId, actorId, correlationId, reason, MembershipStatus.ACTIVE);
+    }
 
-        membership.activate();
+    @Transactional
+    public void suspendMembership(String tenantId, String userId) {
+        suspendMembership(tenantId, userId, userId, null, null);
     }
 
     @Transactional
     public void suspendMembership(
             String tenantId,
-            String userId
+            String userId,
+            String actorId,
+            String correlationId,
+            String reason
     ) {
-        TenantMembershipEntity membership =
-                getMembershipForUpdate(tenantId, userId);
+        transition(tenantId, userId, actorId, correlationId, reason, MembershipStatus.SUSPENDED);
+    }
 
-        membership.suspend();
+    @Transactional
+    public void disableMembership(String tenantId, String userId) {
+        disableMembership(tenantId, userId, userId, null, null);
     }
 
     @Transactional
     public void disableMembership(
             String tenantId,
-            String userId
+            String userId,
+            String actorId,
+            String correlationId,
+            String reason
     ) {
-        TenantMembershipEntity membership =
-                getMembershipForUpdate(tenantId, userId);
+        transition(tenantId, userId, actorId, correlationId, reason, MembershipStatus.DISABLED);
+    }
 
-        membership.disable();
+    private void transition(
+            String tenantId,
+            String userId,
+            String actorId,
+            String correlationId,
+            String reason,
+            MembershipStatus target
+    ) {
+        TenantMembershipEntity membership = getMembershipForUpdate(tenantId, userId);
+        MembershipStatus previous = membership.getStatus();
+        switch (target) {
+            case ACTIVE -> membership.activate();
+            case SUSPENDED -> membership.suspend();
+            case DISABLED -> membership.disable();
+            default -> throw new IllegalArgumentException("Unsupported membership target status");
+        }
+        if (previous == membership.getStatus()) return;
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("membershipId", membership.getId());
+        data.put("subjectId", userId);
+        data.put("previousStatus", previous.name());
+        data.put("status", membership.getStatus().name());
+        if (reason != null && !reason.isBlank()) data.put("reason", limit(reason.trim(), 300));
+        events.publish(
+                tenantId,
+                actorId,
+                correlationId,
+                null,
+                "identity.membership.status-changed",
+                "membership",
+                membership.getId(),
+                0,
+                data
+        );
+    }
+
+    private String limit(String value, int maximum) {
+        return value.length() <= maximum ? value : value.substring(0, maximum);
     }
 
     @Transactional(readOnly = true)

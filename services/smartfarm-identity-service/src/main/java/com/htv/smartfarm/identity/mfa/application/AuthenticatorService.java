@@ -25,6 +25,7 @@ import com.htv.smartfarm.identity.mfa.domain.UserAuthenticatorEntity;
 import com.htv.smartfarm.identity.mfa.repository.RecoveryCodeRepository;
 import com.htv.smartfarm.identity.mfa.repository.UserAuthenticatorRepository;
 import com.htv.smartfarm.identity.token.RefreshRepository;
+import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,13 +43,15 @@ public class AuthenticatorService {
     private final MfaProperties properties;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
+    private final IdentityIntegrationEventPublisher events;
 
     public AuthenticatorService(UserAccountRepository accounts,
             UserAuthenticatorRepository authenticators,
             RecoveryCodeRepository recoveryCodes,
             MfaRequirementService requirements,
             RefreshRepository refresh, SecretCipher cipher,
-            TotpService totp, MfaProperties properties, Clock clock) {
+            TotpService totp, MfaProperties properties, Clock clock,
+            IdentityIntegrationEventPublisher events) {
         this.accounts = accounts;
         this.authenticators = authenticators;
         this.recoveryCodes = recoveryCodes;
@@ -58,6 +61,7 @@ public class AuthenticatorService {
         this.totp = totp;
         this.properties = properties;
         this.clock = clock;
+        this.events = events;
     }
 
     @Transactional
@@ -92,6 +96,17 @@ public class AuthenticatorService {
     @Transactional
     public TotpEnrollmentConfirmation confirmTotpEnrollment(
             String userId, String authenticatorId, String code) {
+        return confirmTotpEnrollment(null, userId, authenticatorId, code, userId, null);
+    }
+
+    @Transactional
+    public TotpEnrollmentConfirmation confirmTotpEnrollment(
+            String tenantId,
+            String userId,
+            String authenticatorId,
+            String code,
+            String actorId,
+            String correlationId) {
         properties.validateRuntime();
         UserAuthenticatorEntity authenticator = authenticator(authenticatorId, userId);
         if (authenticator.getStatus() != AuthenticatorStatus.PENDING
@@ -104,11 +119,35 @@ public class AuthenticatorService {
         authenticator.activate(now);
         authenticator.acceptTotpStep(step, now);
         List<String> plaintextCodes = generateRecoveryCodes(authenticator.getId());
+        publishIfTenant(
+                tenantId,
+                actorId,
+                correlationId,
+                "identity.mfa.enrolled",
+                userId,
+                java.util.Map.of(
+                        "subjectId", userId,
+                        "authenticatorId", authenticator.getId(),
+                        "type", authenticator.getType().name(),
+                        "status", authenticator.getStatus().name()
+                )
+        );
         return new TotpEnrollmentConfirmation(authenticator.getId(), plaintextCodes);
     }
 
     @Transactional
     public void disableAuthenticator(String tenantId, String userId, String authenticatorId) {
+        disableAuthenticator(tenantId, userId, authenticatorId, userId, null);
+    }
+
+    @Transactional
+    public void disableAuthenticator(
+            String tenantId,
+            String userId,
+            String authenticatorId,
+            String actorId,
+            String correlationId
+    ) {
         UserAuthenticatorEntity authenticator = authenticator(authenticatorId, userId);
         if (authenticator.getType() == AuthenticatorType.TOTP
                 && requirements.requiresTotp(tenantId, userId)) {
@@ -117,17 +156,53 @@ public class AuthenticatorService {
         authenticator.disable();
         recoveryCodes.deleteByAuthenticatorId(authenticatorId);
         refresh.revokeUser(userId);
+        publishIfTenant(
+                tenantId,
+                actorId,
+                correlationId,
+                "identity.mfa.disabled",
+                userId,
+                java.util.Map.of(
+                        "subjectId", userId,
+                        "authenticatorId", authenticatorId,
+                        "type", authenticator.getType().name(),
+                        "status", authenticator.getStatus().name()
+                )
+        );
     }
 
     @Transactional
     public List<String> regenerateRecoveryCodes(String userId, String authenticatorId) {
+        return regenerateRecoveryCodes(null, userId, authenticatorId, userId, null);
+    }
+
+    @Transactional
+    public List<String> regenerateRecoveryCodes(
+            String tenantId,
+            String userId,
+            String authenticatorId,
+            String actorId,
+            String correlationId) {
         UserAuthenticatorEntity authenticator = authenticator(authenticatorId, userId);
         if (authenticator.getStatus() != AuthenticatorStatus.ACTIVE) {
             throw new IllegalStateException("Authenticator is not active");
         }
         recoveryCodes.deleteByAuthenticatorId(authenticatorId);
         refresh.revokeUser(userId);
-        return generateRecoveryCodes(authenticatorId);
+        List<String> values = generateRecoveryCodes(authenticatorId);
+        publishIfTenant(
+                tenantId,
+                actorId,
+                correlationId,
+                "identity.mfa.recovery-codes-regenerated",
+                userId,
+                java.util.Map.of(
+                        "subjectId", userId,
+                        "authenticatorId", authenticatorId,
+                        "recoveryCodeCount", values.size()
+                )
+        );
+        return values;
     }
 
     @Transactional(readOnly = true)
@@ -167,6 +242,27 @@ public class AuthenticatorService {
         }
         recoveryCodes.saveAll(entities);
         return List.copyOf(plaintext);
+    }
+
+    private void publishIfTenant(
+            String tenantId,
+            String actorId,
+            String correlationId,
+            String eventType,
+            String userId,
+            java.util.Map<String, Object> data) {
+        if (tenantId == null || tenantId.isBlank()) return;
+        events.publish(
+                tenantId,
+                actorId,
+                correlationId,
+                null,
+                eventType,
+                "user-security",
+                userId,
+                0,
+                data
+        );
     }
 
     private String encode(String value) {

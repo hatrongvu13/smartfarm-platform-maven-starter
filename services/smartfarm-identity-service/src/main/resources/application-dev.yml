@@ -33,6 +33,8 @@ smartfarm:
       allow-local-http: true
 
   identity:
+    mqtt:
+      enabled: ${IDENTITY_MQTT_ENABLED:true}
     issuer: ${IDENTITY_ISSUER:http://localhost:8092}
     private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
     public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}

@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 /**
  * One line of a multi-line order. Each line reserves its own stock and, on success, is committed
@@ -48,6 +49,10 @@ public class OrderLineEntity {
     @Column(name = "reservation_id", length = 36)
     private String reservationId;
 
+    @Version
+    @Column(name = "row_version", nullable = false)
+    private long version;
+
     protected OrderLineEntity() {
     }
 
@@ -74,6 +79,7 @@ public class OrderLineEntity {
     public long getUnitPriceMinor() { return unitPriceMinor; }
     public long getLineTotalMinor() { return lineTotalMinor; }
     public String getReservationId() { return reservationId; }
+    public long getVersion() { return version; }
 
     public void setReservationId(String reservationId) { this.reservationId = reservationId; }
 }

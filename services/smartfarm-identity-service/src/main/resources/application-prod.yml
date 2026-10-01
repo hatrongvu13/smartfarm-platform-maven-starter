@@ -26,6 +26,8 @@ smartfarm:
       allow-local-http: false
 
   identity:
+    mqtt:
+      enabled: ${IDENTITY_MQTT_ENABLED:true}
     issuer: ${IDENTITY_ISSUER}
     key-id: ${IDENTITY_KEY_ID}
     private-key-path: ${IDENTITY_PRIVATE_KEY_PATH}

@@ -1,7 +1,9 @@
 package com.htv.smartfarm.identity.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.htv.smartfarm.identity.token.TokenService;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +23,13 @@ import org.springframework.security.web.SecurityFilterChain;
 })
 @EnableMethodSecurity
 public class IdentityConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean(ObjectMapper.class)
+    ObjectMapper identityEventObjectMapper() {
+        return new ObjectMapper()
+                .findAndRegisterModules();
+    }
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -53,7 +62,11 @@ public class IdentityConfiguration {
                                 HttpMethod.POST,
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
-                                "/api/v1/auth/refresh"
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/mfa/enrollment/begin",
+                                "/api/v1/auth/mfa/enrollment/confirm",
+                                "/api/v1/auth/mfa/verify",
+                                "/api/v1/auth/logout"
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
