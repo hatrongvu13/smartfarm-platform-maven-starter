@@ -4,13 +4,12 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class GatewayGrpcExceptionMapper {
-    public ResponseStatusException rest(String operation, StatusRuntimeException exception) {
-        Status.Code code = exception.getStatus().getCode();
-        HttpStatus status = switch (code) {
+    public GatewayRestException rest(String operation, StatusRuntimeException exception) {
+        Status.Code grpc = exception.getStatus().getCode();
+        HttpStatus http = switch (grpc) {
             case INVALID_ARGUMENT -> HttpStatus.BAD_REQUEST;
             case UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
             case PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
@@ -18,15 +17,20 @@ public class GatewayGrpcExceptionMapper {
             case ALREADY_EXISTS, FAILED_PRECONDITION, ABORTED -> HttpStatus.CONFLICT;
             case DEADLINE_EXCEEDED -> HttpStatus.GATEWAY_TIMEOUT;
             case UNAVAILABLE, UNIMPLEMENTED -> HttpStatus.BAD_GATEWAY;
-            default -> HttpStatus.BAD_GATEWAY;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
-        return new ResponseStatusException(status,
-                operation + " failed: " + code + description(exception));
+        return new GatewayRestException(http, code(grpc),
+                operation + " failed" + description(exception), exception);
     }
 
     public GatewayGraphQlException graphQl(String operation, StatusRuntimeException exception) {
-        Status.Code code = exception.getStatus().getCode();
-        String classification = switch (code) {
+        return new GatewayGraphQlException(
+                operation + " failed" + description(exception),
+                code(exception.getStatus().getCode()), exception);
+    }
+
+    private String code(Status.Code value) {
+        return switch (value) {
             case INVALID_ARGUMENT -> "BAD_REQUEST";
             case UNAUTHENTICATED -> "UNAUTHENTICATED";
             case PERMISSION_DENIED -> "FORBIDDEN";
@@ -38,7 +42,6 @@ public class GatewayGrpcExceptionMapper {
             case UNAVAILABLE, UNIMPLEMENTED -> "DOWNSTREAM_UNAVAILABLE";
             default -> "INTERNAL";
         };
-        return new GatewayGraphQlException(operation + " failed" + description(exception), classification, exception);
     }
 
     private String description(StatusRuntimeException exception) {

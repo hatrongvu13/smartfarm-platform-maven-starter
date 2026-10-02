@@ -23,6 +23,13 @@ public interface OrderOutboxJpaRepository extends JpaRepository<OrderOutboxEntit
 
     long countByStatus(OrderOutboxStatus status);
 
+    @Query("select min(o.createdAt) from OrderOutboxEntity o where o.status in :statuses")
+    Long oldestPendingCreatedAt(@Param("statuses") List<OrderOutboxStatus> statuses);
+
+    @Query("select count(o) from OrderOutboxEntity o where o.status = :status and o.claimedAt < :before")
+    long countStaleClaims(@Param("status") OrderOutboxStatus status,
+            @Param("before") Instant before);
+
     @Modifying
     @Query("delete from OrderOutboxEntity o where o.status = :status and o.publishedAt < :before")
     int deletePublishedBefore(@Param("status") OrderOutboxStatus status, @Param("before") Instant before);

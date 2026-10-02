@@ -11,10 +11,18 @@ import graphql.schema.DataFetchingEnvironment;
 public class GatewayGraphQlExceptionResolver extends DataFetcherExceptionResolverAdapter {
     @Override
     protected GraphQLError resolveToSingleError(Throwable exception, DataFetchingEnvironment environment) {
-        if (!(exception instanceof GatewayGraphQlException value)) return null;
-        return GraphqlErrorBuilder.newError(environment)
-                .message(value.getMessage())
-                .extensions(Map.of("code", value.classification()))
-                .build();
+        if (exception instanceof GatewayGraphQlException value) {
+            return GraphqlErrorBuilder.newError(environment)
+                    .message(value.getMessage())
+                    .extensions(Map.of("code", value.classification()))
+                    .build();
+        }
+        if (exception instanceof IllegalArgumentException value) {
+            return GraphqlErrorBuilder.newError(environment)
+                    .message(value.getMessage() == null ? "Invalid request" : value.getMessage())
+                    .extensions(Map.of("code", "BAD_REQUEST"))
+                    .build();
+        }
+        return null;
     }
 }

@@ -29,4 +29,9 @@ public interface OrderProjectionGapRepository extends JpaRepository<OrderProject
     List<OrderProjectionGapEntity> lockStale(@Param("status") OrderProjectionGapStatus status,
             @Param("before") Instant before, Pageable pageable);
     long countByStatus(OrderProjectionGapStatus status);
+    @Query("select min(g.firstDetectedAt) from OrderProjectionGapEntity g where g.status in :statuses")
+    Instant oldestUnresolved(@Param("statuses") List<OrderProjectionGapStatus> statuses);
+    @Query("select count(g) from OrderProjectionGapEntity g where g.status = :status and g.claimedAt < :before")
+    long countStaleClaims(@Param("status") OrderProjectionGapStatus status,
+            @Param("before") Instant before);
 }

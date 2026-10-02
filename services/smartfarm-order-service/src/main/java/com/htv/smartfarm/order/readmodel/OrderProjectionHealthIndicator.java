@@ -11,9 +11,13 @@ public class OrderProjectionHealthIndicator implements HealthIndicator {
     private final OrderProjectionInboxRepository inbox;
     public OrderProjectionHealthIndicator(OrderProjectionInboxRepository inbox) { this.inbox = inbox; }
     @Override public Health health() {
-        long waiting = inbox.countByStatus(OrderProjectionInboxStatus.WAITING_GAP);
-        long dead = inbox.countByStatus(OrderProjectionInboxStatus.DEAD);
-        Health.Builder result = dead > 0 ? Health.status("DEGRADED") : Health.up();
-        return result.withDetail("waitingGap", waiting).withDetail("dead", dead).build();
+        try {
+            long waiting = inbox.countByStatus(OrderProjectionInboxStatus.WAITING_GAP);
+            long dead = inbox.countByStatus(OrderProjectionInboxStatus.DEAD);
+            Health.Builder result = dead > 0 ? Health.status("DEGRADED") : Health.up();
+            return result.withDetail("waitingGap", waiting).withDetail("dead", dead).build();
+        } catch (RuntimeException failure) {
+            return Health.down(failure).build();
+        }
     }
 }

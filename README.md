@@ -152,6 +152,7 @@ apps/
 
 ### Tài liệu
 
+- [`docs/operations/ORDER-OPERATIONS-RUNBOOK.md`](./docs/operations/ORDER-OPERATIONS-RUNBOOK.md): runbook vận hành Order/Saga/outbox/projection và alert response.
 - [`docs/README.md`](./docs/README.md): **chỉ mục tài liệu** — phân loại dùng-chung vs theo-version để truy vết.
 - [`SMARTFARM-VERSION.md`](./SMARTFARM-VERSION.md): ma trận hoàn thiện v1 + gợi ý màn hình FE + backlog v2.
 - [`docs/v1/RELEASE-NOTES-v1.md`](./docs/v1/RELEASE-NOTES-v1.md): **release notes v1** — phạm vi, các fix, cách chạy & test.

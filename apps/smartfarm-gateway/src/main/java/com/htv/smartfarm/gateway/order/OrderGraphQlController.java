@@ -3,6 +3,7 @@ package com.htv.smartfarm.gateway.order;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
 import com.htv.smartfarm.gateway.grpc.GatewayGrpcExceptionMapper;
+import com.htv.smartfarm.gateway.context.GatewayCorrelationContext;
 import com.htv.smartfarm.gateway.identity.GatewayRequestContextFactory;
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
 import com.htv.smartfarm.proto.common.v1.DateRange;
@@ -13,11 +14,13 @@ import com.htv.smartfarm.proto.order.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 import io.grpc.StatusRuntimeException;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -35,30 +38,37 @@ public class OrderGraphQlController {
     private final ServiceTokenClient tokens;
     private final GatewayRequestContextFactory contexts;
     private final GatewayGrpcExceptionMapper errors;
+    private final long deadlineMillis;
 
     public OrderGraphQlController(FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orders,
             ServiceTokenClient tokens, GatewayRequestContextFactory contexts,
-            GatewayGrpcExceptionMapper errors) {
+            GatewayGrpcExceptionMapper errors,
+            @Value("${smartfarm.gateway.grpc.order-deadline:5s}") Duration deadline) {
         this.orders = orders;
         this.tokens = tokens;
         this.contexts = contexts;
         this.errors = errors;
+        this.deadlineMillis = positive(deadline, "order deadline");
     }
 
     @QueryMapping("orderV2")
     @PreAuthorize("hasAuthority('SCOPE_orders:read')")
     public Mono<Map<String, Object>> order(@Argument String id) {
-        return call("GetOrder", jwt -> view(stub(jwt, contexts.create(jwt).getCorrelationId())
-                .getOrder(GetOrderRequest.newBuilder().setContext(contexts.create(jwt)).setOrderId(required(id, "id")).build())
-                .getOrder()));
+        return call("GetOrder", (jwt, correlationId) -> {
+            var context = contexts.create(jwt, correlationId, null);
+            return view(stub(jwt, context.getCorrelationId())
+                    .getOrder(GetOrderRequest.newBuilder().setContext(context)
+                            .setOrderId(required(id, "id")).build())
+                    .getOrder());
+        });
     }
 
     @QueryMapping("ordersV2")
     @PreAuthorize("hasAuthority('SCOPE_orders:read')")
     public Mono<Map<String, Object>> orders(@Argument Map<String, Object> filter,
             @Argument Map<String, Object> page) {
-        return call("ListOrders", jwt -> {
-            var context = contexts.create(jwt);
+        return call("ListOrders", (jwt, correlationId) -> {
+            var context = contexts.create(jwt, correlationId, null);
             ListOrdersRequest.Builder request = ListOrdersRequest.newBuilder()
                     .setContext(context).setPage(page(page));
             if (filter != null) {
@@ -86,9 +96,9 @@ public class OrderGraphQlController {
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_orders:write')")
     public Mono<Map<String, Object>> placeOrder(@Argument Map<String, Object> input) {
-        return call("PlaceOrder", jwt -> {
+        return call("PlaceOrder", (jwt, correlationId) -> {
             String key = required(input, "idempotencyKey");
-            var context = contexts.create(jwt, key);
+            var context = contexts.create(jwt, correlationId, key);
             PlaceOrderRequest.Builder request = PlaceOrderRequest.newBuilder()
                     .setContext(context).setFarmId(required(input, "farmId"));
             put(input, "batchId", request::setBatchId);
@@ -100,8 +110,8 @@ public class OrderGraphQlController {
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_orders:write')")
     public Mono<Map<String, Object>> createDraftOrder(@Argument Map<String, Object> input) {
-        return call("CreateDraftOrder", jwt -> {
-            var context = contexts.create(jwt, required(input, "idempotencyKey"));
+        return call("CreateDraftOrder", (jwt, correlationId) -> {
+            var context = contexts.create(jwt, correlationId, required(input, "idempotencyKey"));
             CreateDraftOrderRequest.Builder request = CreateDraftOrderRequest.newBuilder()
                     .setContext(context).setFarmId(required(input, "farmId"));
             put(input, "batchId", request::setBatchId);
@@ -113,8 +123,8 @@ public class OrderGraphQlController {
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_orders:write')")
     public Mono<Map<String, Object>> updateDraftOrder(@Argument Map<String, Object> input) {
-        return call("UpdateDraftOrder", jwt -> {
-            var context = contexts.create(jwt);
+        return call("UpdateDraftOrder", (jwt, correlationId) -> {
+            var context = contexts.create(jwt, correlationId, null);
             UpdateDraftOrderRequest.Builder request = UpdateDraftOrderRequest.newBuilder()
                     .setContext(context).setOrderId(required(input, "orderId"))
                     .setExpectedVersion(requiredLong(input, "expectedVersion"))
@@ -128,8 +138,8 @@ public class OrderGraphQlController {
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_orders:write')")
     public Mono<Map<String, Object>> submitDraftOrder(@Argument Map<String, Object> input) {
-        return call("SubmitDraftOrder", jwt -> {
-            var context = contexts.create(jwt);
+        return call("SubmitDraftOrder", (jwt, correlationId) -> {
+            var context = contexts.create(jwt, correlationId, null);
             var request = SubmitDraftOrderRequest.newBuilder().setContext(context)
                     .setOrderId(required(input, "orderId"))
                     .setExpectedVersion(requiredLong(input, "expectedVersion")).build();
@@ -140,8 +150,8 @@ public class OrderGraphQlController {
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_orders:write')")
     public Mono<Boolean> deleteDraftOrder(@Argument Map<String, Object> input) {
-        return call("DeleteDraftOrder", jwt -> {
-            var context = contexts.create(jwt);
+        return call("DeleteDraftOrder", (jwt, correlationId) -> {
+            var context = contexts.create(jwt, correlationId, null);
             Empty ignored = stub(jwt, context.getCorrelationId()).deleteDraftOrder(
                     DeleteDraftOrderRequest.newBuilder().setContext(context)
                             .setOrderId(required(input, "orderId"))
@@ -153,8 +163,8 @@ public class OrderGraphQlController {
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_orders:write')")
     public Mono<Map<String, Object>> cancelOrder(@Argument Map<String, Object> input) {
-        return call("CancelOrder", jwt -> {
-            var context = contexts.create(jwt);
+        return call("CancelOrder", (jwt, correlationId) -> {
+            var context = contexts.create(jwt, correlationId, null);
             CancelOrderRequest.Builder request = CancelOrderRequest.newBuilder().setContext(context)
                     .setOrderId(required(input, "orderId"));
             put(input, "reason", request::setReason);
@@ -165,24 +175,29 @@ public class OrderGraphQlController {
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub stub(Jwt jwt, String correlationId) {
         String tenant = required(jwt.getClaimAsString("tenant_id"), "tenantId");
         String token = tokens.tokenFor(AUDIENCE, tenant, jwt.getSubject());
-        return orders.withDeadlineAfter(5, TimeUnit.SECONDS)
+        return orders.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(
                         () -> token, () -> tenant, () -> correlationId));
     }
 
-    private <T> Mono<T> call(String operation, java.util.function.Function<Jwt, T> action) {
-        return ReactiveSecurityContextHolder.getContext()
-                .map(context -> (Jwt) context.getAuthentication().getPrincipal())
-                .map(jwt -> {
-                    try { return action.apply(jwt); }
-                    catch (StatusRuntimeException exception) {
-                        if (exception.getStatus().getCode() == io.grpc.Status.Code.UNAUTHENTICATED) {
-                            tokens.invalidate(AUDIENCE, jwt.getClaimAsString("tenant_id"));
-                        }
-                        throw errors.graphQl(operation, exception);
-                    }
-                }).subscribeOn(Schedulers.boundedElastic());
+    private <T> Mono<T> call(String operation, CorrelatedAction<T> action) {
+        return Mono.deferContextual(reactorContext ->
+                ReactiveSecurityContextHolder.getContext()
+                        .map(context -> (Jwt) context.getAuthentication().getPrincipal())
+                        .map(jwt -> {
+                            try { return action.apply(jwt, GatewayCorrelationContext.get(reactorContext)); }
+                            catch (StatusRuntimeException exception) {
+                                if (exception.getStatus().getCode() == io.grpc.Status.Code.UNAUTHENTICATED) {
+                                    tokens.invalidate(AUDIENCE, jwt.getClaimAsString("tenant_id"));
+                                }
+                                throw errors.graphQl(operation, exception);
+                            }
+                        }))
+                .subscribeOn(Schedulers.boundedElastic());
     }
+
+    @FunctionalInterface
+    private interface CorrelatedAction<T> { T apply(Jwt jwt, String correlationId); }
 
     @SuppressWarnings("unchecked")
     private static List<OrderLine> lines(Map<String, Object> input) {
@@ -239,6 +254,7 @@ public class OrderGraphQlController {
         return result;
     }
 
+    private static long positive(Duration value, String field) { if (value == null || value.isZero() || value.isNegative()) throw new IllegalArgumentException(field + " must be positive"); return value.toMillis(); }
     private static String instant(Timestamp value) { return Instant.ofEpochSecond(value.getSeconds(), value.getNanos()).toString(); }
     private static Timestamp timestamp(long millis) { return Timestamp.newBuilder().setSeconds(Math.floorDiv(millis, 1000)).setNanos((int)Math.floorMod(millis, 1000) * 1_000_000).build(); }
     private static OrderStatus status(String value) { String normalized = value.startsWith("ORDER_STATUS_") ? value : "ORDER_STATUS_" + value; return OrderStatus.valueOf(normalized.toUpperCase()); }

@@ -44,6 +44,10 @@ smartfarm:
     service-client:
       id: ${GATEWAY_SERVICE_CLIENT_ID:gateway}
       secret: ${GATEWAY_SERVICE_CLIENT_SECRET:}
+    grpc:
+      order-deadline: ${GATEWAY_ORDER_GRPC_DEADLINE:5s}
+      saga-admin-deadline: ${GATEWAY_ORDER_SAGA_GRPC_DEADLINE:5s}
+      inventory-deadline: ${GATEWAY_INVENTORY_GRPC_DEADLINE:5s}
 
   mqtt:
     url: ${SMARTFARM_MQTT_URL:tcp://localhost:1883}
@@ -74,7 +78,15 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        liveness:
+          include: livenessState,ping
+        readiness:
+          include: readinessState,ping
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}

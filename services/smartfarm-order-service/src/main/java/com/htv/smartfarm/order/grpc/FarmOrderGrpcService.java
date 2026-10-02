@@ -71,15 +71,11 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     }
 
     private static String tenant() {
-        String t = GrpcSecurityContext.TENANT.get();
-        if (t == null || t.isBlank()) throw Status.UNAUTHENTICATED.asRuntimeException();
-        return t;
+        return GrpcSecurityContext.requireTenant();
     }
 
     private static String actor() {
-        String value = GrpcSecurityContext.SUBJECT.get();
-        if (value == null || value.isBlank()) throw Status.UNAUTHENTICATED.asRuntimeException();
-        return value;
+        return GrpcSecurityContext.requireSubject();
     }
 
     private static void requireContext(boolean present) {

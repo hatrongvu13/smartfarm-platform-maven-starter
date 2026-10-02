@@ -31,7 +31,9 @@ public class OpenApiConfig {
                         .version("v1")
                         .description("Single public ingress for the SmartFarm platform. All external traffic enters "
                                 + "here; internal services communicate over gRPC. Authenticate via POST /api/v1/auth/login, "
-                                + "then click Authorize and paste the accessToken.")
+                                + "then click Authorize and paste the accessToken. Order write requests use Idempotency-Key; "
+                                + "X-Correlation-Id is echoed and propagated downstream. Draft updates use optimistic versions, "
+                                + "and order listing uses cursor pagination.")
                         .license(new License().name("Proprietary")))
                 .components(new Components().addSecuritySchemes(BEARER, new SecurityScheme()
                         .type(SecurityScheme.Type.HTTP)
