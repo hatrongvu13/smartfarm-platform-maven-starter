@@ -66,3 +66,11 @@
 ## Escalation
 
 Escalate immediately for database data loss, partial Inventory commit, Finance reconciliation mismatch, missing immutable archive events, or repeated dead outbox events after the root cause is fixed.
+
+## Deployment and rollback
+
+- Deploy immutable image digests with rolling update, `maxUnavailable=0`, and `maxSurge=1`.
+- Wait for both Gateway and Order rollouts, then verify readiness and backlog age metrics.
+- Keep a 45-second termination grace period; do not force-delete a terminating Order pod.
+- Roll back with `kubectl rollout undo deployment/smartfarm-order` or `smartfarm-gateway`.
+- After rollback, verify stale claims return to zero and no outbox event entered `DEAD`.

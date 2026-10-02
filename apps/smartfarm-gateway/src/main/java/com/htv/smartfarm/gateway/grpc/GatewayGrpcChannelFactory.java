@@ -2,6 +2,7 @@ package com.htv.smartfarm.gateway.grpc;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,6 +19,17 @@ public class GatewayGrpcChannelFactory {
         if (loopback(normalized)) builder.usePlaintext();
         else builder.useTransportSecurity();
         return builder.build();
+    }
+
+
+    public void close(ManagedChannel channel) {
+        channel.shutdown();
+        try {
+            if (!channel.awaitTermination(10, TimeUnit.SECONDS)) channel.shutdownNow();
+        } catch (InterruptedException interrupted) {
+            channel.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     private boolean loopback(String host) {

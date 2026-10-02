@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 public class IdentityGrpcClientConfig {
-    @Bean(name = "identityGrpcChannel", destroyMethod = "shutdown")
+    @Bean(name = "identityGrpcChannel", destroyMethod = "")
     ManagedChannel channel(GatewayGrpcChannelFactory channels,
             @Value("${smartfarm.identity.grpc-host:localhost}") String host,
             @Value("${smartfarm.identity.grpc-port:9092}") int port) {
@@ -23,4 +23,9 @@ public class IdentityGrpcClientConfig {
     @Bean IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub administration(@Qualifier("identityGrpcChannel") ManagedChannel c) { return IdentityAdministrationServiceGrpc.newBlockingStub(c); }
     @Bean IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential(@Qualifier("identityGrpcChannel") ManagedChannel c) { return IdentityCredentialServiceGrpc.newBlockingStub(c); }
     @Bean PlatformAuthorizationAdministrationServiceGrpc.PlatformAuthorizationAdministrationServiceBlockingStub platform(@Qualifier("identityGrpcChannel") ManagedChannel c) { return PlatformAuthorizationAdministrationServiceGrpc.newBlockingStub(c); }
+    @Bean(name = "identityChannelCloser") AutoCloseable identityChannelCloser(
+            GatewayGrpcChannelFactory channels,
+            @Qualifier("identityGrpcChannel") ManagedChannel channel) {
+        return () -> channels.close(channel);
+    }
 }

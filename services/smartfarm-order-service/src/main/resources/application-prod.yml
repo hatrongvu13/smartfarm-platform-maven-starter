@@ -3,12 +3,45 @@ spring:
     url: ${ORDER_DB_URL}
     username: ${ORDER_DB_USER}
     password: ${ORDER_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
+  flyway:
+    enabled: true
+    validate-on-migrate: true
+    clean-disabled: true
+  grpc:
+    server:
+      port: ${ORDER_GRPC_PORT:9095}
 smartfarm:
   security:
     issuer: ${SMARTFARM_JWT_ISSUER}
     jwk-set-uri: ${SMARTFARM_JWKS_URI}
-    audience: smartfarm-order
+    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
     allow-local-http: false
+  identity:
+    base-url: ${IDENTITY_BASE_URL}
+  order:
+    service-client:
+      id: ${ORDER_SERVICE_CLIENT_ID:order}
+      secret: ${ORDER_SERVICE_SECRET}
+    readmodel:
+      client-id: ${ORDER_READMODEL_CLIENT_ID}
+      gap-recovery:
+        instance-id: ${ORDER_PROJECTION_GAP_RECOVERY_INSTANCE_ID}
+  inventory:
+    grpc-host: ${INVENTORY_GRPC_HOST}
+    grpc-port: ${INVENTORY_GRPC_PORT:9093}
+  finance:
+    grpc-host: ${FINANCE_GRPC_HOST}
+    grpc-port: ${FINANCE_GRPC_PORT:9094}
+  mqtt:
+    url: ${SMARTFARM_MQTT_URL}
+    username: ${SMARTFARM_MQTT_USERNAME}
+    password: ${SMARTFARM_MQTT_PASSWORD}
+management:
+  endpoint:
+    health:
+      show-details: never

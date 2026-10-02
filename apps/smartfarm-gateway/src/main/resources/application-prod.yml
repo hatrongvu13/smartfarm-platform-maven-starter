@@ -2,31 +2,36 @@ spring:
   graphql:
     graphiql:
       enabled: false
-
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 smartfarm:
   security:
     jwt:
       issuer: ${IDENTITY_ISSUER}
       jwk-set-uri: ${IDENTITY_JWK_SET_URI}
-      audiences:
-        - smartfarm-gateway
+      audiences: [smartfarm-gateway]
       allow-local-http: false
-
   identity:
     base-url: ${IDENTITY_HTTP_BASE_URL}
     grpc-host: ${IDENTITY_GRPC_HOST}
-    grpc-port: ${IDENTITY_GRPC_PORT}
+    grpc-port: ${IDENTITY_GRPC_PORT:9092}
     grpc-audience: smartfarm-identity
-
   gateway:
     service-client:
       id: ${GATEWAY_SERVICE_CLIENT_ID:gateway}
-      secret: ${GATEWAY_SERVICE_CLIENT_SECRET:}
-
+      secret: ${GATEWAY_SERVICE_CLIENT_SECRET}
   mqtt:
     url: ${SMARTFARM_MQTT_URL}
-
+    username: ${SMARTFARM_MQTT_USERNAME}
+    password: ${SMARTFARM_MQTT_PASSWORD}
   events:
     mqtt:
       enabled: ${SMARTFARM_MQTT_EVENTS_ENABLED:true}
       topic-filter: ${SMARTFARM_MQTT_TOPIC_FILTER:smartfarm/+/+/domain/#}
+management:
+  endpoint:
+    health:
+      show-details: never
