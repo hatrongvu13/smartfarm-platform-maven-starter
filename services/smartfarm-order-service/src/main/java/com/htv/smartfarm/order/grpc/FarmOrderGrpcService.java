@@ -16,6 +16,7 @@ import com.htv.smartfarm.order.domain.OrderJpaRepository;
 import com.htv.smartfarm.order.domain.OrderLineEntity;
 import com.htv.smartfarm.order.domain.OrderLineJpaRepository;
 import com.htv.smartfarm.order.saga.OrderSagaOrchestrator;
+import com.htv.smartfarm.order.saga.persistence.OrderSagaTransactionService;
 import com.htv.smartfarm.proto.common.v1.Money;
 import com.htv.smartfarm.proto.order.v1.*;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
@@ -31,8 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * FarmOrderService — the saga owner's gRPC surface. PlaceOrder creates the order aggregate + its
- * lines (idempotent on the request's idempotency_key) and drives the orchestration saga to a
- * terminal state. Supports MULTIPLE order lines: each line reserves + commits its own stock and
+ * lines (idempotent on the request's idempotency_key), persists the saga graph, and returns
+ * the current order state while the persistent worker advances it. Supports MULTIPLE order lines:
  * the order total is the sum of the lines. Tenant and actor come from the verified call context.
  * In this starter every line shares the request's warehouse (carried via {@code batch_id}), since
  * the proto {@code OrderLine} has no per-line warehouse field.
@@ -43,6 +44,7 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     private final OrderJpaRepository orders;
     private final OrderLineJpaRepository lines;
     private final OrderSagaOrchestrator saga;
+    private final OrderSagaTransactionService persistentSagas;
     private final OrderDraftService drafts;
     private final OrderQueryService queries;
 
@@ -51,11 +53,13 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
             OrderLineJpaRepository lines,
             OrderSagaOrchestrator saga,
             OrderDraftService drafts,
-            OrderQueryService queries
+            OrderQueryService queries,
+            OrderSagaTransactionService persistentSagas
     ) {
         this.orders = orders;
         this.lines = lines;
         this.saga = saga;
+        this.persistentSagas = persistentSagas;
         this.drafts = drafts;
         this.queries = queries;
     }
@@ -132,8 +136,13 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
             orders.save(order);
             lines.saveAll(lineEntities);
 
-            OrderEntity finalState = saga.run(order, actor());
-            out.onNext(OrderResponse.newBuilder().setOrder(toProto(finalState, lineEntities)).build());
+            persistentSagas.create(
+                    tenant,
+                    order.getId(),
+                    actor(),
+                    req.getContext().getCorrelationId()
+            );
+            out.onNext(OrderResponse.newBuilder().setOrder(toProto(order, lineEntities)).build());
             out.onCompleted();
         } catch (IllegalArgumentException e) {
             out.onError(Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -244,9 +253,24 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
                 out.onError(Status.NOT_FOUND.withDescription("order not found").asRuntimeException());
                 return;
             }
-            var updated = saga.cancel(order, actor(), req.getReason());
+            if (order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.COMPLETED) {
+                throw new IllegalStateException("cannot cancel a completed order");
+            }
+            if (order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.CANCELLED) {
+                out.onNext(OrderResponse.newBuilder()
+                        .setOrder(toProto(order, lines.findByOrderIdOrderByLineNo(order.getId()))).build());
+                out.onCompleted();
+                return;
+            }
+            persistentSagas.requestCancellation(
+                    tenant,
+                    order.getId(),
+                    actor(),
+                    req.hasContext() ? req.getContext().getCorrelationId() : order.getId(),
+                    req.getReason()
+            );
             out.onNext(OrderResponse.newBuilder()
-                    .setOrder(toProto(updated, lines.findByOrderIdOrderByLineNo(updated.getId()))).build());
+                    .setOrder(toProto(order, lines.findByOrderIdOrderByLineNo(order.getId()))).build());
             out.onCompleted();
         } catch (IllegalArgumentException e) {
             out.onError(Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());

@@ -21,7 +21,7 @@ smartfarm:
     base-url: ${IDENTITY_BASE_URL:http://localhost:8092}
   order:
     saga:
-      enabled: ${ORDER_SAGA_ENABLED:false}
+      enabled: ${ORDER_SAGA_ENABLED:true}
       batch-size: ${ORDER_SAGA_BATCH_SIZE:20}
       maximum-attempts: ${ORDER_SAGA_MAXIMUM_ATTEMPTS:8}
       initial-retry: ${ORDER_SAGA_INITIAL_RETRY:5s}

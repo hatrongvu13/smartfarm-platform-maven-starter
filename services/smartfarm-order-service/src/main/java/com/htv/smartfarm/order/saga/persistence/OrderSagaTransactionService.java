@@ -45,6 +45,30 @@ public class OrderSagaTransactionService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public OrderSagaEntity findByTenantAndOrder(String tenantId, String orderId) {
+        return sagas.findByTenantIdAndOrderId(tenantId, orderId).orElse(null);
+    }
+
+    @Transactional
+    public String requestCancellation(
+            String tenantId,
+            String orderId,
+            String actorId,
+            String correlationId,
+            String reason
+    ) {
+        OrderSagaEntity existing = sagas.findByTenantIdAndOrderId(tenantId, orderId).orElse(null);
+        String sagaId = existing == null
+                ? create(tenantId, orderId, actorId, correlationId)
+                : existing.getId();
+        beginCancellationCompensation(
+                sagaId,
+                reason == null || reason.isBlank() ? "Cancelled by user" : reason.trim()
+        );
+        return sagaId;
+    }
+
     @Transactional
     public List<OrderSagaClaim> claimBatch() {
         Instant now = clock.instant();
