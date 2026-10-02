@@ -1,0 +1,86 @@
+groups:
+  - name: smartfarm-order-availability
+    interval: 30s
+    rules:
+      - alert: SmartFarmOrderServiceDown
+        expr: up{job="smartfarm-order"} == 0
+        for: 2m
+        labels: { severity: critical, service: smartfarm-order-service }
+        annotations:
+          summary: "Order service metrics target is down"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#order-service-or-database-down"
+      - alert: SmartFarmGatewayDown
+        expr: up{job="smartfarm-gateway"} == 0
+        for: 2m
+        labels: { severity: critical, service: smartfarm-gateway }
+        annotations:
+          summary: "Gateway metrics target is down"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#gateway-down"
+
+  - name: smartfarm-order-saga
+    interval: 30s
+    rules:
+      - alert: SmartFarmOrderSagaBacklogOld
+        expr: smartfarm_order_saga_oldest_active_seconds{application="smartfarm-order-service"} > 900
+        for: 10m
+        labels: { severity: warning, service: smartfarm-order-service }
+        annotations:
+          summary: "Oldest active Order Saga exceeds 15 minutes"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#saga-backlog-or-stale-claim"
+      - alert: SmartFarmOrderSagaManualReview
+        expr: smartfarm_order_saga_manual_review{application="smartfarm-order-service"} > 0
+        for: 15m
+        labels: { severity: warning, service: smartfarm-order-service }
+        annotations:
+          summary: "Order Saga requires manual review"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#saga-manual-review"
+      - alert: SmartFarmOrderSagaStaleClaims
+        expr: smartfarm_order_saga_stale_claims{application="smartfarm-order-service"} > 0
+        for: 5m
+        labels: { severity: warning, service: smartfarm-order-service }
+        annotations:
+          summary: "Order Saga has stale worker claims"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#saga-backlog-or-stale-claim"
+
+  - name: smartfarm-order-outbox
+    interval: 30s
+    rules:
+      - alert: SmartFarmOrderOutboxBacklogHigh
+        expr: smartfarm_order_outbox_pending{application="smartfarm-order-service"} >= 1000 or smartfarm_order_outbox_oldest_pending_seconds{application="smartfarm-order-service"} > 300
+        for: 10m
+        labels: { severity: warning, service: smartfarm-order-service }
+        annotations:
+          summary: "Order outbox backlog exceeds count or age objective"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#outbox-backlog-or-mqtt-unavailable"
+      - alert: SmartFarmOrderOutboxDeadEvents
+        expr: smartfarm_order_outbox_dead{application="smartfarm-order-service"} > 0
+        for: 5m
+        labels: { severity: critical, service: smartfarm-order-service }
+        annotations:
+          summary: "Order outbox contains dead events"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#outbox-dead-events"
+      - alert: SmartFarmOrderOutboxStaleClaims
+        expr: smartfarm_order_outbox_stale_claims{application="smartfarm-order-service"} > 0
+        for: 5m
+        labels: { severity: warning, service: smartfarm-order-service }
+        annotations:
+          summary: "Order outbox has stale publishing claims"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#outbox-backlog-or-mqtt-unavailable"
+
+  - name: smartfarm-order-projection
+    interval: 30s
+    rules:
+      - alert: SmartFarmOrderProjectionGapBacklog
+        expr: smartfarm_order_projection_gaps_pending{application="smartfarm-order-service"} >= 100 or smartfarm_order_projection_gaps_oldest_seconds{application="smartfarm-order-service"} > 900
+        for: 10m
+        labels: { severity: warning, service: smartfarm-order-service }
+        annotations:
+          summary: "Order projection gap backlog exceeds objective"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#projection-gap-backlog"
+      - alert: SmartFarmOrderProjectionManualReview
+        expr: smartfarm_order_projection_gaps_manual_review{application="smartfarm-order-service"} > 0
+        for: 15m
+        labels: { severity: warning, service: smartfarm-order-service }
+        annotations:
+          summary: "Order projection gap requires manual review"
+          runbook_url: "docs/operations/ORDER-OPERATIONS-RUNBOOK.md#projection-manual-review-or-archive-missing"

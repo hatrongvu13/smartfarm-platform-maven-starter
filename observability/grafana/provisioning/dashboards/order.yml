@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: SmartFarm Order
+    folder: SmartFarm
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
