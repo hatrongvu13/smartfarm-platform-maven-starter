@@ -3,6 +3,7 @@ package com.htv.smartfarm.gateway.order;
 import com.htv.smartfarm.proto.inventory.v1.InventoryServiceGrpc;
 import com.htv.smartfarm.proto.finance.v1.FarmFinanceServiceGrpc;
 import com.htv.smartfarm.proto.order.v1.FarmOrderServiceGrpc;
+import com.htv.smartfarm.proto.order.v1.OrderSagaAdministrationServiceGrpc;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -10,7 +11,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 
 /**
  * DEV-only gRPC client wiring so the gateway can expose thin REST endpoints for order + inventory,
@@ -18,13 +18,13 @@ import org.springframework.context.annotation.Profile;
  * never opens these dev controllers. Each call attaches a per-service token (Phase 2).
  */
 @Configuration(proxyBeanMethods = false)
-@Profile("dev & !prod")
 public class OrderDevClientConfig {
 
     private static ManagedChannel channel(String host, int port) {
-        if (!host.equals("localhost") && !host.equals("127.0.0.1"))
-            throw new IllegalArgumentException("plaintext gRPC allowed on loopback only");
-        return ManagedChannelBuilder.forAddress(host, port).usePlaintext().build();
+        ManagedChannelBuilder<?> builder = ManagedChannelBuilder.forAddress(host, port);
+        if (host.equalsIgnoreCase("localhost") || host.equals("127.0.0.1") || host.equals("::1")) builder.usePlaintext();
+        else builder.useTransportSecurity();
+        return builder.build();
     }
 
     @Bean(name = "orderChannel", destroyMethod = "shutdown")
@@ -42,6 +42,12 @@ public class OrderDevClientConfig {
     @Bean
     FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orderStub(@Qualifier("orderChannel") ManagedChannel channel) {
         return FarmOrderServiceGrpc.newBlockingStub(channel);
+    }
+
+    @Bean
+    OrderSagaAdministrationServiceGrpc.OrderSagaAdministrationServiceBlockingStub orderSagaAdminStub(
+            @Qualifier("orderChannel") ManagedChannel channel) {
+        return OrderSagaAdministrationServiceGrpc.newBlockingStub(channel);
     }
 
     @Bean

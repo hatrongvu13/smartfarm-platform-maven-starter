@@ -51,6 +51,7 @@ smartfarm:
   events:
     mqtt:
       enabled: ${SMARTFARM_MQTT_EVENTS_ENABLED:false}
+      topic-filter: ${SMARTFARM_MQTT_TOPIC_FILTER:smartfarm/+/+/domain/#}
 
   livestock:
     grpc-host: ${LIVESTOCK_GRPC_HOST:localhost}

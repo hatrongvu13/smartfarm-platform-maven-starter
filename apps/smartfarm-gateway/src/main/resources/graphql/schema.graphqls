@@ -4,6 +4,9 @@ type Query {
   task(id: ID!): Task
   orders(farmId: ID!, status: String, limit: Int): [Order!]!
   order(id: ID!): Order
+  orderV2(id: ID!): Order
+  ordersV2(filter: OrderFilterInput, page: PageInput): OrderConnection!
+  orderSaga(sagaId: ID!): OrderSaga
   dashboard(farmId: ID!, recentLimit: Int): Dashboard!
   warehouseInventory(itemId: ID!, warehouseId: ID!): StockBalance
   batchCost(farmId: ID!, batchId: ID!): BatchCost
@@ -41,11 +44,36 @@ type Dashboard { farmId: ID!, generatedAt: Float!, tasks: TaskSummary!, orders: 
 type TaskSummary { total: Int!, created: Int!, assigned: Int!, accepted: Int!, completed: Int!, cancelled: Int!, overdueAccept: Int!, overdueReport: Int! }
 type OrderSummary { total: Int!, created: Int!, stockReserved: Int!, financePosted: Int!, completed: Int!, failed: Int!, cancelled: Int! }
 type Task { taskId: ID!, farmId: ID!, title: String!, type: String!, status: String!, assigneeId: ID, dueAt: Float, assignedAt: Float, acceptDeadlineAt: Float, acceptedAt: Float, reportDueAt: Float, reportedAt: Float, completedAt: Float }
-type Order { orderId: ID!, farmId: ID!, batchId: ID, status: String!, totalMinor: Float!, failureReason: String, lines: [OrderLine!]! }
-type OrderLine { itemId: ID!, quantity: Float!, unit: String, unitPriceMinor: Float, warehouseId: ID }
+type Order { orderId: ID!, farmId: ID!, batchId: ID, status: String!, totalMinor: Float!, currency: String, version: Float, createdAt: String, updatedAt: String, failureReason: String, lines: [OrderLine!]! }
+type OrderLine { lineId: ID, lineNo: Int, itemId: ID!, quantity: String!, unit: String, unitPriceMinor: Float, currency: String, lineTotalMinor: Float, warehouseId: ID, version: Float }
+type OrderConnection { nodes: [Order!]!, nextPageToken: String! }
+input OrderFilterInput { farmId: ID, status: String, warehouseId: ID, createdFromEpochMs: Float, createdToEpochMs: Float }
+input OrderLineInput { itemId: ID!, quantity: String!, unit: String!, currency: String!, unitPriceMinor: Float!, warehouseId: ID }
+input PlaceOrderInput { idempotencyKey: String!, farmId: ID!, batchId: ID, lines: [OrderLineInput!]! }
+input CreateDraftOrderInput { idempotencyKey: String!, farmId: ID!, batchId: ID, lines: [OrderLineInput!]! }
+input UpdateDraftOrderInput { orderId: ID!, expectedVersion: Float!, farmId: ID!, batchId: ID, lines: [OrderLineInput!]! }
+input SubmitDraftOrderInput { orderId: ID!, expectedVersion: Float! }
+input DeleteDraftOrderInput { orderId: ID!, expectedVersion: Float! }
+input CancelOrderInput { orderId: ID!, reason: String }
+input RetryOrderSagaStepInput { sagaId: ID!, stepKey: String!, reason: String! }
+input OrderSagaActionInput { sagaId: ID!, reason: String! }
+type OrderSaga { sagaId: ID!, orderId: ID!, status: String!, terminalIntent: String, currentStepKey: String, attemptCount: Int!, nextAttemptAt: String, claimedAt: String, compensationDeadlineAt: String, lastErrorCode: String, lastErrorMessage: String, steps: [OrderSagaStep!]! }
+type OrderSagaStep { stepKey: String!, sequenceNo: Int!, stepType: String!, status: String!, orderLineId: ID, externalReferenceId: String, attemptCount: Int!, nextAttemptAt: String, claimedAt: String, lastErrorCode: String, lastErrorMessage: String }
 
 
 type Mutation {
+  retryOrderSagaStep(input: RetryOrderSagaStepInput!): OrderSaga!
+  resumeOrderSaga(input: OrderSagaActionInput!): OrderSaga!
+  forceCompensateOrder(input: OrderSagaActionInput!): OrderSaga!
+  forceCancelOrder(input: OrderSagaActionInput!): OrderSaga!
+  forceCompleteOrder(input: OrderSagaActionInput!): OrderSaga!
+  markOrderSagaResolved(input: OrderSagaActionInput!): OrderSaga!
+  placeOrder(input: PlaceOrderInput!): Order!
+  createDraftOrder(input: CreateDraftOrderInput!): Order!
+  updateDraftOrder(input: UpdateDraftOrderInput!): Order!
+  submitDraftOrder(input: SubmitDraftOrderInput!): Order!
+  deleteDraftOrder(input: DeleteDraftOrderInput!): Boolean!
+  cancelOrder(input: CancelOrderInput!): Order!
   updateMyProfile(input: UpdateProfileInput!): Principal!
   beginTotpEnrollment(displayName: String): TotpEnrollment!
   confirmTotpEnrollment(authenticatorId: ID!, code: String!): TotpEnrollmentConfirmation!

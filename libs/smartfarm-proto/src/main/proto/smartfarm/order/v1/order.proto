@@ -10,6 +10,16 @@ import "smartfarm/common/v1/common.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
+service OrderSagaAdministrationService {
+  rpc GetOrderSaga(GetOrderSagaRequest) returns (OrderSagaResponse);
+  rpc RetryOrderSagaStep(RetryOrderSagaStepRequest) returns (OrderSagaResponse);
+  rpc ResumeOrderSaga(OrderSagaActionRequest) returns (OrderSagaResponse);
+  rpc ForceCompensateOrder(OrderSagaActionRequest) returns (OrderSagaResponse);
+  rpc ForceCancelOrder(OrderSagaActionRequest) returns (OrderSagaResponse);
+  rpc ForceCompleteOrder(OrderSagaActionRequest) returns (OrderSagaResponse);
+  rpc MarkOrderSagaResolved(OrderSagaActionRequest) returns (OrderSagaResponse);
+}
+
 service FarmOrderService {
   rpc PlaceOrder(PlaceOrderRequest) returns (OrderResponse);
   rpc GetOrder(GetOrderRequest) returns (OrderResponse);
@@ -125,4 +135,53 @@ message CancelOrderRequest {
   smartfarm.common.v1.RequestContext context = 1;
   string order_id = 2;
   string reason = 3;
+}
+
+message GetOrderSagaRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string saga_id = 2;
+}
+
+message RetryOrderSagaStepRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string saga_id = 2;
+  string step_key = 3;
+  string reason = 4;
+}
+
+message OrderSagaActionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string saga_id = 2;
+  string reason = 3;
+}
+
+message OrderSagaResponse { OrderSaga saga = 1; }
+
+message OrderSaga {
+  string saga_id = 1;
+  string order_id = 2;
+  string status = 3;
+  string terminal_intent = 4;
+  string current_step_key = 5;
+  int32 attempt_count = 6;
+  google.protobuf.Timestamp next_attempt_at = 7;
+  google.protobuf.Timestamp claimed_at = 8;
+  google.protobuf.Timestamp compensation_deadline_at = 9;
+  string last_error_code = 10;
+  string last_error_message = 11;
+  repeated OrderSagaStep steps = 12;
+}
+
+message OrderSagaStep {
+  string step_key = 1;
+  int32 sequence_no = 2;
+  string step_type = 3;
+  string status = 4;
+  string order_line_id = 5;
+  string external_reference_id = 6;
+  int32 attempt_count = 7;
+  google.protobuf.Timestamp next_attempt_at = 8;
+  google.protobuf.Timestamp claimed_at = 9;
+  string last_error_code = 10;
+  string last_error_message = 11;
 }
