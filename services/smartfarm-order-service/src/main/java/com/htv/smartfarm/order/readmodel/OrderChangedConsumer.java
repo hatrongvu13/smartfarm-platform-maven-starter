@@ -1,7 +1,5 @@
 package com.htv.smartfarm.order.readmodel;
 
-import java.util.UUID;
-
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.eclipse.paho.client.mqttv3.*;
@@ -34,6 +32,7 @@ public class OrderChangedConsumer {
     private final String username;
     private final String password;
     private final String topicFilter;
+    private final String clientId;
     private MqttClient client;
 
     public OrderChangedConsumer(OrderViewJpaRepository views,
@@ -41,21 +40,23 @@ public class OrderChangedConsumer {
                                 @Value("${smartfarm.mqtt.url:tcp://localhost:1883}") String url,
                                 @Value("${smartfarm.mqtt.username:}") String username,
                                 @Value("${smartfarm.mqtt.password:}") String password,
-                                @Value("${smartfarm.order.readmodel.topic-filter:smartfarm/+/+/domain/order-changed/+}") String topicFilter) {
+                                @Value("${smartfarm.order.readmodel.topic-filter:smartfarm/+/+/domain/order-changed/+}") String topicFilter,
+                                @Value("${smartfarm.order.readmodel.client-id:smartfarm-order-readmodel-client}") String clientId) {
         this.views = views;
         this.projector = projector;
         this.url = url;
         this.username = username;
         this.password = password;
         this.topicFilter = topicFilter;
+        this.clientId = clientId;
     }
 
     @PostConstruct
     public void start() {
         try {
-            client = new MqttClient(url, "smartfarm-order-readmodel-" + UUID.randomUUID(), new MemoryPersistence());
+            client = new MqttClient(url, clientId, new MemoryPersistence());
             MqttConnectOptions opts = new MqttConnectOptions();
-            opts.setCleanSession(true);
+            opts.setCleanSession(false);
             opts.setConnectionTimeout(3);
             opts.setAutomaticReconnect(true);
             if (!username.isBlank()) {

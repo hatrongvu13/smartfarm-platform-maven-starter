@@ -12,7 +12,7 @@ import "smartfarm/order/v1/order.proto";
 import "smartfarm/reporting/v1/reporting.proto";
 import "google/protobuf/timestamp.proto";
 // MQTT binary payload. Schema version is encoded by package/topic; event_id enables deduplication.
-message EventMetadata { string event_id = 1; string tenant_id = 2; string farm_id = 3; string aggregate_id = 4; string correlation_id = 5; string causation_id = 6; string producer = 7; google.protobuf.Timestamp occurred_at = 8; string trace_id = 9; }
+message EventMetadata { string event_id = 1; string tenant_id = 2; string farm_id = 3; string aggregate_id = 4; string correlation_id = 5; string causation_id = 6; string producer = 7; google.protobuf.Timestamp occurred_at = 8; string trace_id = 9; int64 aggregate_version = 10; }
 message TaskChanged { smartfarm.livestock.v1.LivestockTask task = 1; }
 // Raised by the deadline monitor when a task passes its accept or report deadline.
 enum TaskDeadlineKind { TASK_DEADLINE_KIND_UNSPECIFIED = 0; TASK_DEADLINE_KIND_ACCEPT_OVERDUE = 1; TASK_DEADLINE_KIND_REPORT_OVERDUE = 2; }

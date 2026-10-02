@@ -50,6 +50,7 @@ public class OrderSagaOrchestrator {
     private final OrderJpaRepository orders;
     private final OrderLineJpaRepository lines;
     private final OrderOutboxJpaRepository outbox;
+    private final com.htv.smartfarm.order.outbox.OrderEventStore eventStore;
     private final InventoryServiceGrpc.InventoryServiceBlockingStub inventory;
     private final FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance;
     private final ServiceTokenClient tokens;
@@ -57,12 +58,14 @@ public class OrderSagaOrchestrator {
     public OrderSagaOrchestrator(OrderJpaRepository orders,
                                  OrderLineJpaRepository lines,
                                  OrderOutboxJpaRepository outbox,
+                                 com.htv.smartfarm.order.outbox.OrderEventStore eventStore,
                                  InventoryServiceGrpc.InventoryServiceBlockingStub inventory,
                                  FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance,
                                  ServiceTokenClient tokens) {
         this.orders = orders;
         this.lines = lines;
         this.outbox = outbox;
+        this.eventStore = eventStore;
         this.inventory = inventory;
         this.finance = finance;
         this.tokens = tokens;
@@ -70,8 +73,7 @@ public class OrderSagaOrchestrator {
 
     private void saveAndEmit(OrderEntity order) {
         orders.save(order);
-        outbox.save(new OrderOutboxEntity(UUID.randomUUID().toString(), order.getTenantId(), order.getId(),
-                "order-changed.v1", order.getId(), System.currentTimeMillis(), "NEW"));
+        eventStore.append(order, order.getId());
     }
 
     private RequestContext ctx(OrderEntity o, String actor, String stepKey) {

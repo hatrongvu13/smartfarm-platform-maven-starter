@@ -6,6 +6,7 @@ import com.htv.smartfarm.order.domain.OrderEntity;
 import com.htv.smartfarm.order.domain.OrderJpaRepository;
 import com.htv.smartfarm.order.domain.OrderLineEntity;
 import com.htv.smartfarm.order.domain.OrderLineJpaRepository;
+import com.htv.smartfarm.order.outbox.OrderEventStore;
 import com.htv.smartfarm.order.saga.persistence.OrderSagaClaim;
 import com.htv.smartfarm.order.saga.persistence.OrderSagaStepEntity;
 import com.htv.smartfarm.order.saga.persistence.OrderSagaStepType;
@@ -26,14 +27,18 @@ public class OrderSagaCheckpointService {
     private final OrderSagaTransactionService transactions;
     private final Clock clock;
     private final OrderOutboxJpaRepository outbox;
+    private final OrderEventStore eventStore;
 
     public OrderSagaCheckpointService(OrderJpaRepository orders, OrderLineJpaRepository lines,
-                                      OrderSagaTransactionService transactions, Clock clock, OrderOutboxJpaRepository outbox) {
+                                      OrderSagaTransactionService transactions, Clock clock,
+                                      OrderOutboxJpaRepository outbox,
+                                      OrderEventStore eventStore) {
         this.orders = orders;
         this.lines = lines;
         this.transactions = transactions;
         this.clock = clock;
         this.outbox = outbox;
+        this.eventStore = eventStore;
     }
 
     @Transactional
@@ -84,15 +89,9 @@ public class OrderSagaCheckpointService {
             order.fail(reason, claim.actorId(), clock.millis());
         }
         transactions.markCompensated(claim.sagaId());
-        outbox.save(new OrderOutboxEntity(
-                UUID.randomUUID().toString(),
-                order.getTenantId(),
-                order.getId(),
-                "order-changed.v1",
-                claim.correlationId(),
-                clock.millis(),
-                "NEW"
-        ));
+        outbox.save(OrderOutboxEntity.snapshot(
+                UUID.randomUUID().toString(), order, "order-changed.v1",
+                claim.correlationId(), clock.millis()));
     }
 
     @Transactional
@@ -101,9 +100,9 @@ public class OrderSagaCheckpointService {
                 .orElseThrow(() -> new IllegalStateException("order not found for manual review"));
         if (order.domainStatus() != com.htv.smartfarm.order.domain.OrderDomainStatus.MANUAL_REVIEW) {
             order.requireManualReview(reason, claim.actorId(), clock.millis());
-            outbox.save(new OrderOutboxEntity(
-                    UUID.randomUUID().toString(), order.getTenantId(), order.getId(),
-                    "order-changed.v1", claim.correlationId(), clock.millis(), "NEW"));
+            outbox.save(OrderOutboxEntity.snapshot(
+                UUID.randomUUID().toString(), order, "order-changed.v1",
+                claim.correlationId(), clock.millis()));
         }
     }
 

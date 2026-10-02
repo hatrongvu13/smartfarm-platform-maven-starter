@@ -149,6 +149,21 @@ public class OrderSagaEntity {
         lastErrorMessage = limited(errorMessage, 500);
     }
 
+    public void resumeManually(Instant now) {
+        if (status != OrderSagaStatus.MANUAL_REVIEW
+                && status != OrderSagaStatus.FAILED) {
+            throw new IllegalStateException("only failed or manual-review sagas can be resumed");
+        }
+        status = terminalIntent == null ? OrderSagaStatus.RUNNING : OrderSagaStatus.COMPENSATING;
+        attemptCount = 0;
+        completedAt = null;
+        claimedAt = null;
+        nextAttemptAt = required(now, "now");
+        updatedAt = now;
+        lastErrorCode = null;
+        lastErrorMessage = null;
+    }
+
     public void recover(Instant now) {
         if (claimedAt == null) return;
         claimedAt = null;

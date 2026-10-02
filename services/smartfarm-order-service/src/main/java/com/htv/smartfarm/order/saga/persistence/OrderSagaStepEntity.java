@@ -117,6 +117,21 @@ public class OrderSagaStepEntity {
         lastErrorMessage = limited(errorMessage, 500);
     }
 
+    public void retryManually(Instant now) {
+        if (status != OrderSagaStepStatus.FAILED
+                && status != OrderSagaStepStatus.MANUAL_REVIEW) {
+            throw new IllegalStateException("only failed or manual-review steps can be retried");
+        }
+        status = OrderSagaStepStatus.FAILED;
+        attemptCount = 0;
+        claimedAt = null;
+        completedAt = null;
+        nextAttemptAt = required(now, "now");
+        updatedAt = now;
+        lastErrorCode = null;
+        lastErrorMessage = null;
+    }
+
     public void recover(Instant now) {
         if (status != OrderSagaStepStatus.PROCESSING && status != OrderSagaStepStatus.COMPENSATING) return;
         status = OrderSagaStepStatus.FAILED;

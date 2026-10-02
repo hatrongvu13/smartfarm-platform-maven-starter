@@ -12,6 +12,8 @@ public interface OrderSagaJpaRepository extends JpaRepository<OrderSagaEntity, S
     Optional<OrderSagaEntity> findByTenantIdAndOrderId(String tenantId, String orderId);
     boolean existsByTenantIdAndOrderId(String tenantId, String orderId);
     long countByStatus(OrderSagaStatus status);
+    @Query("select min(s.createdAt) from OrderSagaEntity s where s.status in :statuses")
+    Instant oldestActive(@Param("statuses") List<OrderSagaStatus> statuses);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from OrderSagaEntity s where s.status in :statuses and s.claimedAt is null and s.nextAttemptAt <= :now order by s.nextAttemptAt, s.createdAt, s.id")
     List<OrderSagaEntity> lockReady(@Param("statuses") List<OrderSagaStatus> statuses, @Param("now") Instant now, Pageable pageable);

@@ -40,3 +40,10 @@ smartfarm:
   outbox:
     enabled: true
     poll-ms: 2000
+    batch-size: ${ORDER_OUTBOX_BATCH_SIZE:50}
+    maximum-attempts: ${ORDER_OUTBOX_MAXIMUM_ATTEMPTS:12}
+    initial-retry: ${ORDER_OUTBOX_INITIAL_RETRY:5s}
+    maximum-retry: ${ORDER_OUTBOX_MAXIMUM_RETRY:5m}
+    publishing-timeout: ${ORDER_OUTBOX_PUBLISHING_TIMEOUT:2m}
+    published-retention: ${ORDER_OUTBOX_PUBLISHED_RETENTION:7d}
+    maintenance-ms: ${ORDER_OUTBOX_MAINTENANCE_MS:60000}

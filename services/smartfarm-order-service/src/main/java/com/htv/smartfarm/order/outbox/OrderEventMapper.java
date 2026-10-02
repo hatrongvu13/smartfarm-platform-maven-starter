@@ -38,6 +38,7 @@ public final class OrderEventMapper {
         var meta = EventMetadata.newBuilder().setEventId(e.eventId()).setTenantId(e.tenantId())
                 .setFarmId(e.farmId()).setAggregateId(e.aggregateId()).setProducer("smartfarm-order-service")
                 .setCorrelationId(e.correlationId() == null ? "" : e.correlationId())
+                .setAggregateVersion(e.aggregateVersion())
                 .setOccurredAt(Timestamp.newBuilder().setSeconds(Math.floorDiv(e.createdAt(), 1000))
                         .setNanos((int) Math.floorMod(e.createdAt(), 1000) * 1_000_000).build()).build();
         var order = FarmOrder.newBuilder()

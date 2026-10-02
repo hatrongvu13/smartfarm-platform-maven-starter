@@ -6,6 +6,9 @@ spring:
 server:
   port: 8085
 management:
+  endpoint:
+    health:
+      show-details: ${ORDER_HEALTH_SHOW_DETAILS:when-authorized}
   endpoints:
     web:
       exposure:
@@ -20,6 +23,20 @@ smartfarm:
   identity:
     base-url: ${IDENTITY_BASE_URL:http://localhost:8092}
   order:
+    readmodel:
+      enabled: ${ORDER_READMODEL_ENABLED:true}
+      client-id: ${ORDER_READMODEL_CLIENT_ID:smartfarm-order-readmodel-client}
+      topic-filter: ${ORDER_READMODEL_TOPIC_FILTER:smartfarm/+/+/domain/order-changed/+}
+      gap-recovery:
+        enabled: ${ORDER_PROJECTION_GAP_RECOVERY_ENABLED:false}
+        batch-size: ${ORDER_PROJECTION_GAP_RECOVERY_BATCH_SIZE:20}
+        maximum-attempts: ${ORDER_PROJECTION_GAP_RECOVERY_MAXIMUM_ATTEMPTS:12}
+        initial-retry: ${ORDER_PROJECTION_GAP_RECOVERY_INITIAL_RETRY:10s}
+        maximum-retry: ${ORDER_PROJECTION_GAP_RECOVERY_MAXIMUM_RETRY:10m}
+        claim-timeout: ${ORDER_PROJECTION_GAP_RECOVERY_CLAIM_TIMEOUT:2m}
+        manual-review-after: ${ORDER_PROJECTION_GAP_RECOVERY_MANUAL_REVIEW_AFTER:24h}
+        instance-id: ${ORDER_PROJECTION_GAP_RECOVERY_INSTANCE_ID:order-gap-recovery}
+        poll-interval: ${ORDER_PROJECTION_GAP_RECOVERY_POLL_INTERVAL:5s}
     saga:
       enabled: ${ORDER_SAGA_ENABLED:true}
       batch-size: ${ORDER_SAGA_BATCH_SIZE:20}
