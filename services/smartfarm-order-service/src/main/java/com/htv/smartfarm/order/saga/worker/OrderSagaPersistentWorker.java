@@ -57,11 +57,15 @@ public class OrderSagaPersistentWorker {
             OrderSagaStepResult result = executor.execute(claim, step);
             checkpoints.succeeded(claim, step, result);
         } catch (StatusRuntimeException exception) {
-            transactions.markForwardStepFailed(claim.sagaId(), stepKey,
-                    exception.getStatus().getCode().name(), description(exception));
+            String code = exception.getStatus().getCode().name();
+            String message = description(exception);
+            transactions.markForwardStepFailed(claim.sagaId(), stepKey, code, message);
+            checkpoints.forwardFailed(claim, step, code, message);
         } catch (RuntimeException exception) {
-            transactions.markForwardStepFailed(claim.sagaId(), stepKey,
-                    exception.getClass().getSimpleName(), safeMessage(exception));
+            String code = exception.getClass().getSimpleName();
+            String message = safeMessage(exception);
+            transactions.markForwardStepFailed(claim.sagaId(), stepKey, code, message);
+            checkpoints.forwardFailed(claim, step, code, message);
         }
     }
 
@@ -86,12 +90,16 @@ public class OrderSagaPersistentWorker {
             var action = transactions.markCompensationStepFailed(
                     claim.sagaId(), stepKey,
                     exception.getStatus().getCode().name(), description(exception));
+            checkpoints.compensationFailed(claim, step,
+                    exception.getStatus().getCode().name(), description(exception));
             if (action == com.htv.smartfarm.order.saga.persistence.OrderSagaFailureAction.MANUAL_REVIEW) {
                 checkpoints.compensationManualReview(claim, description(exception));
             }
         } catch (RuntimeException exception) {
             var action = transactions.markCompensationStepFailed(
                     claim.sagaId(), stepKey,
+                    exception.getClass().getSimpleName(), safeMessage(exception));
+            checkpoints.compensationFailed(claim, step,
                     exception.getClass().getSimpleName(), safeMessage(exception));
             if (action == com.htv.smartfarm.order.saga.persistence.OrderSagaFailureAction.MANUAL_REVIEW) {
                 checkpoints.compensationManualReview(claim, safeMessage(exception));

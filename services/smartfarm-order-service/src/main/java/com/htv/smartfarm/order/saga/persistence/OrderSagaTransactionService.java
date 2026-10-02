@@ -63,9 +63,22 @@ public class OrderSagaTransactionService {
         String sagaId = existing == null
                 ? create(tenantId, orderId, actorId, correlationId)
                 : existing.getId();
-        beginCancellationCompensation(
-                sagaId,
-                reason == null || reason.isBlank() ? "Cancelled by user" : reason.trim()
+        OrderSagaEntity current = sagas.findByIdForUpdate(sagaId)
+                .orElseThrow(() -> new IllegalArgumentException("saga not found"));
+        if (current.getStatus() == OrderSagaStatus.COMPENSATING
+                && current.getTerminalIntent() == OrderSagaTerminalIntent.CANCELLED) {
+            return sagaId;
+        }
+        if (current.getStatus() == OrderSagaStatus.COMPENSATED
+                && current.getTerminalIntent() == OrderSagaTerminalIntent.CANCELLED) {
+            return sagaId;
+        }
+        beginCompensationLocked(
+                current,
+                steps.findBySagaIdForUpdate(sagaId),
+                OrderSagaTerminalIntent.CANCELLED,
+                reason == null || reason.isBlank() ? "Cancelled by user" : reason.trim(),
+                clock.instant()
         );
         return sagaId;
     }

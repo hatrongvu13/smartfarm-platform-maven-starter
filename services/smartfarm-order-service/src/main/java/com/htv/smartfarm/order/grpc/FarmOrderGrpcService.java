@@ -15,6 +15,9 @@ import com.htv.smartfarm.order.domain.OrderEntity;
 import com.htv.smartfarm.order.domain.OrderJpaRepository;
 import com.htv.smartfarm.order.domain.OrderLineEntity;
 import com.htv.smartfarm.order.domain.OrderLineJpaRepository;
+import com.htv.smartfarm.order.outbox.OrderBusinessEventContext;
+import com.htv.smartfarm.order.outbox.OrderBusinessEventType;
+import com.htv.smartfarm.order.outbox.OrderEventStore;
 import com.htv.smartfarm.order.saga.OrderSagaOrchestrator;
 import com.htv.smartfarm.order.saga.persistence.OrderSagaTransactionService;
 import com.htv.smartfarm.proto.common.v1.Money;
@@ -47,6 +50,7 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     private final OrderSagaTransactionService persistentSagas;
     private final OrderDraftService drafts;
     private final OrderQueryService queries;
+    private final OrderEventStore eventStore;
 
     public FarmOrderGrpcService(
             OrderJpaRepository orders,
@@ -54,7 +58,8 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
             OrderSagaOrchestrator saga,
             OrderDraftService drafts,
             OrderQueryService queries,
-            OrderSagaTransactionService persistentSagas
+            OrderSagaTransactionService persistentSagas,
+            OrderEventStore eventStore
     ) {
         this.orders = orders;
         this.lines = lines;
@@ -62,6 +67,7 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
         this.persistentSagas = persistentSagas;
         this.drafts = drafts;
         this.queries = queries;
+        this.eventStore = eventStore;
     }
 
     private static String tenant() {
@@ -136,12 +142,24 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
             orders.save(order);
             lines.saveAll(lineEntities);
 
-            persistentSagas.create(
+            String requestActor = actor();
+            String correlationId = req.getContext().getCorrelationId().isBlank()
+                    ? order.getId()
+                    : req.getContext().getCorrelationId();
+            String sagaId = persistentSagas.create(
                     tenant,
                     order.getId(),
-                    actor(),
-                    req.getContext().getCorrelationId()
+                    requestActor,
+                    correlationId
             );
+            // A newly inserted JPA aggregate has row version 0. Do not archive an
+            // order-changed snapshot here because the first update transition also maps
+            // to aggregate version 1. The CREATED business event is delivery-only;
+            // the ordered projection starts at STOCK_RESERVING version 1.
+            eventStore.appendBusiness(order, OrderBusinessEventType.CREATED,
+                    correlationId, new OrderBusinessEventContext(
+                            requestActor, sagaId, null, null, order.getStatus(),
+                            "PLACE_ORDER", null));
             out.onNext(OrderResponse.newBuilder().setOrder(toProto(order, lineEntities)).build());
             out.onCompleted();
         } catch (IllegalArgumentException e) {
@@ -206,7 +224,8 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
             requireContext(req.hasContext());
             var data = drafts.submit(
                     tenant(), required(req.getOrderId(), "order_id"),
-                    req.getExpectedVersion(), actor());
+                    req.getExpectedVersion(), actor(),
+                    req.getContext().getCorrelationId());
             return OrderResponse.newBuilder().setOrder(toProto(data)).build();
         });
     }
@@ -244,41 +263,56 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     }
 
     @Override
+    @Transactional
     public void cancelOrder(CancelOrderRequest req, StreamObserver<OrderResponse> out) {
         try {
-            String tenant = tenant();
-            if (req.getOrderId().isBlank()) throw new IllegalArgumentException("order_id required");
-            var order = orders.findByTenantIdAndId(tenant, req.getOrderId()).orElse(null);
+            String tenantId = tenant();
+            String orderId = required(req.getOrderId(), "order_id");
+            OrderEntity order = orders.findByTenantIdAndIdForUpdate(tenantId, orderId)
+                    .orElse(null);
             if (order == null) {
                 out.onError(Status.NOT_FOUND.withDescription("order not found").asRuntimeException());
                 return;
             }
-            if (order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.COMPLETED) {
+            var state = order.domainStatus();
+            if (state == com.htv.smartfarm.order.domain.OrderDomainStatus.COMPLETED) {
                 throw new IllegalStateException("cannot cancel a completed order");
             }
-            if (order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.CANCELLED) {
+            if (state == com.htv.smartfarm.order.domain.OrderDomainStatus.CANCELLED
+                    || state == com.htv.smartfarm.order.domain.OrderDomainStatus.CANCELLING
+                    || state == com.htv.smartfarm.order.domain.OrderDomainStatus.COMPENSATING) {
                 out.onNext(OrderResponse.newBuilder()
-                        .setOrder(toProto(order, lines.findByOrderIdOrderByLineNo(order.getId()))).build());
+                        .setOrder(toProto(order, lines.findByOrderIdOrderByLineNo(order.getId())))
+                        .build());
                 out.onCompleted();
                 return;
             }
-            persistentSagas.requestCancellation(
-                    tenant,
-                    order.getId(),
-                    actor(),
-                    req.hasContext() ? req.getContext().getCorrelationId() : order.getId(),
-                    req.getReason()
-            );
+
+            String requestActor = actor();
+            String reason = req.getReason().isBlank() ? "Cancelled by user" : req.getReason().trim();
+            String correlationId = req.hasContext() && !req.getContext().getCorrelationId().isBlank()
+                    ? req.getContext().getCorrelationId()
+                    : order.getId();
+            String previous = order.getStatus();
+            order.markCancelling(reason, requestActor, System.currentTimeMillis());
+            String sagaId = persistentSagas.requestCancellation(
+                    tenantId, order.getId(), requestActor, correlationId, reason);
+            eventStore.append(order, correlationId);
+            eventStore.appendBusiness(order, OrderBusinessEventType.CANCEL_REQUESTED,
+                    correlationId, new OrderBusinessEventContext(
+                            requestActor, sagaId, null, previous, order.getStatus(),
+                            "USER_REQUESTED", reason));
             out.onNext(OrderResponse.newBuilder()
-                    .setOrder(toProto(order, lines.findByOrderIdOrderByLineNo(order.getId()))).build());
+                    .setOrder(toProto(order, lines.findByOrderIdOrderByLineNo(order.getId())))
+                    .build());
             out.onCompleted();
-        } catch (IllegalArgumentException e) {
-            out.onError(Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
-        } catch (IllegalStateException e) {
-            out.onError(Status.FAILED_PRECONDITION.withDescription(e.getMessage()).asRuntimeException());
-        } catch (io.grpc.StatusRuntimeException e) {
-            out.onError(e);
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException exception) {
+            out.onError(Status.INVALID_ARGUMENT.withDescription(exception.getMessage()).asRuntimeException());
+        } catch (IllegalStateException exception) {
+            out.onError(Status.FAILED_PRECONDITION.withDescription(exception.getMessage()).asRuntimeException());
+        } catch (io.grpc.StatusRuntimeException exception) {
+            out.onError(exception);
+        } catch (RuntimeException exception) {
             out.onError(Status.INTERNAL.withDescription("cancel order failed").asRuntimeException());
         }
     }

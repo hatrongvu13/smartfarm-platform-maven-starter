@@ -8,6 +8,8 @@ import com.htv.smartfarm.order.saga.persistence.*;
 import com.htv.smartfarm.order.domain.OrderEntity;
 import com.htv.smartfarm.order.domain.OrderJpaRepository;
 import com.htv.smartfarm.order.outbox.OrderEventStore;
+import com.htv.smartfarm.order.outbox.OrderBusinessEventContext;
+import com.htv.smartfarm.order.outbox.OrderBusinessEventType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,6 +124,9 @@ public class OrderSagaAdministrationService {
         order.cancelAdministratively(required(reason, "reason"), required(actorId, "actorId"), clock.millis());
         saga.forceCompensated(OrderSagaTerminalIntent.CANCELLED, reason, now);
         eventStore.append(order, saga.getCorrelationId());
+        eventStore.appendBusiness(order, OrderBusinessEventType.CANCELLED,
+                saga.getCorrelationId(), new OrderBusinessEventContext(actorId, sagaId,
+                        null, null, order.getStatus(), "FORCE_CANCEL", reason));
         audit(saga, actorId, OrderSagaRecoveryAction.FORCE_CANCEL,
                 previous, saga.getStatus().name(), reason);
         return inspect(tenantId, sagaId);
@@ -141,6 +146,9 @@ public class OrderSagaAdministrationService {
         order.completeAdministratively(required(reason, "reason"), required(actorId, "actorId"), clock.millis());
         saga.forceComplete(now);
         eventStore.append(order, saga.getCorrelationId());
+        eventStore.appendBusiness(order, OrderBusinessEventType.COMPLETED,
+                saga.getCorrelationId(), new OrderBusinessEventContext(actorId, sagaId,
+                        null, null, order.getStatus(), "FORCE_COMPLETE", reason));
         audit(saga, actorId, OrderSagaRecoveryAction.FORCE_COMPLETE,
                 previous, saga.getStatus().name(), reason);
         return inspect(tenantId, sagaId);
@@ -157,6 +165,10 @@ public class OrderSagaAdministrationService {
         if (order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.MANUAL_REVIEW) {
             order.resolveManualReview(reason, actorId, clock.millis());
             eventStore.append(order, saga.getCorrelationId());
+            eventStore.appendBusiness(order, OrderBusinessEventType.MANUAL_REVIEW_RESOLVED,
+                    saga.getCorrelationId(), new OrderBusinessEventContext(actorId, sagaId,
+                            null, order.getStatus(), order.getStatus(),
+                            "MANUALLY_RESOLVED", reason));
         }
         audit(saga, actorId, OrderSagaRecoveryAction.MARK_MANUALLY_RESOLVED,
                 previous, saga.getStatus().name(), reason);

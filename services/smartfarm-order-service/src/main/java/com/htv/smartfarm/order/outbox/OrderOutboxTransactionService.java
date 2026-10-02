@@ -56,7 +56,9 @@ public class OrderOutboxTransactionService {
                 value.getAggregateVersion(), value.getEventType(), value.getCorrelationId(),
                 value.getCreatedAt(), value.getFarmId(),
                 value.getBatchId(), value.getOrderStatus(), value.getCurrencyCode(), value.getTotalMinor(),
-                value.getFailureReason());
+                value.getFailureReason(), value.getActorId(), value.getSagaId(), value.getStepKey(),
+                value.getPreviousStatus(), value.getNewStatus(), value.getReasonCode(),
+                value.getEventReason());
     }
     private Duration retryDelay(int attempt) {
         long initial = properties.initialRetry().toMillis();

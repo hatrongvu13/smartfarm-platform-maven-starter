@@ -9,6 +9,10 @@ import com.htv.smartfarm.order.domain.OrderEntity;
 import com.htv.smartfarm.order.domain.OrderJpaRepository;
 import com.htv.smartfarm.order.domain.OrderLineEntity;
 import com.htv.smartfarm.order.domain.OrderLineJpaRepository;
+import com.htv.smartfarm.order.outbox.OrderBusinessEventContext;
+import com.htv.smartfarm.order.outbox.OrderBusinessEventType;
+import com.htv.smartfarm.order.outbox.OrderEventStore;
+import com.htv.smartfarm.order.saga.persistence.OrderSagaTransactionService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -21,16 +25,22 @@ public class OrderDraftService {
     private final OrderJpaRepository orders;
     private final OrderLineJpaRepository lines;
     private final Clock clock;
+    private final OrderSagaTransactionService sagas;
+    private final OrderEventStore eventStore;
 
     @Autowired
     public OrderDraftService(
             OrderJpaRepository orders,
             OrderLineJpaRepository lines,
-            Clock clock
+            Clock clock,
+            OrderSagaTransactionService sagas,
+            OrderEventStore eventStore
     ) {
         this.orders = orders;
         this.lines = lines;
         this.clock = clock;
+        this.sagas = sagas;
+        this.eventStore = eventStore;
     }
 
     @Transactional
@@ -84,6 +94,7 @@ public class OrderDraftService {
         return data(order);
     }
 
+    /** Compatibility overload for existing callers that do not provide correlation metadata. */
     @Transactional
     public OrderDraftData submit(
             String tenantId,
@@ -91,13 +102,35 @@ public class OrderDraftService {
             long expectedVersion,
             String actorId
     ) {
+        return submit(tenantId, orderId, expectedVersion, actorId, orderId);
+    }
+
+    @Transactional
+    public OrderDraftData submit(
+            String tenantId,
+            String orderId,
+            long expectedVersion,
+            String actorId,
+            String correlationId
+    ) {
         OrderEntity order = draftForUpdate(tenantId, orderId);
         requireVersion(order, expectedVersion);
         if (lines.findByOrderIdOrderByLineNo(orderId).isEmpty()) {
             throw new IllegalStateException("draft order must contain at least one line");
         }
-        order.submit(OrderDraftValidation.required(actorId, "actorId"), clock.millis());
-        orders.flush();
+        String normalizedActor = OrderDraftValidation.required(actorId, "actorId");
+        String previous = order.getStatus();
+        order.submit(normalizedActor, clock.millis());
+        String normalizedCorrelation = OrderDraftValidation.nullable(correlationId) == null
+                ? order.getId()
+                : correlationId.trim();
+        String sagaId = sagas.create(order.getTenantId(), order.getId(),
+                normalizedActor, normalizedCorrelation);
+        eventStore.append(order, normalizedCorrelation);
+        eventStore.appendBusiness(order, OrderBusinessEventType.CREATED,
+                normalizedCorrelation, new OrderBusinessEventContext(
+                        normalizedActor, sagaId, null, previous, order.getStatus(),
+                        "DRAFT_SUBMITTED", null));
         return data(order);
     }
 
