@@ -42,6 +42,19 @@ public class OrderSagaCheckpointService {
     }
 
     @Transactional
+    public void started(OrderSagaClaim claim, OrderSagaStepEntity step) {
+        OrderEntity order = orders.findByTenantIdAndIdForUpdate(claim.tenantId(), claim.orderId()).orElseThrow();
+        if (step.getStepType() == OrderSagaStepType.RESERVE_STOCK && order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.CREATED) { order.markStockReserving(claim.actorId(), clock.millis()); eventStore.append(order, claim.correlationId()); }
+        else if (step.getStepType() == OrderSagaStepType.POST_FINANCE && order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.STOCK_RESERVED) { order.markFinancePosting(claim.actorId(), clock.millis()); eventStore.append(order, claim.correlationId()); }
+    }
+
+    @Transactional
+    public void compensationStarted(OrderSagaClaim claim) {
+        OrderEntity order = orders.findByTenantIdAndIdForUpdate(claim.tenantId(), claim.orderId()).orElseThrow();
+        if (order.domainStatus() != com.htv.smartfarm.order.domain.OrderDomainStatus.COMPENSATING) { order.markCompensating("Order saga compensation", claim.actorId(), clock.millis()); eventStore.append(order, claim.correlationId()); }
+    }
+
+    @Transactional
     public void succeeded(OrderSagaClaim claim, OrderSagaStepEntity step, OrderSagaStepResult result) {
         OrderEntity order = orders.findByTenantIdAndIdForUpdate(claim.tenantId(), claim.orderId())
                 .orElseThrow(() -> new IllegalStateException("order not found for saga checkpoint"));
@@ -89,9 +102,7 @@ public class OrderSagaCheckpointService {
             order.fail(reason, claim.actorId(), clock.millis());
         }
         transactions.markCompensated(claim.sagaId());
-        outbox.save(OrderOutboxEntity.snapshot(
-                UUID.randomUUID().toString(), order, "order-changed.v1",
-                claim.correlationId(), clock.millis()));
+        eventStore.append(order, claim.correlationId());
     }
 
     @Transactional
@@ -100,9 +111,7 @@ public class OrderSagaCheckpointService {
                 .orElseThrow(() -> new IllegalStateException("order not found for manual review"));
         if (order.domainStatus() != com.htv.smartfarm.order.domain.OrderDomainStatus.MANUAL_REVIEW) {
             order.requireManualReview(reason, claim.actorId(), clock.millis());
-            outbox.save(OrderOutboxEntity.snapshot(
-                UUID.randomUUID().toString(), order, "order-changed.v1",
-                claim.correlationId(), clock.millis()));
+            eventStore.append(order, claim.correlationId());
         }
     }
 

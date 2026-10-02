@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/internal/order-sagas")
-@PreAuthorize("hasAuthority('SCOPE_orders:admin')")
+@PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
 public class OrderSagaAdministrationController {
     public record RecoveryRequest(String reason) { }
     private final OrderSagaAdministrationService administration;
@@ -35,6 +35,31 @@ public class OrderSagaAdministrationController {
             @RequestBody RecoveryRequest request) {
         return Map.of("recovered", administration.recoverStale(tenantId, actor(), request.reason()));
     }
+    @PostMapping("/{sagaId}/force-compensate")
+    public OrderSagaInspection forceCompensate(@RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable String sagaId, @RequestBody RecoveryRequest request) {
+        return administration.forceCompensate(tenantId, sagaId, actor(), request.reason());
+    }
+
+    @PostMapping("/{sagaId}/force-cancel")
+    public OrderSagaInspection forceCancel(@RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable String sagaId, @RequestBody RecoveryRequest request) {
+        return administration.forceCancel(tenantId, sagaId, actor(), request.reason());
+    }
+
+    @PostMapping("/{sagaId}/force-complete")
+    public OrderSagaInspection forceComplete(@RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable String sagaId, @RequestBody RecoveryRequest request) {
+        return administration.forceComplete(tenantId, sagaId, actor(), request.reason());
+    }
+
+    @PostMapping("/{sagaId}/mark-manually-resolved")
+    public OrderSagaInspection markManuallyResolved(
+            @RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable String sagaId, @RequestBody RecoveryRequest request) {
+        return administration.markManuallyResolved(tenantId, sagaId, actor(), request.reason());
+    }
+
     private String actor() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()

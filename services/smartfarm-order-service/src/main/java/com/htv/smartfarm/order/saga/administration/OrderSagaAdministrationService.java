@@ -5,6 +5,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 import com.htv.smartfarm.order.saga.persistence.*;
+import com.htv.smartfarm.order.domain.OrderEntity;
+import com.htv.smartfarm.order.domain.OrderJpaRepository;
+import com.htv.smartfarm.order.outbox.OrderEventStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,12 +18,16 @@ public class OrderSagaAdministrationService {
     private final OrderSagaRecoveryAuditRepository audit;
     private final OrderSagaTransactionService transactions;
     private final Clock clock;
+    private final OrderJpaRepository orders;
+    private final OrderEventStore eventStore;
 
     public OrderSagaAdministrationService(OrderSagaJpaRepository sagas,
             OrderSagaStepJpaRepository steps, OrderSagaRecoveryAuditRepository audit,
-            OrderSagaTransactionService transactions, Clock clock) {
+            OrderSagaTransactionService transactions, Clock clock,
+            OrderJpaRepository orders, OrderEventStore eventStore) {
         this.sagas = sagas; this.steps = steps; this.audit = audit;
         this.transactions = transactions; this.clock = clock;
+        this.orders = orders; this.eventStore = eventStore;
     }
 
     @Transactional(readOnly = true)
@@ -86,6 +93,86 @@ public class OrderSagaAdministrationService {
                 OrderSagaRecoveryAction.RECOVER_STALE, "CLAIMED", "RECOVERED",
                 reason + "; recovered=" + recovered, clock.instant()));
         return recovered;
+    }
+
+    @Transactional
+    public OrderSagaInspection forceCompensate(String tenantId, String sagaId,
+            String actorId, String reason) {
+        OrderSagaEntity saga = sagaForTenantForUpdate(tenantId, sagaId);
+        String previous = saga.getStatus().name();
+        transactions.forceCompensation(sagaId, OrderSagaTerminalIntent.FAILED,
+                required(reason, "reason"));
+        audit(saga, actorId, OrderSagaRecoveryAction.FORCE_COMPENSATE,
+                previous, OrderSagaStatus.COMPENSATING.name(), reason);
+        return inspect(tenantId, sagaId);
+    }
+
+    @Transactional
+    public OrderSagaInspection forceCancel(String tenantId, String sagaId,
+            String actorId, String reason) {
+        Instant now = clock.instant();
+        OrderSagaEntity saga = sagaForTenantForUpdate(tenantId, sagaId);
+        if (saga.getStatus() != OrderSagaStatus.MANUAL_REVIEW
+                && saga.getStatus() != OrderSagaStatus.FAILED
+                && saga.getStatus() != OrderSagaStatus.COMPENSATING) {
+            throw new IllegalStateException("force cancel requires failed, compensating or manual-review saga");
+        }
+        String previous = saga.getStatus().name();
+        OrderEntity order = orderForTenantForUpdate(tenantId, saga.getOrderId());
+        order.cancelAdministratively(required(reason, "reason"), required(actorId, "actorId"), clock.millis());
+        saga.forceCompensated(OrderSagaTerminalIntent.CANCELLED, reason, now);
+        eventStore.append(order, saga.getCorrelationId());
+        audit(saga, actorId, OrderSagaRecoveryAction.FORCE_CANCEL,
+                previous, saga.getStatus().name(), reason);
+        return inspect(tenantId, sagaId);
+    }
+
+    @Transactional
+    public OrderSagaInspection forceComplete(String tenantId, String sagaId,
+            String actorId, String reason) {
+        Instant now = clock.instant();
+        OrderSagaEntity saga = sagaForTenantForUpdate(tenantId, sagaId);
+        if (saga.getStatus() != OrderSagaStatus.MANUAL_REVIEW
+                && saga.getStatus() != OrderSagaStatus.FAILED) {
+            throw new IllegalStateException("force complete requires failed or manual-review saga");
+        }
+        String previous = saga.getStatus().name();
+        OrderEntity order = orderForTenantForUpdate(tenantId, saga.getOrderId());
+        order.completeAdministratively(required(reason, "reason"), required(actorId, "actorId"), clock.millis());
+        saga.forceComplete(now);
+        eventStore.append(order, saga.getCorrelationId());
+        audit(saga, actorId, OrderSagaRecoveryAction.FORCE_COMPLETE,
+                previous, saga.getStatus().name(), reason);
+        return inspect(tenantId, sagaId);
+    }
+
+    @Transactional
+    public OrderSagaInspection markManuallyResolved(String tenantId, String sagaId,
+            String actorId, String reason) {
+        Instant now = clock.instant();
+        OrderSagaEntity saga = sagaForTenantForUpdate(tenantId, sagaId);
+        String previous = saga.getStatus().name();
+        saga.markManuallyResolved(required(reason, "reason"), now);
+        OrderEntity order = orderForTenantForUpdate(tenantId, saga.getOrderId());
+        if (order.domainStatus() == com.htv.smartfarm.order.domain.OrderDomainStatus.MANUAL_REVIEW) {
+            order.resolveManualReview(reason, actorId, clock.millis());
+            eventStore.append(order, saga.getCorrelationId());
+        }
+        audit(saga, actorId, OrderSagaRecoveryAction.MARK_MANUALLY_RESOLVED,
+                previous, saga.getStatus().name(), reason);
+        return inspect(tenantId, sagaId);
+    }
+
+    private OrderEntity orderForTenantForUpdate(String tenantId, String orderId) {
+        return orders.findByTenantIdAndIdForUpdate(required(tenantId, "tenantId"), orderId)
+                .orElseThrow(() -> new IllegalArgumentException("order not found"));
+    }
+
+    private void audit(OrderSagaEntity saga, String actorId,
+            OrderSagaRecoveryAction action, String previous, String next, String reason) {
+        audit.save(new OrderSagaRecoveryAuditEntity(UUID.randomUUID().toString(),
+                saga.getTenantId(), saga.getId(), null, required(actorId, "actorId"),
+                action, previous, next, required(reason, "reason"), clock.instant()));
     }
 
     private OrderSagaEntity sagaForTenant(String tenantId, String sagaId) {

@@ -28,11 +28,11 @@ public class OrderProjectionGapRecoveryWorker {
             if (!result.archiveAvailable()) {
                 transactions.retry(claim, "ARCHIVE_EVENT_NOT_FOUND",
                         "Expected aggregate version is not available in the event archive");
-                return;
+            } else if (result.resolved()) {
+                transactions.resolved(claim, result.projectionVersion());
+            } else {
+                transactions.progressed(claim, result.projectionVersion());
             }
-            // Skeleton intentionally does not mutate projection until replay/drain is wired.
-            transactions.retry(claim, "REPLAY_NOT_WIRED",
-                    "Archive event is available but replay/drain integration is not implemented yet");
         } catch (RuntimeException exception) {
             transactions.retry(claim, exception.getClass().getSimpleName(), safeMessage(exception));
             log.warn("Projection gap recovery deferred: gapId={} reason={}",

@@ -32,6 +32,7 @@ public class OrderSagaPersistentWorker {
     @Scheduled(fixedDelayString = "${smartfarm.order.saga.poll-interval:1s}")
     public void run() {
         transactions.recoverStaleClaims();
+        transactions.expireManualReviewsAndProcessingDeadlines();
         for (OrderSagaClaim claim : transactions.claimBatch()) {
             processOne(claim);
         }
@@ -52,6 +53,7 @@ public class OrderSagaPersistentWorker {
         var step = transactions.claimStep(claim.sagaId(), stepKey);
         if (step.getStatus() == OrderSagaStepStatus.MANUAL_REVIEW) return;
         try {
+            checkpoints.started(claim, step);
             OrderSagaStepResult result = executor.execute(claim, step);
             checkpoints.succeeded(claim, step, result);
         } catch (StatusRuntimeException exception) {
@@ -64,6 +66,7 @@ public class OrderSagaPersistentWorker {
     }
 
     private void processCompensation(OrderSagaClaim claim) {
+        checkpoints.compensationStarted(claim);
         String stepKey = transactions.nextCompensationStepKey(claim.sagaId());
         if (stepKey == null) {
             if (transactions.compensationStepsCompleted(claim.sagaId())) {

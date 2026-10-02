@@ -18,6 +18,9 @@ public interface OrderOutboxJpaRepository extends JpaRepository<OrderOutboxEntit
     List<OrderOutboxEntity> lockStale(@Param("status") OrderOutboxStatus status,
             @Param("before") Instant before, Pageable pageable);
 
+    List<OrderOutboxEntity> findByTenantIdAndStatusOrderByCreatedAtAscEventIdAsc(
+            String tenantId, OrderOutboxStatus status, Pageable pageable);
+
     long countByStatus(OrderOutboxStatus status);
 
     @Modifying

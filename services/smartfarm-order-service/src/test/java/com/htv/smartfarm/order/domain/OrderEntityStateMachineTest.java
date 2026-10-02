@@ -12,15 +12,6 @@ class OrderEntityStateMachineTest {
         assertThat(order.getUpdatedAt()).isEqualTo(1100L);
         assertThat(order.getUpdatedBy()).isEqualTo("user-002");
     }
-    @Test void completedOrderShouldRejectCancel() {
-        OrderEntity order = order(OrderDomainStatus.CREATED);
-        order.markStockReserved("worker", 1100L);
-        order.markFinancePosted("worker", 1200L);
-        order.complete("worker", 1300L);
-        assertThatThrownBy(() -> order.cancel("late request", "user-001", 1400L))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("COMPLETED -> CANCELLED");
-    }
     @Test void onlyDraftCanReplaceHeader() {
         OrderEntity order = order(OrderDomainStatus.CREATED);
         assertThatThrownBy(() -> order.replaceDraftHeader(

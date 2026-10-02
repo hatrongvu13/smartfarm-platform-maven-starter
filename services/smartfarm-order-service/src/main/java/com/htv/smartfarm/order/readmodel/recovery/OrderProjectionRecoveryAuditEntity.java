@@ -23,6 +23,18 @@ public class OrderProjectionRecoveryAuditEntity {
     @Column(name = "reason", nullable = false, length = 500) private String reason;
     @Column(name = "occurred_at", nullable = false) private Instant occurredAt;
     protected OrderProjectionRecoveryAuditEntity() { }
+    public String getId() { return id; }
+    public String getTenantId() { return tenantId; }
+    public String getAggregateId() { return aggregateId; }
+    public String getGapId() { return gapId; }
+    public Long getAggregateVersion() { return aggregateVersion; }
+    public String getEventId() { return eventId; }
+    public String getActorId() { return actorId; }
+    public OrderProjectionRecoveryAction getAction() { return action; }
+    public String getPreviousStatus() { return previousStatus; }
+    public String getNewStatus() { return newStatus; }
+    public String getReason() { return reason; }
+    public Instant getOccurredAt() { return occurredAt; }
     public OrderProjectionRecoveryAuditEntity(String id, String tenantId, String aggregateId,
             String gapId, Long aggregateVersion, String eventId, String actorId,
             OrderProjectionRecoveryAction action, String previousStatus, String newStatus,

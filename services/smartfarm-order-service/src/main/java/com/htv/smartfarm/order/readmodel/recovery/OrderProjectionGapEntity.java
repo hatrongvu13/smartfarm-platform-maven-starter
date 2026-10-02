@@ -119,6 +119,21 @@ public class OrderProjectionGapEntity {
         lastErrorCode = limited(code, 120); lastErrorMessage = limited(message, 500);
     }
 
+    public void retryManually(Instant now) {
+        if (status != OrderProjectionGapStatus.MANUAL_REVIEW) {
+            throw new IllegalStateException("only manual-review gaps can be retried manually");
+        }
+        status = OrderProjectionGapStatus.OPEN;
+        attemptCount = 0;
+        claimedAt = null;
+        claimOwner = null;
+        nextRecoveryAt = java.util.Objects.requireNonNull(now);
+        lastCheckedAt = now;
+        resolvedAt = null;
+        lastErrorCode = null;
+        lastErrorMessage = null;
+    }
+
     public void recoverStale(Instant now) {
         if (status != OrderProjectionGapStatus.RECOVERING) return;
         status = OrderProjectionGapStatus.RETRY_WAIT;

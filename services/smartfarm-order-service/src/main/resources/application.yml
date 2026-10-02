@@ -28,7 +28,7 @@ smartfarm:
       client-id: ${ORDER_READMODEL_CLIENT_ID:smartfarm-order-readmodel-client}
       topic-filter: ${ORDER_READMODEL_TOPIC_FILTER:smartfarm/+/+/domain/order-changed/+}
       gap-recovery:
-        enabled: ${ORDER_PROJECTION_GAP_RECOVERY_ENABLED:false}
+        enabled: ${ORDER_PROJECTION_GAP_RECOVERY_ENABLED:true}
         batch-size: ${ORDER_PROJECTION_GAP_RECOVERY_BATCH_SIZE:20}
         maximum-attempts: ${ORDER_PROJECTION_GAP_RECOVERY_MAXIMUM_ATTEMPTS:12}
         initial-retry: ${ORDER_PROJECTION_GAP_RECOVERY_INITIAL_RETRY:10s}
@@ -40,10 +40,12 @@ smartfarm:
     saga:
       enabled: ${ORDER_SAGA_ENABLED:true}
       batch-size: ${ORDER_SAGA_BATCH_SIZE:20}
-      maximum-attempts: ${ORDER_SAGA_MAXIMUM_ATTEMPTS:8}
+      maximum-attempts: ${ORDER_SAGA_MAXIMUM_ATTEMPTS:5}
       initial-retry: ${ORDER_SAGA_INITIAL_RETRY:5s}
       maximum-retry: ${ORDER_SAGA_MAXIMUM_RETRY:5m}
       claim-timeout: ${ORDER_SAGA_CLAIM_TIMEOUT:2m}
+      processing-deadline: ${ORDER_SAGA_PROCESSING_DEADLINE:30m}
+      finance-manual-review-window: ${ORDER_SAGA_FINANCE_MANUAL_REVIEW_WINDOW:60m}
       compensation-deadline: ${ORDER_SAGA_COMPENSATION_DEADLINE:6h}
       poll-interval: ${ORDER_SAGA_POLL_INTERVAL:1s}
     service-client:

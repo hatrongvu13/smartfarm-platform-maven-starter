@@ -144,12 +144,20 @@ public class OrderEntity {
         transitionTo(OrderDomainStatus.CREATED, actorId, at);
     }
 
+    public void markStockReserving(String actorId, long at) {
+        transitionTo(OrderDomainStatus.STOCK_RESERVING, actorId, at);
+    }
+
     public void markStockReserved(String actorId, long at) {
         transitionTo(OrderDomainStatus.STOCK_RESERVED, actorId, at);
     }
 
     public void markTaskScheduled(String actorId, long at) {
         transitionTo(OrderDomainStatus.TASK_SCHEDULED, actorId, at);
+    }
+
+    public void markFinancePosting(String actorId, long at) {
+        transitionTo(OrderDomainStatus.FINANCE_POSTING, actorId, at);
     }
 
     public void markFinancePosted(String actorId, long at) {
@@ -168,6 +176,17 @@ public class OrderEntity {
 
     public void requireManualReview(String reason, String actorId, long at) {
         transitionTo(OrderDomainStatus.MANUAL_REVIEW, actorId, at);
+        failureReason = limited(reason, 500);
+    }
+
+    public void markCancelling(String reason, String actorId, long at) {
+        transitionTo(OrderDomainStatus.CANCELLING, actorId, at);
+        failureReason = limited(reason, 500);
+    }
+
+    public void markCompensating(String reason, String actorId, long at) {
+        if (domainStatus() == OrderDomainStatus.COMPENSATING) return;
+        transitionTo(OrderDomainStatus.COMPENSATING, actorId, at);
         failureReason = limited(reason, 500);
     }
 
@@ -190,6 +209,34 @@ public class OrderEntity {
         this.currencyCode = required(currencyCode, "currencyCode");
         if (totalMinor < 0) throw new IllegalArgumentException("totalMinor must not be negative");
         this.totalMinor = totalMinor;
+        touch(actorId, at);
+    }
+
+    public void completeAdministratively(String reason, String actorId, long at) {
+        if (domainStatus() == OrderDomainStatus.COMPLETED) return;
+        if (domainStatus() == OrderDomainStatus.CANCELLED) {
+            throw new IllegalStateException("cancelled order cannot be force-completed");
+        }
+        status = OrderDomainStatus.COMPLETED.protoName();
+        failureReason = limited(reason, 500);
+        touch(actorId, at);
+    }
+
+    public void cancelAdministratively(String reason, String actorId, long at) {
+        if (domainStatus() == OrderDomainStatus.CANCELLED) return;
+        if (domainStatus() == OrderDomainStatus.COMPLETED) {
+            throw new IllegalStateException("completed order cannot be force-cancelled");
+        }
+        status = OrderDomainStatus.CANCELLED.protoName();
+        failureReason = limited(reason, 500);
+        touch(actorId, at);
+    }
+
+    public void resolveManualReview(String reason, String actorId, long at) {
+        if (domainStatus() != OrderDomainStatus.MANUAL_REVIEW) {
+            throw new IllegalStateException("only manual-review orders can be resolved manually");
+        }
+        failureReason = limited(reason, 500);
         touch(actorId, at);
     }
 

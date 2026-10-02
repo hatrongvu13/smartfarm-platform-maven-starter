@@ -10,6 +10,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface OrderProjectionGapRepository extends JpaRepository<OrderProjectionGapEntity, String> {
     Optional<OrderProjectionGapEntity> findByTenantIdAndAggregateId(String tenantId, String aggregateId);
+    Optional<OrderProjectionGapEntity> findByTenantIdAndId(String tenantId, String id);
+    org.springframework.data.domain.Page<OrderProjectionGapEntity> findByTenantIdAndStatus(
+            String tenantId, OrderProjectionGapStatus status,
+            org.springframework.data.domain.Pageable pageable);
+    org.springframework.data.domain.Page<OrderProjectionGapEntity> findByTenantId(
+            String tenantId, org.springframework.data.domain.Pageable pageable);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select g from OrderProjectionGapEntity g where g.tenantId = :tenantId and g.aggregateId = :aggregateId")
     Optional<OrderProjectionGapEntity> findAggregateForUpdate(

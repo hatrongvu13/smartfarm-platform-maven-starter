@@ -14,5 +14,9 @@ public interface OrderProjectionInboxRepository
             @Param("tenantId") String tenantId, @Param("aggregateId") String aggregateId,
             @Param("version") long version, @Param("status") OrderProjectionInboxStatus status);
     long countByStatus(OrderProjectionInboxStatus status);
+    @Query("select count(e) > 0 from OrderProjectionInboxEntity e where e.tenantId = :tenantId and e.aggregateId = :aggregateId and e.aggregateVersion > :version and e.status = :status")
+    boolean existsWaitingAfter(@Param("tenantId") String tenantId,
+            @Param("aggregateId") String aggregateId, @Param("version") long version,
+            @Param("status") OrderProjectionInboxStatus status);
     List<OrderProjectionInboxEntity> findTop100ByStatusOrderByReceivedAtAsc(OrderProjectionInboxStatus status);
 }

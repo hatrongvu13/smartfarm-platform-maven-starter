@@ -65,6 +65,17 @@ public class OrderProjectionGapRecoveryTransactionService {
     }
 
     @Transactional
+    public void progressed(OrderProjectionGapClaim claim, long projectionVersion) {
+        Instant now = clock.instant();
+        OrderProjectionGapEntity gap = gaps.findById(claim.gapId())
+                .orElseThrow(() -> new IllegalArgumentException("projection gap not found"));
+        String previous = gap.getStatus().name();
+        gap.progress(projectionVersion, projectionVersion + 1, now);
+        audit(gap, projectionVersion, null, OrderProjectionRecoveryAction.AUTO_REPLAY,
+                previous, gap.getStatus().name(), "Archived event replayed", now);
+    }
+
+    @Transactional
     public void resolved(OrderProjectionGapClaim claim, long projectionVersion) {
         Instant now = clock.instant();
         OrderProjectionGapEntity gap = gaps.findById(claim.gapId())

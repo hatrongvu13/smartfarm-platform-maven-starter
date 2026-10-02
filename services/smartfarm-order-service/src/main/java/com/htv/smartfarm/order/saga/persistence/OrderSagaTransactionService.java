@@ -35,6 +35,7 @@ public class OrderSagaTransactionService {
         Instant now = clock.instant();
         String sagaId = UUID.randomUUID().toString();
         OrderSagaEntity saga = new OrderSagaEntity(sagaId, tenantId, orderId, actorId, correlationId, now);
+        saga.configureProcessingDeadline(now.plus(properties.processingDeadline()), now);
         List<OrderSagaStepEntity> graph = graph(sagaId, orderId, now);
         try {
             inserts.insert(saga, graph);
@@ -140,6 +141,11 @@ public class OrderSagaTransactionService {
         OrderSagaStepEntity step = steps.findBySagaIdAndStepKeyForUpdate(sagaId, stepKey)
                 .orElseThrow(() -> new IllegalArgumentException("saga step not found"));
         int nextAttempt = step.getAttemptCount() + 1;
+        if (nextAttempt >= properties.maximumAttempts() && step.getStepType() == OrderSagaStepType.POST_FINANCE) {
+            step.manualReview(errorCode, errorMessage, now);
+            saga.waitForFinanceManualReview(now.plus(properties.financeManualReviewWindow()), errorCode, errorMessage, now);
+            return OrderSagaFailureAction.MANUAL_REVIEW;
+        }
         if (nextAttempt >= properties.maximumAttempts()) {
             step.fail(now, errorCode, errorMessage, now);
             beginCompensationLocked(
@@ -157,6 +163,19 @@ public class OrderSagaTransactionService {
         step.fail(next, errorCode, errorMessage, now);
         saga.retry(next, errorCode, errorMessage, now);
         return OrderSagaFailureAction.RETRY_SCHEDULED;
+    }
+
+    @Transactional
+    public void forceCompensation(String sagaId, OrderSagaTerminalIntent intent, String reason) {
+        Instant now = clock.instant();
+        OrderSagaEntity saga = sagas.findByIdForUpdate(sagaId)
+                .orElseThrow(() -> new IllegalArgumentException("saga not found"));
+        if (saga.getStatus() == OrderSagaStatus.COMPLETED
+                || saga.getStatus() == OrderSagaStatus.COMPENSATED) {
+            throw new IllegalStateException("terminal saga cannot start compensation");
+        }
+        beginCompensationLocked(saga, steps.findBySagaIdForUpdate(sagaId),
+                intent, reason, now);
     }
 
     @Transactional
@@ -256,6 +275,18 @@ public class OrderSagaTransactionService {
         sagas.findByIdForUpdate(sagaId)
                 .orElseThrow(() -> new IllegalArgumentException("saga not found"))
                 .compensated(clock.instant());
+    }
+
+    @Transactional
+    public int expireManualReviewsAndProcessingDeadlines() {
+        Instant now = clock.instant(); int changed = 0;
+        for (OrderSagaEntity saga : sagas.lockExpiredManualReviews(OrderSagaStatus.WAITING_MANUAL_REVIEW, now, PageRequest.of(0, properties.batchSize()))) {
+            beginCompensationLocked(saga, steps.findBySagaIdForUpdate(saga.getId()), OrderSagaTerminalIntent.FAILED, "Finance manual-review window expired", now); changed++;
+        }
+        for (OrderSagaEntity saga : sagas.lockExpiredProcessing(List.of(OrderSagaStatus.PENDING, OrderSagaStatus.RUNNING), now, PageRequest.of(0, properties.batchSize()))) {
+            beginCompensationLocked(saga, steps.findBySagaIdForUpdate(saga.getId()), OrderSagaTerminalIntent.FAILED, "Order saga processing deadline exceeded", now); changed++;
+        }
+        return changed;
     }
 
     @Transactional

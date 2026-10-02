@@ -107,6 +107,18 @@ public class OrderOutboxEntity {
         claimedAt = null;
         lastErrorCode = limited(errorCode, 120);
     }
+    public void retryManually(Instant now) {
+        if (status != OrderOutboxStatus.FAILED && status != OrderOutboxStatus.DEAD) {
+            throw new IllegalStateException("only failed or dead outbox events can be retried");
+        }
+        status = OrderOutboxStatus.FAILED;
+        attemptCount = 0;
+        claimedAt = null;
+        publishedAt = null;
+        nextAttemptAt = java.util.Objects.requireNonNull(now);
+        lastErrorCode = null;
+    }
+
     public void recover(Instant now) {
         if (status != OrderOutboxStatus.PUBLISHING) return;
         status = OrderOutboxStatus.FAILED;

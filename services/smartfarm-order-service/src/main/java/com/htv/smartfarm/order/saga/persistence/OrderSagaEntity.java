@@ -31,6 +31,8 @@ public class OrderSagaEntity {
     private OrderSagaTerminalIntent terminalIntent;
     @Column(name = "compensation_reason", length = 500)
     private String compensationReason;
+    @Column(name = "processing_deadline_at") private Instant processingDeadlineAt;
+    @Column(name = "manual_review_until") private Instant manualReviewUntil;
     @Column(name = "compensation_deadline_at")
     private Instant compensationDeadlineAt;
     @Version @Column(name = "row_version", nullable = false) private long version;
@@ -50,7 +52,13 @@ public class OrderSagaEntity {
     public Instant getCompletedAt() { return completedAt; } public long getVersion() { return version; }
     public OrderSagaTerminalIntent getTerminalIntent() { return terminalIntent; }
     public String getCompensationReason() { return compensationReason; }
+    public Instant getProcessingDeadlineAt() { return processingDeadlineAt; }
+    public Instant getManualReviewUntil() { return manualReviewUntil; }
     public Instant getCompensationDeadlineAt() { return compensationDeadlineAt; }
+
+    public void configureProcessingDeadline(Instant deadline, Instant now) { processingDeadlineAt = required(deadline, "deadline"); updatedAt = required(now, "now"); }
+
+    public void waitForFinanceManualReview(Instant until, String code, String message, Instant now) { status = OrderSagaStatus.WAITING_MANUAL_REVIEW; manualReviewUntil = required(until, "until"); claimedAt = null; nextAttemptAt = until; lastErrorCode = limited(code, 120); lastErrorMessage = limited(message, 500); updatedAt = required(now, "now"); }
 
     public void claim(Instant now) {
         if (!status.claimable()) throw new IllegalStateException("saga is not claimable");
@@ -106,6 +114,7 @@ public class OrderSagaEntity {
         this.terminalIntent = required(terminalIntent, "terminalIntent");
         compensationReason = limited(reason, 500);
         compensationDeadlineAt = required(deadline, "deadline");
+        manualReviewUntil = null;
         claimedAt = null;
         nextAttemptAt = required(now, "now");
         updatedAt = now;
@@ -162,6 +171,44 @@ public class OrderSagaEntity {
         updatedAt = now;
         lastErrorCode = null;
         lastErrorMessage = null;
+    }
+
+    public void forceComplete(Instant now) {
+        status = OrderSagaStatus.COMPLETED;
+        terminalIntent = null;
+        currentStepKey = null;
+        claimedAt = null;
+        manualReviewUntil = null;
+        completedAt = required(now, "now");
+        updatedAt = now;
+        lastErrorCode = null;
+        lastErrorMessage = null;
+    }
+
+    public void forceCompensated(OrderSagaTerminalIntent intent, String reason, Instant now) {
+        terminalIntent = required(intent, "intent");
+        compensationReason = limited(reason, 500);
+        status = OrderSagaStatus.COMPENSATED;
+        currentStepKey = null;
+        claimedAt = null;
+        manualReviewUntil = null;
+        completedAt = required(now, "now");
+        updatedAt = now;
+        lastErrorCode = null;
+        lastErrorMessage = null;
+    }
+
+    public void markManuallyResolved(String reason, Instant now) {
+        if (status != OrderSagaStatus.MANUAL_REVIEW
+                && status != OrderSagaStatus.WAITING_MANUAL_REVIEW
+                && status != OrderSagaStatus.FAILED) {
+            throw new IllegalStateException("saga is not awaiting manual resolution");
+        }
+        lastErrorCode = "MANUALLY_RESOLVED";
+        lastErrorMessage = limited(reason, 500);
+        claimedAt = null;
+        manualReviewUntil = null;
+        updatedAt = required(now, "now");
     }
 
     public void recover(Instant now) {
