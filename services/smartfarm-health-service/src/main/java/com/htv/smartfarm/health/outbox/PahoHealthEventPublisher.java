@@ -2,6 +2,7 @@ package com.htv.smartfarm.health.outbox;
 
 import java.util.UUID;
 
+import com.htv.smartfarm.security.mqtt.MqttSecurityVerifier;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -16,14 +17,17 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "smartfarm.health.outbox", name = "enabled", havingValue = "true")
 public final class PahoHealthEventPublisher implements HealthEventPublisher, AutoCloseable {
     private final String brokerUrl;
+    private final MqttSecurityVerifier mqttSecurity;
     private MqttClient client;
 
-    public PahoHealthEventPublisher(@Value("${smartfarm.health.mqtt.url:tcp://localhost:1883}") String brokerUrl) {
+    public PahoHealthEventPublisher(@Value("${smartfarm.health.mqtt.url:tcp://localhost:1883}") String brokerUrl,
+                                    MqttSecurityVerifier mqttSecurity) {
         if (!brokerUrl.equals("tcp://localhost:1883")
                 && !brokerUrl.equals("tcp://127.0.0.1:1883")) {
             throw new IllegalArgumentException("Development publisher requires loopback MQTT broker");
         }
         this.brokerUrl = brokerUrl;
+        this.mqttSecurity = mqttSecurity;
     }
 
     @Override
@@ -38,7 +42,7 @@ public final class PahoHealthEventPublisher implements HealthEventPublisher, Aut
             options.setConnectionTimeout(3);
             client.connect(options);
         }
-        MqttMessage message = new MqttMessage(payload);
+        MqttMessage message = new MqttMessage(mqttSecurity.sign(topic, payload));
         message.setQos(1);
         message.setRetained(false);
         client.publish(topic, message);

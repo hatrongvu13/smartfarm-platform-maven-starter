@@ -17,10 +17,14 @@ spring:
       port: ${ORDER_GRPC_PORT:9095}
 smartfarm:
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI}
-    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
-    allow-local-http: false
+    # Dạng lồng `jwt` bắt buộc theo SmartFarmSecurityProperties.
+    # Ở prod KHÔNG để default rỗng — các biến môi trường là bắt buộc.
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI}
+      audiences:
+        - ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
+      allow-local-http: false
   identity:
     base-url: ${IDENTITY_BASE_URL}
   order:

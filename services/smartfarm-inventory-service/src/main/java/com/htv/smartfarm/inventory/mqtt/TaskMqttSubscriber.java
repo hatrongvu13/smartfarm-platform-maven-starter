@@ -1,5 +1,6 @@
 package com.htv.smartfarm.inventory.mqtt;
 
+import com.htv.smartfarm.security.mqtt.MqttSecurityVerifier;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 import org.slf4j.Logger;
@@ -18,11 +19,13 @@ import org.springframework.stereotype.Component;
 public class TaskMqttSubscriber implements ApplicationRunner, AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(TaskMqttSubscriber.class);
     private final TaskInbox inbox;
+    private final MqttSecurityVerifier mqttSecurity;
     private final String url, clientId, persistencePath;
     private MqttClient client;
 
-    public TaskMqttSubscriber(TaskInbox inbox, @Value("${smartfarm.inventory.mqtt.url:tcp://localhost:1883}") String url, @Value("${smartfarm.inventory.mqtt.client-id:smartfarm-inventory-dev}") String clientId, @Value("${smartfarm.inventory.mqtt.persistence-path:./.local/mqtt-inventory}") String persistencePath) {
+    public TaskMqttSubscriber(TaskInbox inbox, MqttSecurityVerifier mqttSecurity, @Value("${smartfarm.inventory.mqtt.url:tcp://localhost:1883}") String url, @Value("${smartfarm.inventory.mqtt.client-id:smartfarm-inventory-dev}") String clientId, @Value("${smartfarm.inventory.mqtt.persistence-path:./.local/mqtt-inventory}") String persistencePath) {
         this.inbox = inbox;
+        this.mqttSecurity = mqttSecurity;
         this.url = url;
         this.clientId = clientId;
         this.persistencePath = persistencePath;
@@ -45,8 +48,16 @@ public class TaskMqttSubscriber implements ApplicationRunner, AutoCloseable {
 
             @Override
             public void messageArrived(String topic, MqttMessage message) throws Exception {
+                MqttSecurityVerifier.Result verification = mqttSecurity.verify(topic, message.getPayload());
+                if (!verification.accepted()) {
+                    // Reject-and-ack: a forged/unsigned message must NOT loop forever by withholding
+                    // the broker ack. Drop it, ack it, and log — unlike a DB failure below.
+                    client.messageArrivedComplete(message.getId(), message.getQos());
+                    log.warn("Task event rejected by MQTT security; dropped+acked; topic={} reason={}", topic, verification.reason());
+                    return;
+                }
                 try {
-                    boolean first = inbox.accept(topic, message.getPayload());
+                    boolean first = inbox.accept(topic, verification.payload());
                     client.messageArrivedComplete(message.getId(), message.getQos());
                     log.info("Task event accepted={} topic={}", first, topic);
                 } catch (Exception e) {

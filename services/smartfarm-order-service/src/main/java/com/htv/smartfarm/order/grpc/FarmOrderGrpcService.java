@@ -18,7 +18,6 @@ import com.htv.smartfarm.order.domain.OrderLineJpaRepository;
 import com.htv.smartfarm.order.outbox.OrderBusinessEventContext;
 import com.htv.smartfarm.order.outbox.OrderBusinessEventType;
 import com.htv.smartfarm.order.outbox.OrderEventStore;
-import com.htv.smartfarm.order.saga.OrderSagaOrchestrator;
 import com.htv.smartfarm.order.saga.persistence.OrderSagaTransactionService;
 import com.htv.smartfarm.proto.common.v1.Money;
 import com.htv.smartfarm.proto.order.v1.*;
@@ -46,7 +45,6 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
 
     private final OrderJpaRepository orders;
     private final OrderLineJpaRepository lines;
-    private final OrderSagaOrchestrator saga;
     private final OrderSagaTransactionService persistentSagas;
     private final OrderDraftService drafts;
     private final OrderQueryService queries;
@@ -55,7 +53,6 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     public FarmOrderGrpcService(
             OrderJpaRepository orders,
             OrderLineJpaRepository lines,
-            OrderSagaOrchestrator saga,
             OrderDraftService drafts,
             OrderQueryService queries,
             OrderSagaTransactionService persistentSagas,
@@ -63,7 +60,6 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     ) {
         this.orders = orders;
         this.lines = lines;
-        this.saga = saga;
         this.persistentSagas = persistentSagas;
         this.drafts = drafts;
         this.queries = queries;

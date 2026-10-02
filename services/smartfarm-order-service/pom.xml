@@ -29,6 +29,10 @@
             <artifactId>smartfarm-security</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.htv.smartfarm</groupId>
+            <artifactId>smartfarm-messaging</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>

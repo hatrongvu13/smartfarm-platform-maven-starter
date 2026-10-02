@@ -38,6 +38,13 @@ public class OrderOutboxTransactionService {
                     value.failed(clock.instant().plus(retryDelay(attempt)), errorCode, properties.maximumAttempts());
                 });
     }
+
+    /** Dead-letter a poison (permanent-data) row immediately so it cannot block the batch. */
+    @Transactional
+    public void markDead(String eventId, String errorCode) {
+        repository.findById(eventId).filter(value -> value.getStatus() == OrderOutboxStatus.PUBLISHING)
+                .ifPresent(value -> value.dead(errorCode));
+    }
     @Transactional
     public int recoverStaleClaims() {
         Instant now = clock.instant();

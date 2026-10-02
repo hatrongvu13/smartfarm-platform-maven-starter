@@ -223,6 +223,14 @@ public class OrderOutboxEntity {
         lastErrorCode = limited(errorCode, 120);
     }
 
+    /** Permanent-data poison: dead-letter immediately (no retry), so it never blocks the batch. */
+    public void dead(String errorCode) {
+        attemptCount++;
+        status = OrderOutboxStatus.DEAD;
+        claimedAt = null;
+        lastErrorCode = limited(errorCode, 120);
+    }
+
     public void retryManually(Instant now) {
         if (status != OrderOutboxStatus.FAILED && status != OrderOutboxStatus.DEAD) {
             throw new IllegalStateException("only failed or dead outbox events can be retried");

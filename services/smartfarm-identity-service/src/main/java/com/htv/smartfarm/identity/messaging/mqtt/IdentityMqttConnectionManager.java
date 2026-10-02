@@ -89,6 +89,19 @@ public class IdentityMqttConnectionManager implements MqttCallbackExtended {
         this.commandProperties = commandProperties;
     }
 
+    // App-level MQTT message signing. Default is the disabled verifier so the test
+    // constructor and any context without the bean keep the original behaviour.
+    private com.htv.smartfarm.security.mqtt.MqttSecurityVerifier mqttSecurity =
+            new com.htv.smartfarm.security.mqtt.MqttSecurityVerifier(
+                    com.htv.smartfarm.security.mqtt.MqttSecurityProperties.disabled());
+
+    @Autowired(required = false)
+    void setMqttSecurity(com.htv.smartfarm.security.mqtt.MqttSecurityVerifier mqttSecurity) {
+        if (mqttSecurity != null) {
+            this.mqttSecurity = mqttSecurity;
+        }
+    }
+
     IdentityMqttConnectionManager(
             IdentityMqttProperties properties,
             Clock clock,
@@ -131,7 +144,7 @@ public class IdentityMqttConnectionManager implements MqttCallbackExtended {
         if (current == null || !current.isConnected()) {
             throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         }
-        MqttMessage message = new MqttMessage(payload);
+        MqttMessage message = new MqttMessage(mqttSecurity.sign(topic, payload));
         message.setQos(qos);
         message.setRetained(false);
         current.publish(topic, message).waitForCompletion(

@@ -2,6 +2,7 @@ package com.htv.smartfarm.gateway.events;
 
 import com.google.protobuf.util.JsonFormat;
 import com.htv.smartfarm.proto.events.v1.DomainEvent;
+import com.htv.smartfarm.security.mqtt.MqttSecurityVerifier;
 
 import java.util.UUID;
 
@@ -32,6 +33,7 @@ public class MqttEventSubscriber {
     private static final Logger log = LoggerFactory.getLogger(MqttEventSubscriber.class);
 
     private final DomainEventBus bus;
+    private final MqttSecurityVerifier mqttSecurity;
     private final String url;
     private final String username;
     private final String password;
@@ -39,11 +41,13 @@ public class MqttEventSubscriber {
     private MqttClient client;
 
     public MqttEventSubscriber(DomainEventBus bus,
+                               MqttSecurityVerifier mqttSecurity,
                                @Value("${smartfarm.mqtt.url:tcp://localhost:1883}") String url,
                                @Value("${smartfarm.mqtt.username:}") String username,
                                @Value("${smartfarm.mqtt.password:}") String password,
                                @Value("${smartfarm.events.mqtt.topic-filter:smartfarm/+/+/domain/+/+}") String topicFilter) {
         this.bus = bus;
+        this.mqttSecurity = mqttSecurity;
         this.url = url;
         this.username = username;
         this.password = password;
@@ -92,7 +96,12 @@ public class MqttEventSubscriber {
 
     private void onMessage(String topic, byte[] payload) {
         try {
-            DomainEvent evt = DomainEvent.parseFrom(payload);
+            MqttSecurityVerifier.Result verification = mqttSecurity.verify(topic, payload);
+            if (!verification.accepted()) {
+                log.warn("WS bridge dropped MQTT message on {}: {}", topic, verification.reason());
+                return;
+            }
+            DomainEvent evt = DomainEvent.parseFrom(verification.payload());
             String json = JsonFormat.printer().omittingInsignificantWhitespace().print(evt);
             String tenant = evt.getMetadata().getTenantId();
             String farm = evt.getMetadata().getFarmId();

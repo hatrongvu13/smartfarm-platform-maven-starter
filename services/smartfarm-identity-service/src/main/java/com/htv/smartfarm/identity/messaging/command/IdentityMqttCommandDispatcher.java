@@ -7,6 +7,10 @@ import com.htv.smartfarm.identity.administration.application.command.RevokeRoleC
 import com.htv.smartfarm.identity.authorization.application.RoleManagementService;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 import com.htv.smartfarm.identity.tenant.application.TenantMembershipService;
+import com.htv.smartfarm.messaging.dispatch.DefaultDispatchFailureClassifier;
+import com.htv.smartfarm.messaging.dispatch.DispatchErrorCodes;
+import com.htv.smartfarm.messaging.dispatch.DispatchFailureClassifier;
+import com.htv.smartfarm.messaging.dispatch.DispatchFailureDecision;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +29,11 @@ public class IdentityMqttCommandDispatcher {
     private final RoleManagementService roles;
     private final IdentityIntegrationEventPublisher events;
     private final ObjectMapper objectMapper;
+    // Same shared semantics as the order relay: a bad command payload (IllegalArgumentException) is
+    // PERMANENT_DATA -> fail + continue; broker/MqttException is infrastructure -> break; any other
+    // runtime error is UNKNOWN -> fail + continue (bounded by the inbox's own max-attempts), instead
+    // of the previous unconditional break that stalled the whole batch (ISSUE-09).
+    private final DispatchFailureClassifier classifier = new DefaultDispatchFailureClassifier();
 
     public IdentityMqttCommandDispatcher(
             IdentityMqttInboxTransactionService transactions,
@@ -48,14 +57,20 @@ public class IdentityMqttCommandDispatcher {
                 execute(message);
                 transactions.markProcessed(message.commandId());
                 publishResult(message, "PROCESSED", null);
-            } catch (IllegalArgumentException exception) {
-                transactions.markFailed(message.commandId(), "COMMAND_PAYLOAD_INVALID");
-                publishResult(message, "FAILED", "COMMAND_PAYLOAD_INVALID");
             } catch (RuntimeException exception) {
-                transactions.markFailed(message.commandId(), exception.getClass().getSimpleName());
-                log.warn("Identity MQTT command deferred: commandId={}, error={}",
-                        message.commandId(), exception.getClass().getSimpleName());
-                break;
+                DispatchFailureDecision decision = classifier.classify(exception);
+                String code = decision.category() == com.htv.smartfarm.messaging.dispatch.DispatchFailureCategory.PERMANENT_DATA
+                        ? "COMMAND_PAYLOAD_INVALID"
+                        : DispatchErrorCodes.codeOf(exception, 120);
+                transactions.markFailed(message.commandId(), code);
+                publishResult(message, "FAILED", code);
+                if (decision.breakBatch()) {
+                    // Broker/infrastructure failure: stop the batch and let the next poll retry.
+                    log.warn("Identity MQTT command deferred (infrastructure): commandId={}, error={}",
+                            message.commandId(), code);
+                    break;
+                }
+                // Permanent-data / unknown: keep processing the rest of the batch (no head-of-line block).
             }
         }
     }

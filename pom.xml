@@ -29,6 +29,7 @@
     <modules>
         <module>libs/smartfarm-common-kernel</module>
         <module>libs/smartfarm-security</module>
+        <module>libs/smartfarm-messaging</module>
         <module>libs/smartfarm-proto</module>
         <module>platform/smartfarm-readiness-service</module>
         <module>platform/smartfarm-farm-simulator</module>
@@ -76,6 +77,11 @@
             <dependency>
                 <groupId>com.htv.smartfarm</groupId>
                 <artifactId>smartfarm-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.htv.smartfarm</groupId>
+                <artifactId>smartfarm-messaging</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

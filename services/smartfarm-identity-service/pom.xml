@@ -81,6 +81,10 @@
         </dependency>
         <dependency>
             <groupId>com.htv.smartfarm</groupId>
+            <artifactId>smartfarm-messaging</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.htv.smartfarm</groupId>
             <artifactId>smartfarm-proto</artifactId>
         </dependency>
         <dependency>

@@ -38,10 +38,14 @@ management:
 spring.grpc.server.port: 9095
 smartfarm:
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER:}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI:}
-    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
-    allow-local-http: false
+    # NOTE: SmartFarmSecurityProperties yêu cầu khối lồng `jwt`; dạng phẳng cũ
+    # (issuer/jwk-set-uri/audience) khiến `jwt` bind null và service không boot.
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER:http://localhost:8092}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI:http://localhost:8092/.well-known/jwks.json}
+      audiences:
+        - ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
+      allow-local-http: ${SMARTFARM_SECURITY_ALLOW_LOCAL_HTTP:false}
   identity:
     base-url: ${IDENTITY_BASE_URL:http://localhost:8092}
   order:

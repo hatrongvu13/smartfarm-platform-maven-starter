@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.htv.smartfarm</groupId>
+        <artifactId>smartfarm-platform</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>smartfarm-messaging</artifactId>
+    <packaging>jar</packaging>
+    <name>SmartFarm Messaging</name>
+    <description>Shared MQTT relay/consumer infrastructure: dispatch failure classification, retry/backoff,
+        and Paho client/persistence factory + typed properties. Generic only - no topic, mapper or
+        business rule lives here. Library module - not runnable.</description>
+
+    <dependencies>
+        <!-- Dispatch classifier / retry are pure JDK; only validation + config-processor + Paho factory need deps. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Paho MQTT: version managed by parent POM. Used by the client/persistence factory + classifier. -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
