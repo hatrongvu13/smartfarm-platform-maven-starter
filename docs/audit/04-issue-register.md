@@ -437,3 +437,24 @@ Tổng hợp mức độ: **CRITICAL 3 · HIGH 6 · MEDIUM 7 · LOW 3 · INFO 2*
 - **UNKNOWN-C**: Có caller nào (test/admin) còn gọi `OrderSagaOrchestrator.run` không? → ISSUE-03/08.
 - **UNKNOWN-D (ĐÃ GIẢI QUYẾT → ISSUE-14 RESOLVED)**: `OrderQueryService.list` kẹp pageSize (mặc định 50, trần 200). Không có nguy cơ unbounded.
 - **UNKNOWN-E**: Chính sách phát hành scope `*` (super-admin) → ISSUE-12.
+
+---
+
+## ISSUE-19 (CFG-01): 6 `application-test.yml` dùng flat security key → service không boot ở profile `test`
+
+> **NEW** — phát hiện ở incremental audit 2026-10-03 (HEAD `51f23a7`). Backlog: `backlog/v0.1/V0.1-001-*.md`.
+
+- **Severity**: HIGH
+- **Category**: CONFIGURATION
+- **Confidence**: HIGH
+- **Status**: OPEN
+- **Module**: finance / health / inventory / livestock / order / reporting (`application-test.yml`)
+- **Business capability**: CI / profile `test` reproducibility (không chặn prod — ISSUE-01 đã vá).
+- **Affected files**: `services/{finance,health,inventory,livestock,order,reporting}-service/src/main/resources/application-test.yml`
+- **Affected symbols**: `SmartFarmSecurityProperties` (compact constructor), `SmartFarmSecurityProperties.Jwt`
+- **Evidence** (FACT): record yêu cầu nested `smartfarm.security.jwt.{issuer,jwk-set-uri,audiences(plural)}`; 6 file test viết flat/singular `issuer/jwk-set-uri/audience`. `identity` test YAML đúng (nested) → đối chứng.
+- **Current behavior** (INFERENCE từ FACT): `SPRING_PROFILES_ACTIVE=test` ⇒ `jwt` bind null ⇒ ném `IllegalArgumentException("smartfarm.security.jwt is required")` ⇒ context fail. ITs hiện tại KHÔNG dính vì ghi đè nested `jwt.*` INLINE qua `@SpringBootTest(properties=...)` và không bật profile `test`.
+- **Root cause**: Lặp lại pattern ISSUE-01 khi thêm `application-test.yml` mới (commit `51f23a7`).
+- **Recommended solution** (DESCRIBED): đổi khối `security:` sang nested `jwt:` + `audiences:` list ở cả 6 file (patch mẫu trong backlog item). Reversible.
+- **Verification**: boot 6 service với profile `test` + `mvn test` xanh.
+- **Dependencies**: độc lập; BLOCKS CI test gate.
