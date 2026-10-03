@@ -1,0 +1,24 @@
+# TEST profile — isolated, reproducible, in-memory. (refactor §5 / §19 / §20)
+# H2 in PostgreSQL-compatibility mode; schema created fresh per run by Hibernate (create-drop
+# is SAFE: in-memory DB, discarded on JVM exit). Flyway OFF in test. PROD remains Flyway +
+# validate (application-prod.yml).
+spring:
+  datasource:
+    url: jdbc:h2:mem:livestock;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+smartfarm:
+  security:
+    issuer: http://localhost:8092
+    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+    audience: smartfarm-livestock
+    allow-local-http: true

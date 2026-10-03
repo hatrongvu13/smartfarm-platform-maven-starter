@@ -3,4 +3,13 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/smartfarm}
     username: ${DB_USERNAME:smartfarm}
     password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      # Flyway owns the schema in prod; Hibernate only validates. Previously prod had no
+      # ddl-auto override and inherited the dev 'update' default (Hibernate-generated schema).
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
   h2.console.enabled: false

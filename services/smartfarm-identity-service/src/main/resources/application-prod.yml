@@ -30,6 +30,9 @@ smartfarm:
       enabled: ${IDENTITY_MQTT_ENABLED:true}
     issuer: ${IDENTITY_ISSUER}
     key-id: ${IDENTITY_KEY_ID}
+    # Required by IdentitySettings (requireText). Was MISSING from the prod profile, so prod
+    # failed to start with "identityAudience must not be blank" regardless of the schema.
+    identity-audience: ${IDENTITY_AUDIENCE:smartfarm-identity}
     private-key-path: ${IDENTITY_PRIVATE_KEY_PATH}
     public-key-path: ${IDENTITY_PUBLIC_KEY_PATH}
     bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:}

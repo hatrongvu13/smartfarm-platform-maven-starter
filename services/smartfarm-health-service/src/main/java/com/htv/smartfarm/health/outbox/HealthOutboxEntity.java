@@ -30,6 +30,7 @@ public class HealthOutboxEntity {
     private String eventType;
 
     @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARBINARY)
     @Column(nullable = false)
     private byte[] payload;
 

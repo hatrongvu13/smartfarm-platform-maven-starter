@@ -3,6 +3,7 @@ package com.htv.smartfarm.reporting.grpc;
 import com.htv.smartfarm.reporting.domain.ExportJobEntity;
 import com.htv.smartfarm.reporting.domain.ReportingCommands;
 import com.htv.smartfarm.reporting.domain.ReportingSettings;
+import com.htv.smartfarm.reporting.download.DownloadLocationResolver;
 import com.htv.smartfarm.proto.reporting.v1.*;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
 import com.google.protobuf.Timestamp;
@@ -22,10 +23,13 @@ public class ReportingGrpcService extends ReportingServiceGrpc.ReportingServiceI
 
     private final ReportingCommands commands;
     private final ReportingSettings settings;
+    private final DownloadLocationResolver downloadLocationResolver;
 
-    public ReportingGrpcService(ReportingCommands commands, ReportingSettings settings) {
+    public ReportingGrpcService(ReportingCommands commands, ReportingSettings settings,
+                                DownloadLocationResolver downloadLocationResolver) {
         this.commands = commands;
         this.settings = settings;
+        this.downloadLocationResolver = downloadLocationResolver;
     }
 
     private static String tenant() {
@@ -116,12 +120,15 @@ public class ReportingGrpcService extends ReportingServiceGrpc.ReportingServiceI
             if (job == null) throw Status.NOT_FOUND.withDescription("export job not found").asRuntimeException();
             if (!"EXPORT_STATUS_COMPLETED".equals(job.getStatus()) || job.getFilePath() == null)
                 throw Status.FAILED_PRECONDITION.withDescription("job not completed").asRuntimeException();
-            long expires = System.currentTimeMillis() + settings.getDownloadTtlSeconds() * 1000;
-            // Starter: a local file:// reference. Production returns a presigned object-storage URL.
+            // Download location is resolved through a swappable seam: the default returns a local
+            // file:// reference; a production bean returns a presigned object-storage URL. The
+            // response contract (url, contentType, expiresAt) is identical either way.
+            DownloadLocationResolver.Location loc =
+                    downloadLocationResolver.resolve(job, settings.getDownloadTtlSeconds());
             return DownloadLocationResponse.newBuilder()
-                    .setUrl("file://" + job.getFilePath())
-                    .setContentType(job.getContentType() == null ? "application/octet-stream" : job.getContentType())
-                    .setExpiresAt(ts(expires))
+                    .setUrl(loc.url())
+                    .setContentType(loc.contentType())
+                    .setExpiresAt(ts(loc.expiresAtEpochMillis()))
                     .build();
         });
     }

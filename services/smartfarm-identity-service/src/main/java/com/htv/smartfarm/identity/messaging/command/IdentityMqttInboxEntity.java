@@ -45,6 +45,7 @@ public class IdentityMqttInboxEntity {
     private String topic;
 
     @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARBINARY)
     @Column(name = "payload")
     private byte[] payload;
 

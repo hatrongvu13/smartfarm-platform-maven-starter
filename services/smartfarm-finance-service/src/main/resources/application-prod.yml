@@ -5,7 +5,9 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # Flyway owns the schema in prod; Hibernate only validates entities against it.
+      # (was create-drop, which dropped and recreated the finance schema on every restart)
+      ddl-auto: validate
   flyway:
     enabled: true
     baseline-on-migrate: true

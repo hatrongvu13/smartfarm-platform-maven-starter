@@ -13,7 +13,7 @@ public class OrderProjectionInboxEntity {
     @Column(name = "tenant_id", nullable = false, length = 100) private String tenantId;
     @Column(name = "aggregate_id", nullable = false, length = 36) private String aggregateId;
     @Column(name = "aggregate_version", nullable = false) private long aggregateVersion;
-    @Lob @Column(name = "payload", nullable = false) private byte[] payload;
+    @Lob @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARBINARY) @Column(name = "payload", nullable = false) private byte[] payload;
     @Enumerated(EnumType.STRING) @Column(name = "status", nullable = false, length = 20)
     private OrderProjectionInboxStatus status;
     @Column(name = "received_at", nullable = false) private Instant receivedAt;

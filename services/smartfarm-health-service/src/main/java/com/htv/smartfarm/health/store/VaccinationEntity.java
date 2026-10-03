@@ -32,6 +32,7 @@ public class VaccinationEntity {
     private String idempotencyKey;
 
     @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARBINARY)
     @Column(nullable = false)
     private byte[] payload;
 

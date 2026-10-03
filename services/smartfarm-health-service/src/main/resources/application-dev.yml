@@ -11,7 +11,11 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
+      # DEV strategy: Hibernate owns the schema for fast iteration (disposable dev DB).
+      # Flyway is OFF in dev; reserved for TEST + PROD. See docs/refactor/DEV-DB-WORKFLOW.md.
       ddl-auto: update
+  flyway:
+    enabled: false
 smartfarm:
   security:
     issuer: http://localhost:8092

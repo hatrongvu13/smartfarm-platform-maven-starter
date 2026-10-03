@@ -6,13 +6,12 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      # Flyway owns the schema now; Hibernate only validates entities against it.
+      # DEV strategy: Hibernate owns the schema for fast iteration (disposable dev DB).
+      # Flyway is OFF in dev and reserved for TEST (reproducible) + PROD (validate). See
+      # docs/refactor/DEV-DB-WORKFLOW.md.
       ddl-auto: update
   flyway:
-    enabled: true
-    # DB may already contain tables from the earlier ddl-auto phase; baseline so V1 applies cleanly.
-    baseline-on-migrate: true
-    baseline-version: 0
+    enabled: false
   h2.console.enabled: true
 smartfarm:
   security:

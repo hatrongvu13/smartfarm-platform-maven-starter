@@ -11,11 +11,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * Local diagnostic subscriber; not a durable inbox or business consumer.
+ * DEV-ONLY local diagnostic subscriber (quarantined — cleanup SKEL-01); not a durable inbox
+ * or business consumer. Logs observed task events only, does NOT verify the MQTT HMAC envelope
+ * (unlike every production consumer), and is profile-gated to {@code dev & !prod} so it never
+ * runs in production.
  */
+@Profile("dev & !prod")
 @Component
 public class TaskEventObserver implements ApplicationRunner, AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(TaskEventObserver.class);

@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Turns an export job into a {@link ReportData} table with REAL data where a source service
@@ -22,6 +24,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class ReportDataProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(ReportDataProvider.class);
 
     private static final String LIVESTOCK_AUDIENCE = "smartfarm-livestock";
 
@@ -37,8 +41,19 @@ public class ReportDataProvider {
     public ReportData build(ExportJobEntity job) {
         return switch (job.getReportType()) {
             case "REPORT_TYPE_LIVESTOCK_TASKS" -> livestockTasks(job);
-            default -> summary(job);
+            // Report types whose real source read-model is not yet wired. These render a
+            // descriptive summary row (NOT real source data) by design, and are logged so an
+            // operator can tell a placeholder export from a real one. Wiring one is a new branch
+            // above + removing it from this set.
+            default -> placeholderSummary(job);
         };
+    }
+
+    private ReportData placeholderSummary(ExportJobEntity job) {
+        log.warn("Report type {} has no real read-model yet; rendering placeholder summary "
+                + "(jobTenant={}, farm={}). This export does NOT contain real source data.",
+                job.getReportType(), job.getTenantId(), job.getFarmId());
+        return summary(job);
     }
 
     private ReportData livestockTasks(ExportJobEntity job) {
