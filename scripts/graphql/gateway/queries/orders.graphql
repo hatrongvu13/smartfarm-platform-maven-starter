@@ -1,0 +1,12 @@
+query Orders($farmId: ID!, $limit: Int) {
+  orders(farmId: $farmId, limit: $limit) {
+    orderId
+    status
+    totalMinor
+    lines {
+      itemId
+      quantity
+      warehouseId
+    }
+  }
+}

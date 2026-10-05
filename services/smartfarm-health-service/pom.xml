@@ -83,6 +83,12 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- mvn spring-boot:run mặc định chạy profile dev; override: -Dspring-boot.run.profiles=prod -->
+                    <profiles>
+                        <profile>dev</profile>
+                    </profiles>
+                </configuration>
             </plugin>
         </plugins>
     </build>

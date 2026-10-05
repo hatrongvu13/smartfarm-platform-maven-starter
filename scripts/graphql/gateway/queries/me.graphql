@@ -1,0 +1,14 @@
+query Me {
+  me {
+    subjectId
+    active
+    profile {
+      displayName
+      email
+    }
+    membership {
+      tenantId
+      roles
+    }
+  }
+}

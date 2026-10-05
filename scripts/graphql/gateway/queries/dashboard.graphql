@@ -1,0 +1,27 @@
+query Dashboard($farmId: ID!, $recentLimit: Int) {
+  dashboard(farmId: $farmId, recentLimit: $recentLimit) {
+    farmId
+    generatedAt
+    tasks {
+      total
+      assigned
+      accepted
+      completed
+      overdueAccept
+      overdueReport
+    }
+    orders {
+      total
+      completed
+      failed
+    }
+    overdueTasks {
+      taskId
+      status
+    }
+    failedOrders {
+      orderId
+      failureReason
+    }
+  }
+}

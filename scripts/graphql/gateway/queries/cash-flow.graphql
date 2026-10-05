@@ -1,0 +1,15 @@
+query CashFlow($farmId: ID!) {
+  cashFlow(farmId: $farmId) {
+    farmId
+    inflow {
+      currency
+      minor
+    }
+    outflow {
+      minor
+    }
+    net {
+      minor
+    }
+  }
+}

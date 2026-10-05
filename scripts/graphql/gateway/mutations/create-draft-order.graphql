@@ -1,0 +1,13 @@
+mutation CreateDraftOrder($input: CreateDraftOrderInput!) {
+  createDraftOrder(input: $input) {
+    orderId
+    status
+    totalMinor
+    version
+    lines {
+      itemId
+      quantity
+      warehouseId
+    }
+  }
+}

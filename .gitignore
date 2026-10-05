@@ -4,3 +4,8 @@
 .env
 logs/
 .local
+
+# SmartFarm unified test suite — real config holds credentials; keep only the example.
+scripts/config/test.env
+scripts/config/*.env
+!scripts/config/*.env.example

@@ -1,0 +1,7 @@
+query Tasks($farmId: ID!, $limit: Int) {
+  tasks(farmId: $farmId, limit: $limit) {
+    taskId
+    title
+    status
+  }
+}

@@ -2,7 +2,9 @@ spring:
   application:
     name: smartfarm-reporting-service
   profiles:
-    default: dev
+    # Mặc định cứng = dev khi khởi chạy bình thường (mvn spring-boot:run / java -jar) mà không
+    # cần set biến môi trường. Override bằng SPRING_PROFILES_ACTIVE=prod|test khi cần.
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 server:
   port: 8086
 management:

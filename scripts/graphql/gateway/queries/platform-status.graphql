@@ -1,0 +1,7 @@
+query PlatformStatus {
+  platformStatus {
+    name
+    status
+    tenantId
+  }
+}

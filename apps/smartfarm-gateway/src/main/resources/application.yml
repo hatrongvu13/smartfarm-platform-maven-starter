@@ -6,8 +6,9 @@ spring:
   main:
     web-application-type: reactive
   profiles:
-    default:
-      - dev
+    # Mặc định cứng = dev khi khởi chạy bình thường (mvn spring-boot:run / java -jar) mà không
+    # cần set biến môi trường. Override bằng SPRING_PROFILES_ACTIVE=prod|test khi cần.
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   graphql:
     graphiql:
       enabled: false
