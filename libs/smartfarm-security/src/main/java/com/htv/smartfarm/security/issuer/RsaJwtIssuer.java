@@ -125,6 +125,7 @@ public final class RsaJwtIssuer {
                 clientId,
                 "clientId"
         );
+        rejectWildcardServiceScope(scopes);
 
         JwtClaimsSet claims = baseClaims(
                 normalizedClientId,
@@ -207,6 +208,16 @@ public final class RsaJwtIssuer {
         return encoder.encode(
                 JwtEncoderParameters.from(header, claims)
         ).getTokenValue();
+    }
+
+    private static void rejectWildcardServiceScope(Collection<String> scopes) {
+        if (scopes == null) return;
+        for (String scope : scopes) {
+            if (scope == null) continue;
+            String normalized = scope.trim();
+            if ("*".equals(normalized) || "SCOPE_*".equalsIgnoreCase(normalized))
+                throw new IllegalArgumentException("service tokens must not contain wildcard scope");
+        }
     }
 
     private static List<String> normalizeValues(

@@ -152,6 +152,7 @@ public class TokenService {
             Duration ttl
     ) {
         String normalizedClientId = requireText(clientId, "clientId");
+        validateServiceScopes(scopes);
         return issue(
                 "svc:" + normalizedClientId,
                 normalizedClientId,
@@ -195,6 +196,16 @@ public class TokenService {
                         .build(),
                 claims.build()
         )).getTokenValue();
+    }
+
+    static void validateServiceScopes(Collection<String> scopes) {
+        if (scopes == null) return;
+        for (String scope : scopes) {
+            if (scope == null) continue;
+            String normalized = scope.trim();
+            if ("*".equals(normalized) || "SCOPE_*".equalsIgnoreCase(normalized))
+                throw new IllegalArgumentException("service tokens must not contain wildcard scope");
+        }
     }
 
     private static List<String> normalize(Collection<String> values) {

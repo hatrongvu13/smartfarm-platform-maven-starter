@@ -42,6 +42,22 @@ class SecurityIdentityTest {
     }
 
     @Test
+    void serviceTokenMustNotBecomeSuperAdmin() {
+        SecurityIdentity identity = new SecurityIdentity(
+                "svc:gateway", "gateway", "tenant-001", Set.of("SCOPE_*"),
+                Set.of("smartfarm-identity"), TokenType.SERVICE);
+        assertThat(identity.isSuperAdmin()).isFalse();
+    }
+
+    @Test
+    void unknownTokenMustNotBecomeSuperAdmin() {
+        SecurityIdentity identity = new SecurityIdentity(
+                "legacy", null, "tenant-001", Set.of("SCOPE_*"),
+                Set.of("smartfarm-gateway"), TokenType.UNKNOWN);
+        assertThat(identity.isSuperAdmin()).isFalse();
+    }
+
+    @Test
     void shouldRejectBlankSubject() {
         assertThatThrownBy(() -> new SecurityIdentity(
                 " ",

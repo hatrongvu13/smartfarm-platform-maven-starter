@@ -49,8 +49,9 @@ public record SecurityIdentity(
         return tokenType == TokenType.SERVICE;
     }
 
+    /** Wildcard elevation is valid only for an explicitly typed user token. */
     public boolean isSuperAdmin() {
-        return authorities.contains("SCOPE_*");
+        return isUser() && authorities.contains("SCOPE_*");
     }
 
     private static String normalizeNullable(String value) {

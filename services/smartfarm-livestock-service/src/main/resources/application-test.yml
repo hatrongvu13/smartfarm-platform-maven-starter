@@ -18,7 +18,9 @@ spring:
     enabled: false
 smartfarm:
   security:
-    issuer: http://localhost:8092
-    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
-    audience: smartfarm-livestock
-    allow-local-http: true
+    jwt:
+      issuer: http://localhost:8092
+      jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+      audiences:
+        - smartfarm-livestock
+      allow-local-http: true

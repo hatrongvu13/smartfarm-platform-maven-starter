@@ -12,9 +12,11 @@ spring:
     baseline-version: 0
 smartfarm:
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI}
-    audience: smartfarm-livestock
-    allow-local-http: false
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI}
+      audiences:
+        - smartfarm-livestock
+      allow-local-http: false
   outbox:
     enabled: false

@@ -24,7 +24,7 @@ public record GrpcCaller(
     }
 
     public boolean isSuperAdmin() {
-        return authorities.contains("SCOPE_*");
+        return isUser() && authorities.contains("SCOPE_*");
     }
 
     public boolean hasAuthorityOrSuperAdmin(String authority) {

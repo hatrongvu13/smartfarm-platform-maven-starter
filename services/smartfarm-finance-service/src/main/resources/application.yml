@@ -19,9 +19,11 @@ smartfarm:
       cert-chain: ${GRPC_CERT_CHAIN:}
       private-key: ${GRPC_PRIVATE_KEY:}
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER:}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI:}
-    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-finance}
-    allow-local-http: false
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER:}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI:}
+      audiences:
+        - ${SMARTFARM_JWT_AUDIENCE:smartfarm-finance}
+      allow-local-http: false
   mqtt:
     url: ${MQTT_URL:tcp://localhost:1883}

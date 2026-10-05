@@ -4,10 +4,12 @@ spring:
       port: 9100
 smartfarm:
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI}
-    audience: smartfarm-readiness
-    allow-local-http: false
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI}
+      audiences:
+        - smartfarm-readiness
+      allow-local-http: false
   readiness:
     allow-local-http: false
     targets:

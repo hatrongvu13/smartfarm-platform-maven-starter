@@ -15,10 +15,12 @@ spring:
       port: 9093
 smartfarm:
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI}
-    audience: smartfarm-inventory
-    allow-local-http: false
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI}
+      audiences:
+        - smartfarm-inventory
+      allow-local-http: false
   inventory:
     mqtt:
       enabled: false

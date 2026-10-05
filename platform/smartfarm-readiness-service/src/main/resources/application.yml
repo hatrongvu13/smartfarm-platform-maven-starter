@@ -15,10 +15,12 @@ management:
         include: health,info
 smartfarm:
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI}
-    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-readiness}
-    allow-local-http: false
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI}
+      audiences:
+        - ${SMARTFARM_JWT_AUDIENCE:smartfarm-readiness}
+      allow-local-http: false
   readiness:
     poll-ms: 5000
     initial-delay-ms: 1000

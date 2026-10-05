@@ -96,6 +96,14 @@ class RsaJwtIssuerTest {
     }
 
     @Test
+    void shouldRejectWildcardServiceScope() {
+        assertThatThrownBy(() -> issuer.issueServiceToken(
+                "gateway", "tenant-001", "smartfarm-identity", List.of("*")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("wildcard");
+    }
+
+    @Test
     void publicJwksShouldNotContainPrivateKey() {
         String jwks = issuer.publicJwksJson();
 

@@ -38,7 +38,21 @@ public record ServiceTokenSettings(Duration ttl, Map<String, Client> clients) {
                 throw new IllegalArgumentException("service-token client '" + id + "' requires a secret");
             if (c.audiences() == null || c.audiences().isEmpty())
                 throw new IllegalArgumentException("service-token client '" + id + "' requires at least one allowed audience");
+            c.scopesByAudience().forEach((audience, scopes) -> {
+                if (!c.audiences().contains(audience))
+                    throw new IllegalArgumentException("service-token client '" + id
+                            + "' configures scopes for a non-whitelisted audience: " + audience);
+                if (scopes.stream().anyMatch(ServiceTokenSettings::isWildcard))
+                    throw new IllegalArgumentException("service-token client '" + id
+                            + "' must not receive wildcard scope");
+            });
         });
+    }
+
+    private static boolean isWildcard(String scope) {
+        if (scope == null) return false;
+        String normalized = scope.trim();
+        return "*".equals(normalized) || "SCOPE_*".equalsIgnoreCase(normalized);
     }
 
     /** Whitelisted caller: its shared secret, the audiences it may target, and the scopes it may receive per audience. */

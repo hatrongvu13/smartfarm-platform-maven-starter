@@ -13,10 +13,12 @@ management:
 spring.grpc.server.port: 9096
 smartfarm:
   security:
-    issuer: ${SMARTFARM_JWT_ISSUER:}
-    jwk-set-uri: ${SMARTFARM_JWKS_URI:}
-    audience: ${SMARTFARM_JWT_AUDIENCE:smartfarm-reporting}
-    allow-local-http: false
+    jwt:
+      issuer: ${SMARTFARM_JWT_ISSUER:}
+      jwk-set-uri: ${SMARTFARM_JWKS_URI:}
+      audiences:
+        - ${SMARTFARM_JWT_AUDIENCE:smartfarm-reporting}
+      allow-local-http: false
   reporting:
     output-dir: ${REPORTING_OUTPUT_DIR:./.local/reports}
     download-ttl-seconds: ${REPORTING_DOWNLOAD_TTL:900}

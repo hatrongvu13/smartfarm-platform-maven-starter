@@ -16,12 +16,12 @@ spring:
     enabled: false
 smartfarm:
   security:
-    issuer: http://localhost:8092
-    jwk-set-uri: http://localhost:8092/.well-known/jwks.json
-    # Verify our OWN audience — only the gateway's per-service token (aud=smartfarm-reporting)
-    # may call this service, never a user's access token directly.
-    audience: smartfarm-reporting
-    allow-local-http: true
+    jwt:
+      issuer: http://localhost:8092
+      jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+      audiences:
+        - smartfarm-reporting
+      allow-local-http: true
   identity:
     base-url: http://localhost:8092
   livestock:
