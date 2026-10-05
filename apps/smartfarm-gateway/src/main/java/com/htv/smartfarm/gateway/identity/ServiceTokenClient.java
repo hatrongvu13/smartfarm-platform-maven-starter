@@ -13,15 +13,19 @@ public class ServiceTokenClient {
     private final WebClient identity;
     private final String clientId;
     private final String secret;
+    private final Duration requestTimeout;
     private final Map<Key, Cached> cache = new ConcurrentHashMap<>();
     private final Map<Key, Object> locks = new ConcurrentHashMap<>();
 
     public ServiceTokenClient(WebClient identityWebClient,
             @Value("${smartfarm.gateway.service-client.id:gateway}") String clientId,
-            @Value("${smartfarm.gateway.service-client.secret:}") String secret) {
+            @Value("${smartfarm.gateway.service-client.secret:}") String secret,
+            @Value("${smartfarm.gateway.grpc.service-token-timeout:5s}") Duration requestTimeout) {
         this.identity = identityWebClient;
         this.clientId = required(clientId, "clientId");
         this.secret = secret;
+        if (requestTimeout == null || requestTimeout.isZero() || requestTimeout.isNegative()) throw new IllegalArgumentException("service token timeout must be positive");
+        this.requestTimeout = requestTimeout;
     }
 
     private record Key(String audience, String tenantId) {
@@ -45,7 +49,7 @@ public class ServiceTokenClient {
                 throw new IllegalStateException("gateway service-client secret is not configured");
             Grant grant = identity.post().uri("/internal/service-token")
                     .bodyValue(new TokenRequest(clientId, secret, audience, tenantId, actorId))
-                    .retrieve().bodyToMono(Grant.class).block(Duration.ofSeconds(5));
+                    .retrieve().bodyToMono(Grant.class).block(requestTimeout);
             if (grant == null || grant.accessToken() == null || grant.accessToken().isBlank())
                 throw new IllegalStateException("identity returned no service token");
             long life = Math.max(2, grant.expiresInSeconds());

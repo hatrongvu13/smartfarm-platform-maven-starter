@@ -33,13 +33,19 @@ public class OrderSagaForwardStepExecutor {
     private final InventoryServiceGrpc.InventoryServiceBlockingStub inventory;
     private final FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance;
     private final ServiceTokenClient tokens;
+    private final long inventoryDeadlineMillis;
+    private final long financeDeadlineMillis;
 
     public OrderSagaForwardStepExecutor(OrderJpaRepository orders, OrderLineJpaRepository lines,
             InventoryServiceGrpc.InventoryServiceBlockingStub inventory,
             FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance,
-            ServiceTokenClient tokens) {
+            ServiceTokenClient tokens,
+            @org.springframework.beans.factory.annotation.Value("${smartfarm.order.grpc.inventory-deadline:5s}") java.time.Duration inventoryDeadline,
+            @org.springframework.beans.factory.annotation.Value("${smartfarm.order.grpc.finance-deadline:5s}") java.time.Duration financeDeadline) {
         this.orders = orders; this.lines = lines; this.inventory = inventory;
         this.finance = finance; this.tokens = tokens;
+        this.inventoryDeadlineMillis = positive(inventoryDeadline, "inventory deadline");
+        this.financeDeadlineMillis = positive(financeDeadline, "finance deadline");
     }
 
     public OrderSagaStepResult execute(OrderSagaClaim saga, OrderSagaStepEntity step) {
@@ -113,13 +119,17 @@ public class OrderSagaForwardStepExecutor {
 
     private InventoryServiceGrpc.InventoryServiceBlockingStub inventory(OrderEntity order, String actor) {
         String token = tokens.tokenFor(INVENTORY_AUDIENCE, order.getTenantId(), actor);
-        return inventory.withDeadlineAfter(5, TimeUnit.SECONDS)
+        return inventory.withDeadlineAfter(inventoryDeadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> token));
     }
 
     private FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance(OrderEntity order, String actor) {
         String token = tokens.tokenFor(FINANCE_AUDIENCE, order.getTenantId(), actor);
-        return finance.withDeadlineAfter(5, TimeUnit.SECONDS)
+        return finance.withDeadlineAfter(financeDeadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> token));
+    }
+    private static long positive(java.time.Duration value, String name) {
+        if (value == null || value.isZero() || value.isNegative()) throw new IllegalArgumentException(name + " must be positive");
+        return value.toMillis();
     }
 }

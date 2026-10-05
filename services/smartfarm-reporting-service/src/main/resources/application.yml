@@ -20,6 +20,8 @@ smartfarm:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-reporting}
       allow-local-http: false
   reporting:
+    grpc:
+      livestock-deadline: ${REPORTING_LIVESTOCK_GRPC_DEADLINE:10s}
     output-dir: ${REPORTING_OUTPUT_DIR:./.local/reports}
     download-ttl-seconds: ${REPORTING_DOWNLOAD_TTL:900}
     worker:

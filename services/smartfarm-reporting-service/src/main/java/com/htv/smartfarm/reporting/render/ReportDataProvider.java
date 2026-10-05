@@ -31,11 +31,15 @@ public class ReportDataProvider {
 
     private final LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestock;
     private final ServiceTokenClient tokens;
+    private final long livestockDeadlineMillis;
 
     public ReportDataProvider(LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestock,
-                              ServiceTokenClient tokens) {
+                              ServiceTokenClient tokens,
+                              @org.springframework.beans.factory.annotation.Value("${smartfarm.reporting.grpc.livestock-deadline:10s}") java.time.Duration deadline) {
         this.livestock = livestock;
         this.tokens = tokens;
+        if (deadline == null || deadline.isZero() || deadline.isNegative()) throw new IllegalArgumentException("reporting livestock deadline must be positive");
+        this.livestockDeadlineMillis = deadline.toMillis();
     }
 
     public ReportData build(ExportJobEntity job) {
@@ -58,7 +62,7 @@ public class ReportDataProvider {
 
     private ReportData livestockTasks(ExportJobEntity job) {
         String token = tokens.tokenFor(LIVESTOCK_AUDIENCE, job.getTenantId(), "reporting");
-        var stub = livestock.withDeadlineAfter(10, TimeUnit.SECONDS)
+        var stub = livestock.withDeadlineAfter(livestockDeadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> token));
         var resp = stub.listTasks(ListTasksRequest.newBuilder()
                 .setContext(RequestContext.newBuilder().setTenantId(job.getTenantId()).setActorId("reporting"))

@@ -1,6 +1,7 @@
 package com.htv.smartfarm.gateway.graphql;
 
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
+import org.springframework.beans.factory.annotation.Value;
 import com.htv.smartfarm.proto.common.v1.PageRequest;
 import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.livestock.v1.*;
@@ -46,17 +47,25 @@ public class FarmGraphQlController {
     private final InventoryServiceGrpc.InventoryServiceBlockingStub inventory;
     private final FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance;
     private final ServiceTokenClient tokens;
+    private final long deadlineMillis;
 public FarmGraphQlController(LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestockStub,
                                  FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orderStub,
                                  InventoryServiceGrpc.InventoryServiceBlockingStub gwInventoryStub,
                                  FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub gwFinanceStub,
-                                 ServiceTokenClient tokens) {
+                                 ServiceTokenClient tokens,
+                                 @Value("${smartfarm.gateway.grpc.default-deadline:5s}") java.time.Duration deadline) {
         this.livestock = livestockStub;
         this.order = orderStub;
         this.inventory = gwInventoryStub;
         this.finance = gwFinanceStub;
         this.tokens = tokens;
+        this.deadlineMillis = positive(deadline, "gateway default deadline");
 }
+
+    private static long positive(java.time.Duration value, String name) {
+        if (value == null || value.isZero() || value.isNegative()) throw new IllegalArgumentException(name + " must be positive");
+        return value.toMillis();
+    }
 
     private Mono<Jwt> jwt() {
         return ReactiveSecurityContextHolder.getContext().map(c -> (Jwt) c.getAuthentication().getPrincipal());
@@ -69,22 +78,22 @@ public FarmGraphQlController(LivestockTaskServiceGrpc.LivestockTaskServiceBlocki
 
     private LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub liveStub(Jwt jwt) {
         String t = tokens.tokenFor(LIVESTOCK_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
-        return livestock.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
+        return livestock.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orderStub(Jwt jwt) {
         String t = tokens.tokenFor(ORDER_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
-        return order.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
+        return order.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     private InventoryServiceGrpc.InventoryServiceBlockingStub invStub(Jwt jwt) {
         String t = tokens.tokenFor(INVENTORY_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
-        return inventory.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
+        return inventory.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     private FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finStub(Jwt jwt) {
         String t = tokens.tokenFor(FINANCE_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
-        return finance.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
+        return finance.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     // ---- tasks ----

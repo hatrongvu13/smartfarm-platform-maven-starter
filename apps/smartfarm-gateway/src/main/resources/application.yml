@@ -31,7 +31,10 @@ smartfarm:
       enabled: false
       audit-enabled: false
       correlation-enabled: true
-      default-deadline: 5s
+      default-deadline: ${GATEWAY_GRPC_DEFAULT_DEADLINE:5s}
+      identity-deadline: ${GATEWAY_IDENTITY_GRPC_DEADLINE:5s}
+      service-token-timeout: ${GATEWAY_SERVICE_TOKEN_TIMEOUT:5s}
+      channel-shutdown-timeout: ${GATEWAY_GRPC_CHANNEL_SHUTDOWN_TIMEOUT:10s}
     correlation:
       header-name: x-correlation-id
       max-length: 128

@@ -3,10 +3,17 @@ package com.htv.smartfarm.gateway.grpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.util.concurrent.TimeUnit;
+import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class GatewayGrpcChannelFactory {
+    private final long shutdownTimeoutMillis;
+    public GatewayGrpcChannelFactory(@Value("${smartfarm.gateway.grpc.channel-shutdown-timeout:10s}") Duration timeout) {
+        if (timeout == null || timeout.isZero() || timeout.isNegative()) throw new IllegalArgumentException("channel shutdown timeout must be positive");
+        this.shutdownTimeoutMillis = timeout.toMillis();
+    }
     public ManagedChannel create(String host, int port) {
         if (host == null || host.isBlank()) {
             throw new IllegalArgumentException("gRPC host must not be blank");
@@ -25,7 +32,7 @@ public class GatewayGrpcChannelFactory {
     public void close(ManagedChannel channel) {
         channel.shutdown();
         try {
-            if (!channel.awaitTermination(10, TimeUnit.SECONDS)) channel.shutdownNow();
+            if (!channel.awaitTermination(shutdownTimeoutMillis, TimeUnit.MILLISECONDS)) channel.shutdownNow();
         } catch (InterruptedException interrupted) {
             channel.shutdownNow();
             Thread.currentThread().interrupt();

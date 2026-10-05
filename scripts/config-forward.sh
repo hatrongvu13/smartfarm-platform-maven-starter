@@ -37,16 +37,16 @@ echo "=========================================="
 echo "Kết nối thiết bị: "$("${ADB_CMD[@]}" get-serialno 2>/dev/null || echo "OK")""
 echo "=========================================="
 
-# Hàm dọn dẹp khi thoát
-cleanup() {
-    echo -e "\n🧹 Đang gỡ bỏ các Port Forwarding..."
-    for port in "${PORTS[@]}"; do
-        "${ADB_CMD[@]}" forward --remove "tcp:${port}" 2>/dev/null || true
-    done
-    echo "✅ Đã dọn dẹp xong."
-}
-
-trap cleanup EXIT INT TERM
+## Hàm dọn dẹp khi thoát
+#cleanup() {
+#    echo -e "\n🧹 Đang gỡ bỏ các Port Forwarding..."
+#    for port in "${PORTS[@]}"; do
+#        "${ADB_CMD[@]}" forward --remove "tcp:${port}" 2>/dev/null || true
+#    done
+#    echo "✅ Đã dọn dẹp xong."
+#}
+#
+#trap cleanup EXIT INT TERM
 
 # 3. Dọn dẹp port cũ
 echo "Gỡ bỏ cấu hình forward cũ (nếu có)..."

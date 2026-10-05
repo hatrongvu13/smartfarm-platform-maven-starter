@@ -49,6 +49,9 @@ smartfarm:
   identity:
     base-url: ${IDENTITY_BASE_URL:http://localhost:8092}
   order:
+    grpc:
+      inventory-deadline: ${ORDER_INVENTORY_GRPC_DEADLINE:5s}
+      finance-deadline: ${ORDER_FINANCE_GRPC_DEADLINE:5s}
     observability:
       saga-oldest-active-warning: ${ORDER_OBSERVABILITY_SAGA_OLDEST_ACTIVE_WARNING:15m}
       outbox-pending-warning: ${ORDER_OBSERVABILITY_OUTBOX_PENDING_WARNING:1000}

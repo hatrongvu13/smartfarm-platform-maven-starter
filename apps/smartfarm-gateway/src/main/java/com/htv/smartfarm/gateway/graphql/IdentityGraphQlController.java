@@ -34,6 +34,7 @@ public class IdentityGraphQlController {
     private final ServiceTokenClient tokens;
     private final GatewayRequestContextFactory contexts;
     private final String audience;
+    private final long deadlineMillis;
 
     public IdentityGraphQlController(
             IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory,
@@ -41,7 +42,8 @@ public class IdentityGraphQlController {
             IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential,
             ServiceTokenClient tokens,
             GatewayRequestContextFactory contexts,
-            @Value("${smartfarm.identity.grpc-audience:smartfarm-identity}") String audience
+            @Value("${smartfarm.identity.grpc-audience:smartfarm-identity}") String audience,
+            @Value("${smartfarm.gateway.grpc.identity-deadline:5s}") java.time.Duration deadline
     ) {
         this.directory = directory;
         this.admin = admin;
@@ -49,6 +51,8 @@ public class IdentityGraphQlController {
         this.tokens = tokens;
         this.contexts = contexts;
         this.audience = audience;
+        if (deadline == null || deadline.isZero() || deadline.isNegative()) throw new IllegalArgumentException("identity deadline must be positive");
+        this.deadlineMillis = deadline.toMillis();
     }
 
     @QueryMapping
@@ -307,17 +311,17 @@ public class IdentityGraphQlController {
     }
 
     private IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory(Jwt jwt) {
-        return directory.withDeadlineAfter(5, TimeUnit.SECONDS)
+        return directory.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(credentials(jwt));
     }
 
     private IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub admin(Jwt jwt) {
-        return admin.withDeadlineAfter(5, TimeUnit.SECONDS)
+        return admin.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(credentials(jwt));
     }
 
     private IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential(Jwt jwt) {
-        return credential.withDeadlineAfter(5, TimeUnit.SECONDS)
+        return credential.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(credentials(jwt));
     }
 
