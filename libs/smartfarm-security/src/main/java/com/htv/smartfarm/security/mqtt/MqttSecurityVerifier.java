@@ -118,8 +118,8 @@ public class MqttSecurityVerifier {
                 try {
                     return Result.accept(MqttSecurityEnvelope.parse(frameOrPayload).payload());
                 } catch (IllegalArgumentException e) {
-                    // Looked signed but was malformed; in permissive mode keep raw bytes.
-                    return Result.accept(frameOrPayload);
+                    // A frame declaring the SFM1 format must never degrade to a legacy payload.
+                    return Result.reject("malformed signed envelope");
                 }
             }
             return Result.accept(frameOrPayload);

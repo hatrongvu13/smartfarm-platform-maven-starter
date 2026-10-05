@@ -45,7 +45,7 @@ public class MqttEventSubscriber {
                                @Value("${smartfarm.mqtt.url:tcp://localhost:1883}") String url,
                                @Value("${smartfarm.mqtt.username:}") String username,
                                @Value("${smartfarm.mqtt.password:}") String password,
-                               @Value("${smartfarm.events.mqtt.topic-filter:smartfarm/+/+/domain/+/+}") String topicFilter) {
+                               @Value("${smartfarm.events.mqtt.topic-filter:smartfarm/+/+/domain/#}") String topicFilter) {
         this.bus = bus;
         this.mqttSecurity = mqttSecurity;
         this.url = url;

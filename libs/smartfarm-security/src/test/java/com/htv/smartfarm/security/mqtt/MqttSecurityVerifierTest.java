@@ -86,16 +86,45 @@ class MqttSecurityVerifierTest {
     }
 
     @Test
+    void permissiveMode_rejectsMalformedSignedFrame() {
+        byte[] malformed = new byte[]{'S', 'F', 'M', '1', 1};
+        MqttSecurityVerifier.Result result = verifier(false, false, 0)
+                .verify(TOPIC, malformed);
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.reason()).isEqualTo("malformed signed envelope");
+    }
+
+    @Test
+    void envelopeParserRejectsUnsupportedVersion() {
+        byte[] frame = verifier(true, false, 0).sign(TOPIC, PAYLOAD);
+        frame[MqttSecurityEnvelope.MAGIC.length] = 2;
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> MqttSecurityEnvelope.parse(frame))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsupported envelope version");
+    }
+
+    @Test
+    void envelopeParserRejectsTrailingBytes() {
+        byte[] frame = verifier(true, false, 0).sign(TOPIC, PAYLOAD);
+        byte[] withTrailing = java.util.Arrays.copyOf(frame, frame.length + 1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> MqttSecurityEnvelope.parse(withTrailing))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("trailing bytes");
+    }
+
+    @Test
     void envelopeFrame_parsesBackToSameFields() {
         MqttSecurityEnvelope env = new MqttSecurityEnvelope(
                 MqttSecurityEnvelope.VERSION_1,
                 MqttSecurityEnvelope.ALG_HMAC_SHA256,
-                "k1", "producer-x", 1_700_000_000_000L, PAYLOAD, new byte[]{1, 2, 3});
+                "k1", "producer-x", 1_700_000_000_000L, PAYLOAD, new byte[32]);
         MqttSecurityEnvelope parsed = MqttSecurityEnvelope.parse(env.toFrame());
         assertThat(parsed.keyId()).isEqualTo("k1");
         assertThat(parsed.producer()).isEqualTo("producer-x");
         assertThat(parsed.issuedAtEpochMillis()).isEqualTo(1_700_000_000_000L);
         assertThat(parsed.payload()).isEqualTo(PAYLOAD);
-        assertThat(parsed.signature()).isEqualTo(new byte[]{1, 2, 3});
+        assertThat(parsed.signature()).isEqualTo(new byte[32]);
     }
 }

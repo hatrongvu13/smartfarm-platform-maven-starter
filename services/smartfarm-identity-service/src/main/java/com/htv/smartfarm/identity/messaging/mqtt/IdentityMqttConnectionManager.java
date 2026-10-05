@@ -29,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import com.htv.smartfarm.identity.messaging.command.IdentityMqttCommandIntake;
 import com.htv.smartfarm.identity.messaging.command.IdentityMqttCommandProperties;
+import com.htv.smartfarm.security.mqtt.MqttSecurityVerifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -284,8 +285,18 @@ public class IdentityMqttConnectionManager implements MqttCallbackExtended {
                 ? null
                 : commandProperties.getIfAvailable();
         if (intake == null || commandConfig == null || !commandConfig.enabled()) return;
+        MqttSecurityVerifier.Result verification =
+                mqttSecurity.verify(topic, message.getPayload());
+        if (!verification.accepted()) {
+            log.warn(
+                    "Identity MQTT command rejected by message security: topic={}, reason={}",
+                    topic,
+                    verification.reason()
+            );
+            return;
+        }
         try {
-            intake.accept(topic, message.getPayload());
+            intake.accept(topic, verification.payload());
         } catch (RuntimeException exception) {
             log.error(
                     "Identity MQTT command intake failed: topic={}, error={}",

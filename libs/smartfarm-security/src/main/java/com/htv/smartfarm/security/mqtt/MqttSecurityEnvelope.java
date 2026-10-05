@@ -153,28 +153,59 @@ public final class MqttSecurityEnvelope {
         if (!looksSigned(frame)) {
             throw new IllegalArgumentException("not a SmartFarm signed envelope");
         }
-        try {
-            int p = MAGIC.length;
-            byte version = frame[p++];
-            byte algId = frame[p++];
-            int keyIdLen = frame[p++] & 0xFF;
-            String keyId = new String(frame, p, keyIdLen, StandardCharsets.UTF_8);
-            p += keyIdLen;
-            int producerLen = frame[p++] & 0xFF;
-            String producer = new String(frame, p, producerLen, StandardCharsets.UTF_8);
-            p += producerLen;
-            long issuedAt = readLong(frame, p);
-            p += 8;
-            int payloadLen = readInt(frame, p);
-            p += 4;
-            byte[] payload = Arrays.copyOfRange(frame, p, p + payloadLen);
-            p += payloadLen;
-            int sigLen = ((frame[p++] & 0xFF) << 8) | (frame[p++] & 0xFF);
-            byte[] signature = Arrays.copyOfRange(frame, p, p + sigLen);
-            return new MqttSecurityEnvelope(
-                    version, algId, keyId, producer, issuedAt, payload, signature);
-        } catch (ArrayIndexOutOfBoundsException | NegativeArraySizeException e) {
-            throw new IllegalArgumentException("malformed envelope frame", e);
+        int p = MAGIC.length;
+        requireRemaining(frame, p, 2, "version and algorithm");
+        byte version = frame[p++];
+        byte algId = frame[p++];
+        if (version != VERSION_1) {
+            throw new IllegalArgumentException("unsupported envelope version " + version);
+        }
+        if (algId != ALG_HMAC_SHA256) {
+            throw new IllegalArgumentException("unsupported envelope algorithm " + algId);
+        }
+
+        requireRemaining(frame, p, 1, "key id length");
+        int keyIdLen = frame[p++] & 0xFF;
+        requireRemaining(frame, p, keyIdLen, "key id");
+        String keyId = new String(frame, p, keyIdLen, StandardCharsets.UTF_8);
+        p += keyIdLen;
+
+        requireRemaining(frame, p, 1, "producer length");
+        int producerLen = frame[p++] & 0xFF;
+        requireRemaining(frame, p, producerLen, "producer");
+        String producer = new String(frame, p, producerLen, StandardCharsets.UTF_8);
+        p += producerLen;
+
+        requireRemaining(frame, p, 12, "timestamp and payload length");
+        long issuedAt = readLong(frame, p);
+        p += 8;
+        int payloadLen = readInt(frame, p);
+        p += 4;
+        if (payloadLen < 0) {
+            throw new IllegalArgumentException("invalid payload length");
+        }
+        requireRemaining(frame, p, payloadLen, "payload");
+        byte[] payload = Arrays.copyOfRange(frame, p, p + payloadLen);
+        p += payloadLen;
+
+        requireRemaining(frame, p, 2, "signature length");
+        int sigLen = ((frame[p++] & 0xFF) << 8) | (frame[p++] & 0xFF);
+        if (sigLen != 32) {
+            throw new IllegalArgumentException("invalid signature length " + sigLen);
+        }
+        requireRemaining(frame, p, sigLen, "signature");
+        if (p + sigLen != frame.length) {
+            throw new IllegalArgumentException("trailing bytes in envelope frame");
+        }
+        byte[] signature = Arrays.copyOfRange(frame, p, p + sigLen);
+        return new MqttSecurityEnvelope(
+                version, algId, keyId, producer, issuedAt, payload, signature);
+    }
+
+    private static void requireRemaining(byte[] frame, int offset, int required, String field) {
+        if (required < 0 || offset < 0 || offset > frame.length
+                || required > frame.length - offset) {
+            throw new IllegalArgumentException("malformed envelope: " + field);
         }
     }
 
