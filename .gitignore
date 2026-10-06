@@ -9,3 +9,6 @@ logs/
 scripts/config/test.env
 scripts/config/*.env
 !scripts/config/*.env.example
+# Generated / tooling artifacts (not source of truth)
+graphify-out/
+.kiro/

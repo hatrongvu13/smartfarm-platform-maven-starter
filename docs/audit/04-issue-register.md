@@ -13,7 +13,7 @@ Tổng hợp mức độ: **CRITICAL 3 · HIGH 6 · MEDIUM 7 · LOW 3 · INFO 2*
 - **Severity**: CRITICAL
 - **Category**: CONFIGURATION
 - **Confidence**: HIGH
-- **Status**: OPEN
+- **Status**: RESOLVED (2026-10-06 — source verified: 7 service base + prod `application.yml` dùng nested `smartfarm.security.jwt.{issuer,jwk-set-uri,audiences}`). SOURCE_CODE_WINS over earlier OPEN. Xem `docs/history/resolved-issues.md`.
 - **Module**: `smartfarm-order-service` + `libs/smartfarm-security`
 - **Business capability**: Toàn bộ nghiệp vụ đặt hàng (order placement/saga/outbox) — service là owner của saga.
 - **Affected files**:
@@ -447,7 +447,7 @@ Tổng hợp mức độ: **CRITICAL 3 · HIGH 6 · MEDIUM 7 · LOW 3 · INFO 2*
 - **Severity**: HIGH
 - **Category**: CONFIGURATION
 - **Confidence**: HIGH
-- **Status**: OPEN
+- **Status**: RESOLVED (2026-10-06 — source verified: cả 7 `application-test.yml` đã chuyển sang nested `jwt:` form, hết flat key). SOURCE_CODE_WINS over earlier OPEN. Xem `docs/history/resolved-issues.md`.
 - **Module**: finance / health / inventory / livestock / order / reporting (`application-test.yml`)
 - **Business capability**: CI / profile `test` reproducibility (không chặn prod — ISSUE-01 đã vá).
 - **Affected files**: `services/{finance,health,inventory,livestock,order,reporting}-service/src/main/resources/application-test.yml`

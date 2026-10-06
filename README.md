@@ -1,166 +1,114 @@
-# SmartFarm Platform | Maven monorepo
+# SmartFarm Platform — Maven monorepo
 
-Đây là **một repository Git duy nhất** — một Maven **monorepo** đa module. Root `pom.xml` vừa là **parent POM**
-(mọi module kế thừa cấu hình chung từ nó) vừa là **reactor aggregator** (liệt kê toàn bộ 13 module). Source theo
-`com.htv.smartfarm`, Spring Boot 4.1.1, Spring gRPC 1.1.1, **Java 17**.
+Một repository Git duy nhất, Maven **monorepo** đa module. Root `pom.xml` vừa là **parent POM** vừa là **reactor aggregator** (**14 module** con). Source `com.htv.smartfarm`, **Spring Boot 4.1.1**, **Spring gRPC 1.1.1**, **Java 17**.
 
-> Trước đây dự án được tổ chức theo mô hình nhiều repository (mỗi module một repo, ghép bằng aggregator). Nay đã hợp
-> nhất thành **một repo** để dễ quản lý phiên bản, xem toàn cảnh kiến trúc và build một phát. Xem `docs/shared/REPOSITORY-STRATEGY.md`
-> để hiểu chiến lược monorepo và lý do hợp nhất.
+> 📖 **Toàn bộ tài liệu điều hướng từ [`docs/index.md`](./docs/index.md).**
 
-## Bắt đầu nhanh
+## 1. Project overview & mục tiêu
 
-1. Cài **JDK 17+**, **Maven 3.9+**, Git, Docker Compose và Python 3 (Python chỉ cần cho `doctor.sh`/`bootstrap.sh`).
-   Kiểm tra `java -version` và `mvn -version` cùng trỏ về JDK 17+.
-2. Clone repo và vào thư mục gốc:
-   ```bash
-   git clone https://github.com/hatrongvu13/smartfarm-platform-maven-starter.git
-   cd smartfarm-platform-maven-starter
-   ```
-   Không cần clone gì thêm — mọi module đã nằm trong repo này.
-3. Kiểm tra môi trường: `./scripts/doctor.sh` (verify toolchain + 13 module trong reactor).
-4. Build + cài toàn bộ vào local repo: `./scripts/bootstrap.sh` (tương đương `mvn -B clean install`). Maven Reactor tự
-   sắp thứ tự dependency nội bộ.
-5. Tùy chọn khởi chạy hạ tầng: `docker compose up -d` (PostgreSQL, Mosquitto, Redis). **H2 dev không cần Docker**.
-6. Khởi chạy stack v1 (7 tiến trình, profile `dev`). Thứ tự + port đầy đủ ở
-   [`docs/v1/GATEWAY-API-V1.md` §11](./docs/v1/GATEWAY-API-V1.md#11-khởi-động-dev--cho-người-chạy-thử):
-   identity(:8092) · livestock(:8081/9091) · inventory(:8083/9093) · finance(:8084/9094) ·
-   order(:8085/9095) · reporting(:8086/9096) · gateway(:8080). Ví dụ tối thiểu để smoke test một luồng:
-   ```bash
-   mvn -f services/smartfarm-identity-service/pom.xml  spring-boot:run   # :8092 (loopback)
-   mvn -f services/smartfarm-livestock-service/pom.xml spring-boot:run   # :8081 / gRPC 9091
-   mvn -f apps/smartfarm-gateway/pom.xml               spring-boot:run   # :8080 INGRESS
-   ```
-7. Kiểm nhanh toàn bộ luồng nghiệp vụ: `./scripts/release/v1/run-all.sh`.
-8. Kiểm tra: `curl http://localhost:8081/actuator/health` và `curl http://localhost:8080/actuator/health`.
-9. GraphQL (đọc, cần token — schema `tasks/task/orders/order`, xem [API §9](./docs/v1/GATEWAY-API-V1.md#9-graphql-đọc-linh-hoạt--post-graphql)):
-   ```bash
-   curl -s http://localhost:8080/graphql -H "Authorization: Bearer $ACCESS" \
-     -H 'Content-Type: application/json' \
-     -d '{"query":"{ orders(farmId:\"farm-1\",limit:5){ orderId status totalMinor } }"}'
-   ```
-   Thử tay ở GraphiQL: [http://localhost:8080/graphiql](http://localhost:8080/graphiql).
+Nền tảng quản lý nông trại chăn nuôi theo kiến trúc **microservice**: một **gateway** (edge, REST + GraphQL + WebSocket) dịch sang **gRPC** gọi các service nghiệp vụ; sự kiện qua **MQTT** (outbox/inbox); mỗi service có Postgres (Flyway). Mục tiêu: nền tảng chăn nuôi end-to-end (identity/RBAC, order-saga, inventory, finance, livestock, health, reporting) tiến tới production, mở rộng sang warehouse (V2) và IoT/connected-farm (V3).
 
-### Cách chạy ổn định cho nhiều terminal
+## 2. Current status
 
-Luôn `mvn clean install` từ root một lần trước, để các module nội bộ (`common-kernel`, `security`, `proto`) có mặt
-trong local repo; sau đó chạy từng service bằng `-f` (không dùng `-am` với `spring-boot:run`).
+- **Giai đoạn**: cuối Foundation / giữa **V1 Core Platform**. Chi tiết: [`docs/PROJECT-STATUS.md`](./docs/PROJECT-STATUS.md), [`docs/roadmap.md`](./docs/roadmap.md).
+- Build + boot + config ổn định (profile mặc định `dev`, security key nested fix).
+- Core domain + order saga + security hoàn chỉnh (verified).
+- Còn mở: event-integrity (identity JSON vs protobuf), health service orphan khỏi gateway, prod-ize các facade dev-only, MQTT hardening. Danh sách: [`docs/audit/unresolved-items.md`](./docs/audit/unresolved-items.md).
+- ⚠️ Chưa phải hệ thống production.
+
+## 3. Danh sách service (14 module reactor)
+
+| Nhóm | Module |
+|------|--------|
+| Edge | `apps/smartfarm-gateway` |
+| Services | identity, order, inventory, finance, livestock, health, reporting (`services/smartfarm-*-service`) |
+| Platform | `platform/smartfarm-readiness-service`, `platform/smartfarm-farm-simulator` |
+| Libs | `libs/smartfarm-{common-kernel,security,proto,messaging}` |
+
+Chi tiết từng service: [`docs/services/`](./docs/services/gateway.md).
+
+## 4. Quick start
 
 ```bash
-mvn -B clean install
-mvn -f services/smartfarm-livestock-service/pom.xml spring-boot:run
-# terminal khác
-mvn -f apps/smartfarm-gateway/pom.xml spring-boot:run
-# terminal khác
-mvn -f platform/smartfarm-readiness-service/pom.xml spring-boot:run
-# terminal khác
-mvn -f platform/smartfarm-farm-simulator/pom.xml spring-boot:run
+# 1. Yêu cầu: JDK 17+, Maven 3.9+, Git, Docker Compose, Python 3
+./scripts/doctor.sh          # verify toolchain + 14 module reactor
+./scripts/bootstrap.sh       # mvn -B clean install
+docker compose up -d         # postgres:17, mosquitto:2, redis:8
+
+# 2. Khởi chạy dev (profile dev tự nhận, KHÔNG cần set SPRING_PROFILES_ACTIVE)
+mvn -f services/smartfarm-identity-service/pom.xml  spring-boot:run   # :8092
+mvn -f services/smartfarm-livestock-service/pom.xml spring-boot:run   # :8081 / gRPC 9091
+mvn -f apps/smartfarm-gateway/pom.xml               spring-boot:run   # :8080 INGRESS
+
+# 3. Smoke test + health
+./scripts/release/v1/run-all.sh
+curl http://localhost:8080/actuator/health
 ```
 
-REST mẫu (nền tảng vận hành):
+Hướng dẫn đầy đủ: [`docs/operations/local-development.md`](./docs/operations/local-development.md).
 
-```bash
-curl http://localhost:8090/api/v1/platform/readiness      # readiness snapshot
-curl -X POST http://localhost:8091/api/v1/simulations/FEEDING   # simulator (trả payload mô phỏng)
+### Port (profile dev)
+Ingress công khai **chỉ** gateway `:8080`; service nghiệp vụ là gRPC nội bộ.
+
+| Module | HTTP | gRPC |
+|--------|-----:|-----:|
+| gateway | 8080 | — |
+| identity | 8092 | 9092 |
+| livestock | 8081 | 9091 |
+| inventory | 8083 | 9093 |
+| finance | 8084 | 9094 |
+| order | 8085 | 9095 |
+| reporting | 8086 | 9096 |
+| health | 8087 | 9097 |
+| readiness | 8090 | 9100 |
+| farm-simulator | 8091 | 9101 |
+| Hạ tầng | Postgres 5432 · Mosquitto 1883/9001 · Redis 6379 | |
+
+## 5. Architecture overview
+gateway (edge) → gRPC → services; MQTT event bus (outbox/inbox); Postgres per service + Redis. Sơ đồ + chi tiết: [`docs/architecture/system-overview.md`](./docs/architecture/system-overview.md).
+
+## 6. Gateway mapping overview
+Client → gateway REST/GraphQL → gRPC service đích. Bảng route đầy đủ + gap: [`docs/architecture/gateway-mapping.md`](./docs/architecture/gateway-mapping.md).
+
+## 7. Service communication overview
+REST (client↔gateway, gateway↔identity auth), gRPC (gateway↔services, order↔inventory/finance saga), MQTT event. Ma trận: [`docs/architecture/service-communications.md`](./docs/architecture/service-communications.md). Luồng request: [`docs/architecture/request-flows.md`](./docs/architecture/request-flows.md).
+
+## 8. Documentation index
+→ [`docs/index.md`](./docs/index.md) (kiến trúc · API · services · operations · security · audit · history · backlog).
+
+## 9. Security
+JWT RS256 + JWKS, rotating refresh + reuse-detection, TOTP MFA, DB RBAC, gRPC fail-closed authz. Gaps: gRPC TLS off, MQTT broker chưa auth/TLS/ACL, HMAC envelope default-off. Chi tiết: [`SECURITY.md`](./SECURITY.md), [`docs/security/security-architecture.md`](./docs/security/security-architecture.md).
+
+## 10. License
+⚠️ **Chưa xác định** — cần project owner quyết định. Xem [`LICENSE-TODO.md`](./LICENSE-TODO.md).
+
+## 11. Known limitations
+- health-service không có đường qua gateway (orphan).
+- finance/reporting/livestock/inventory REST+GraphQL phần lớn **dev-only** (`@Profile dev&!prod`).
+- identity publish event JSON (lệch protobuf chuẩn) → không tới WS bridge.
+- inventory `AdjustStock`/`TraceLot`, health 6 RPC, farm.proto/telemetry.proto: chưa impl.
+- MQTT broker production chưa hardening; gRPC TLS là feature-switch (off).
+Đầy đủ: [`docs/audit/unresolved-items.md`](./docs/audit/unresolved-items.md).
+
+## 12. Roadmap (tóm tắt)
+**V0 Foundation ✅** → **V1 Core Platform ~ (hiện tại)** → **V2 Warehouse** → **V3 Connected Farm**. Chi tiết + milestone map: [`docs/roadmap.md`](./docs/roadmap.md). Backlog: [`backlog/README.md`](./backlog/README.md).
+
+## 13. TODO checklist còn hiệu lực
+- [ ] EVT-01: identity event → protobuf DomainEvent
+- [ ] GW-01: route gateway cho health-service
+- [ ] ISSUE-02: MQTT HMAC enable + broker auth/TLS/ACL
+- [ ] Prod path cho livestock/inventory/finance/reporting (gỡ dev-only)
+- [ ] inventory AdjustStock/TraceLot; health 6 RPC còn thiếu
+- [ ] gRPC TLS prod; observability cluster-wide; K8s cho 5 service
+- [x] Profile mặc định `dev` + security key nested (resolved)
+
+## 14. Layout
 ```
-
-**Lưu ý (trạng thái hiện tại):** các **service nghiệp vụ v1 đã hoàn thiện** — xem ma trận đầy đủ ở
-[`SMARTFARM-VERSION.md`](./SMARTFARM-VERSION.md) và API ở [`docs/v1/GATEWAY-API-V1.md`](./docs/v1/GATEWAY-API-V1.md):
-auth/RBAC, livestock (task + monitor quá hạn + schedule generator), inventory, finance, order-saga
-(multi-line + warehouse-per-line), reporting (CSV/XLSX/PDF render thật), GraphQL đọc (`/graphql`),
-realtime WebSocket (`/ws/events`), Flyway cho 5 DB Postgres. gRPC JWT interceptor + per-service token
-đã đăng ký ở các service (zero-trust, audit `actor_id`). TLS gRPC còn là feature-switch (`smartfarm.grpc.tls.enabled=false`),
-profile `dev-tls` dùng cert dev. Profile `dev` cho phép smoke test không cần token — **không dùng ở môi trường công khai**.
-Hai module nền tảng **readiness** (`GET /api/v1/platform/readiness`) và **farm-simulator**
-(`POST /api/v1/simulations/{type}`, hiện trả payload mô phỏng, chưa publish MQTT — có observer subscribe để chẩn đoán)
-là **công cụ vận hành**, không phải màn hình nghiệp vụ. Chưa phải hệ thống production.
-
-### Port mặc định (khớp `application.yml` từng module)
-
-Ingress công khai **chỉ** gateway `:8080`; mọi service nghiệp vụ là gRPC nội bộ (loopback), FE không gọi trực tiếp.
-
-| Module | HTTP | gRPC | Ghi chú |
-|---|---|---|---|
-| **Gateway** (BFF, ingress) | **8080** | — | REST + GraphQL + WS; là gRPC *client*, không mở gRPC server |
-| Identity | 8092 | — | HTTP-only, bind loopback (single-ingress); JWKS/login/admin/service-token |
-| Livestock | 8081 | 9091 | |
-| Inventory | 8083 | 9093 | |
-| Finance | 8084 | 9094 | |
-| Order | **8085** | **9095** | saga orchestrator |
-| Reporting | **8086** | **9096** | export worker + render |
-| Health | **8087** | **9097** | domain health (chưa nối FE v1) |
-| Readiness | 8090 | 9100 | nền tảng vận hành |
-| Farm-simulator | 8091 | 9101 | nền tảng vận hành |
-| Hạ tầng | — | — | PostgreSQL 5432, Mosquitto 1883/9001, Redis 6379 |
-
-> Các port từng lệch trong tài liệu cũ (reporting 9095, health 9092, gateway "gRPC 9090") đã được sửa khớp code.
-> Đặc biệt health dùng **9097** để không đụng finance **9094** (từng gây `UNIMPLEMENTED` khi hai service tranh cùng port).
-
-### Dev và prod
-
-Dev mặc định dùng **H2** (in-memory hoặc file) ở các service nghiệp vụ; persistence dùng **Spring Data JPA**, schema do
-Hibernate sinh (`spring.jpa.hibernate.ddl-auto=update` ở dev). Prod cấu hình `SPRING_PROFILES_ACTIVE=prod`, `*_DB_URL`,
-`*_DB_USER`, `*_DB_PASSWORD`, và chạy `ddl-auto=validate`. **Flyway đã quản schema** cho 5 service Postgres
-(identity/livestock/inventory/finance/order — baseline `V1__*_baseline.sql` ở `src/main/resources/db/migration/`,
-`validate` + baseline-on-migrate); reporting dùng H2 in-mem (dev) nên giữ `ddl-auto`.
-**Không dùng Docker Compose local hoặc Mosquitto anonymous ở production.** Mỗi service cần
-database/schema riêng. `docker compose down` dừng hạ tầng local.
-
-### Build một module và dependency của nó
-
-```bash
-mvn -pl services/smartfarm-livestock-service -am clean verify
-mvn -pl apps/smartfarm-gateway -am clean verify
-mvn -pl libs/smartfarm-proto -am clean verify
+pom.xml                 parent + aggregator (14 module)
+libs/                   common-kernel · security · proto · messaging (không chạy riêng)
+platform/               readiness-service · farm-simulator
+services/               identity · livestock · health · inventory · finance · order · reporting
+apps/smartfarm-gateway  edge REST/GraphQL/WS → gRPC
+docs/                   index.md + architecture/api/services/operations/security/audit/history
+backlog/                V1 / V2 / V3
 ```
-
-### Cấu trúc module & quản lý phiên bản
-
-Đây là monorepo, nên **không có `repositories.json`** và không có bước clone nhiều repo. Cấu hình chung được tập trung
-**một chỗ duy nhất** trong root `pom.xml`:
-
-- `<properties>`: `java.version`, `spring-grpc.version`, `grpc.version`, `paho.version`.
-- `<dependencyManagement>`: Spring gRPC BOM, 3 module nội bộ (theo `${project.version}`), và các pin bên thứ ba.
-- `<pluginManagement>`: `spring-boot-maven-plugin` (repackage).
-
-Mỗi module con kế thừa root qua `<parent>` và **không** khai lại version/Java/BOM. Các module **thư viện**
-(`libs/smartfarm-common-kernel`, `libs/smartfarm-security`, `libs/smartfarm-proto`) **không** đóng gói fat-jar (không
-chạy độc lập); các service/app mới bật repackage. Đổi một phiên bản dùng chung → sửa đúng một dòng ở root POM.
-
-### Layout
-
-```
-pom.xml                     parent + aggregator
-libs/                       thư viện dùng chung (không chạy riêng)
-  smartfarm-common-kernel
-  smartfarm-security
-  smartfarm-proto
-platform/                   dịch vụ nền tảng
-  smartfarm-readiness-service
-  smartfarm-farm-simulator
-services/                   microservice nghiệp vụ
-  smartfarm-livestock-service
-  smartfarm-health-service
-  smartfarm-inventory-service
-  smartfarm-identity-service
-  smartfarm-finance-service
-  smartfarm-order-service
-  smartfarm-reporting-service
-apps/
-  smartfarm-gateway         BFF REST/GraphQL + WebSocket -> gRPC
-```
-
-### Tài liệu
-
-- [`docs/operations/ORDER-PRODUCTION-ACCEPTANCE.md`](./docs/operations/ORDER-PRODUCTION-ACCEPTANCE.md): production validation và release acceptance checklist.
-
-- [`docs/operations/ORDER-OPERATIONS-RUNBOOK.md`](./docs/operations/ORDER-OPERATIONS-RUNBOOK.md): runbook vận hành Order/Saga/outbox/projection và alert response.
-- [`docs/README.md`](./docs/README.md): **chỉ mục tài liệu** — phân loại dùng-chung vs theo-version để truy vết.
-- [`SMARTFARM-VERSION.md`](./SMARTFARM-VERSION.md): ma trận hoàn thiện v1 + gợi ý màn hình FE + backlog v2.
-- [`docs/v1/RELEASE-NOTES-v1.md`](./docs/v1/RELEASE-NOTES-v1.md): **release notes v1** — phạm vi, các fix, cách chạy & test.
-- [`docs/v1/GATEWAY-API-V1.md`](./docs/v1/GATEWAY-API-V1.md): toàn bộ REST + GraphQL + WebSocket API qua gateway.
-- [`docs/backlog/`](./docs/backlog/README.md): **kế hoạch từng version** — require FE v1 (tự chứa), gợi ý stack FE + 3D, backlog v2.
-- `docs/shared/ARCHITECTURE.md`: kiến trúc, ràng buộc, Saga, security, TLS.
-- `docs/shared/SEQUENCES.md`: sequence Mermaid.
-- `docs/shared/ROADMAP.md`: các giai đoạn hoàn thiện.
-- `docs/shared/REPOSITORY-STRATEGY.md`: chiến lược monorepo — parent+aggregator, quản lý phiên bản tập trung, tách nhiệm vụ module.
