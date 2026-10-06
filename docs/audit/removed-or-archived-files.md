@@ -8,6 +8,20 @@
 ## Đã ARCHIVE
 **Không có trong đợt này** — các ứng viên archive (13 CHUNK summary) được GIỮ NGUYÊN vị trí vì vẫn mang giá trị lịch sử quá trình cleanup; chỉ ghi nhận là archive-candidate, chưa di chuyển để tránh gãy link nội bộ chưa kiểm chứng.
 
+### Archive 2026-10-07 — scripts curl thủ công lỗi thời
+Di chuyển vào `scripts/legacy/` (git mv, phục hồi được), KHÔNG xóa. Chỉ được tham chiếu bởi
+doc lịch sử (`docs/cleanup/*`), không bởi CI/Docker/build/suite đang chạy. Đã bị thay thế bởi
+suite có cấu trúc (`scripts/{health,smoke,rest,graphql}` + `run-all.sh`) và Bruno collection.
+
+| File | Loại | Lý do | Thay thế |
+|------|------|-------|----------|
+| `scripts/phase2-curl-test.sh` | manual curl | phase-2 REST walkthrough cũ | `scripts/rest/*`, Bruno `03-05` |
+| `scripts/phase3-saga-curl-test.sh` | manual curl | order-saga curl flow | Bruno `04 - order/*` |
+| `scripts/livestock-registry-test.sh` | manual curl | livestock registry | Bruno `05 - livestock/*` |
+| `scripts/livestock-lifecycle-test.sh` | manual curl | livestock lifecycle | Bruno `05 - livestock/*` |
+| `scripts/dev/curl-06-cancel-completed.sh` | manual curl | ad-hoc order curl | Bruno `04 - order/*` |
+| `scripts/dev/curl-07-multiline.sh` | manual curl | ad-hoc order curl | Bruno `04 - order/*` |
+
 ## Archive-candidate (ghi nhận, CHƯA hành động)
 | File | Loại | Lý do | Thay thế | Rủi ro nếu xóa | Khôi phục |
 |------|------|-------|----------|----------------|-----------|

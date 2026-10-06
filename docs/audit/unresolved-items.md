@@ -27,3 +27,36 @@
 | DOC-02 | README | Module count "13" — thực tế 14 trong reactor pom | LOW | `pom.xml` vs README |
 
 ← [Documentation Audit](documentation-audit.md) · [Resolved Issues](../history/resolved-issues.md)
+
+
+---
+
+## Fix pass 2026-10-07 (verified against source + live dev)
+
+**Resolved / re-classified this pass:**
+
+| ID | Resolution |
+|----|-----------|
+| ISSUE-07 | **FALSE POSITIVE — won't fix.** Verified: the security lib has 3 distinct `@AutoConfiguration` classes (properties, gRPC security, MQTT security), each a separate concern — no duplication. `IdentityGrpcSecurityConfiguration` is identity's own gRPC *policy* config, not a copy of the lib auto-config. Nothing to consolidate. |
+| ISSUE-12 | Partially addressed: super-admin now authorizes via an explicit wildcard `*` scope (expanded in `JwtAuthorities.KNOWN_SCOPES`) instead of a silent bypass. Audit-logging of super-admin actions still open (P2). |
+| DOC-01 | **RESOLVED** — README rewritten as a portal; all internal links fixed (0 broken). |
+| DOC-02 | **RESOLVED** — README module count corrected. |
+| CFG-01 / ISSUE-01 / ISSUE-19 | **RESOLVED** earlier (profile config + nested jwt.* + test profiles). |
+
+**New capability added (not an issue — feature):**
+- `GET /api/v1/platform/deployment-state` (public, pre-login, via gateway → identity): returns
+  `{initialized, superAdminExists, bootstrapRequired}` so the FE knows a fresh deployment and routes
+  to the one-time super-admin bootstrap. Verified live: flips correctly before/after bootstrap.
+
+**REST ↔ gRPC boundary — audited, COMPLIANT (no migration needed):**
+- Inter-service **business** communication is already gRPC (order↔inventory↔finance; gateway→services).
+- REST is confined to the allowed tiers: gateway edge/public (`AuthProxyController`, `WhoAmIController`,
+  `OrderRestController`, `OrderSagaAdminController`, `PlatformStateController`), OAuth2/auth
+  (`AuthController`), actuator/health, dev facades (`@Profile("dev & !prod")`), and `/internal/*`
+  ops-admin endpoints (loopback-bound in prod, scope-gated) for outbox/saga/projection recovery.
+- The `/internal/*` admin endpoints are intentionally kept REST (human/script ops tooling), not an
+  inter-service business path — classified `[KEEP]`, not a boundary violation.
+
+**Still OPEN (unchanged, need their own focused pass):** ISSUE-02 (MQTT HMAC enable + broker ACL/TLS,
+CRITICAL), ISSUE-06 (orphan `identity.command.result`), ISSUE-10/11/13/15/16, EVT-01/02/03, GW-01/02.
+These are feature/security gaps, not quick fixes — see the status doc for the roadmap.

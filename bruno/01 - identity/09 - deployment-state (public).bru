@@ -1,0 +1,31 @@
+meta {
+  name: 09 - deployment-state (public)
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/platform/deployment-state
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 200 (public, no auth)", function () { expect(res.getStatus()).to.equal(200); });
+  test("reports bootstrap state", function () {
+    const b = res.getBody();
+    expect(b.bootstrapRequired).to.be.a("boolean");
+    expect(b.superAdminExists).to.be.a("boolean");
+  });
+}
+
+docs {
+  Public, pre-login platform state for the FE — no auth. Returns
+  `{initialized, superAdminExists, bootstrapRequired}`.
+
+  - `bootstrapRequired: true` → fresh deployment with no super-admin yet → the FE should route to the
+    one-time `00 - bootstrap-superadmin` flow.
+  - `bootstrapRequired: false` → system initialized → normal login (`01 - login`).
+
+  Verified: flips from true→false after `00 - bootstrap-superadmin` succeeds.
+}

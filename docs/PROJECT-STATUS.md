@@ -60,3 +60,45 @@ P2: nối MQTT HMAC (ISSUE-02), khép command-result (ISSUE-06), mở rộng IT.
 
 ## 42.9 Task tiếp theo (chưa bị block)
 **`V0.1-001` — vá 6 `application-test.yml` sang nested `smartfarm.security.jwt.*`.** Độc lập, không phụ thuộc.
+
+
+---
+
+## Status update — 2026-10-07 (after auth/security fix pass)
+
+### Verified complete this pass (live against dev)
+- **Identity/auth hardening**: endpoint-based first super-admin (`POST /api/v1/auth/bootstrap-superadmin`,
+  one-shot, 409 after), email+password login (tenantId optional; tenant list when >1),
+  super-admin wildcard `*` recognised at the gateway, TOTP enrollment working.
+- **New FE signal**: `GET /api/v1/platform/deployment-state` → `{initialized, superAdminExists,
+  bootstrapRequired}` (public, pre-login).
+- **Single-ingress**: every service binds HTTP + gRPC to loopback by default (dev + prod); gateway is
+  the sole public ingress.
+- **Bug fixes landed**: MQTT health-indicator NPE; `jackson-datatype-jsr310` (unblocked ALL integration
+  event publishing); TOTP pending-enrollment supersede; bootstrap transaction isolation (409 correct).
+- **Cleanup**: 6 superseded manual curl scripts archived to `scripts/legacy/`; Bruno API collection added;
+  docs portal + links fixed.
+
+### Where the project stands
+| Area | State |
+|------|-------|
+| Core domain (order saga, inventory, finance ledger, livestock, identity RBAC/MFA) | **Implemented**, gRPC internal |
+| REST↔gRPC boundary | **Compliant** — internal business = gRPC; REST = edge/auth/actuator/dev/ops-admin |
+| Proto centralization (`libs/smartfarm-proto`) | **Done** (12 protos, versioned, 0 dup) |
+| Shared libs (proto/security/common-kernel/messaging) | **Done** |
+| Auth / first-deployment lifecycle | **Done** this pass |
+| Prod single-ingress binding | **Done** this pass |
+
+### Remaining to complete (prioritised)
+- **P1 (prod-blocking security)**: ISSUE-02 — enable MQTT HMAC sign→verify + broker auth/TLS/ACL
+  (currently impl present but default-off, `allow_anonymous true`).
+- **P1 (integration gaps)**: EVT-01 (identity events are JSON, others protobuf → WS bridge drops them);
+  EVT-03 + GW-01 (health-service has no prod event path and is not wired into the gateway at all).
+- **P2**: ISSUE-06 (orphan `identity.command.result` producer), ISSUE-12 (audit-log super-admin actions),
+  GW-02 (finance only dev-only GraphQL, no prod path).
+- **P3/P4**: ISSUE-10/11/13 (MQTT client-id/session, per-service audience, externalize gRPC deadlines +
+  circuit-breaker), ISSUE-15 (Flyway-only ddl), ISSUE-16 (externalize dev secrets).
+- **Infra**: k8s manifest exists only for order+gateway — the other services need manifests for a full
+  prod deploy.
+
+Full open-issue detail: `docs/audit/unresolved-items.md`.
