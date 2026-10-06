@@ -77,4 +77,11 @@ public interface MembershipRoleRepository
     long countAssignmentsByRoleIds(
             @Param("roleIds") Collection<String> roleIds
     );
+
+    @Query("""
+            select count(mr)
+            from MembershipRoleEntity mr
+            where mr.role.code = :roleCode
+            """)
+    long countByRoleCode(@Param("roleCode") String roleCode);
 }

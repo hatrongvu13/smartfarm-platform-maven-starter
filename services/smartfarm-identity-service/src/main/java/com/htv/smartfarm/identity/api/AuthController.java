@@ -26,6 +26,7 @@ public class AuthController {
 
     public record Registration(String email, String password) { }
     public record Login(String tenantId, String email, String password) { }
+    public record BootstrapSuperAdmin(String email, String password) { }
     public record Refresh(String refreshToken) { }
     public record MfaVerification(
             String challengeToken,
@@ -71,6 +72,23 @@ public class AuthController {
                 request.email(),
                 request.password()
         );
+    }
+
+    @PostMapping("/api/v1/auth/bootstrap-superadmin")
+    public ResponseEntity<?> bootstrapSuperAdmin(
+            @RequestBody BootstrapSuperAdmin request
+    ) {
+        try {
+            return ResponseEntity.ok(
+                    auth.bootstrapSuperAdmin(request.email(), request.password())
+            );
+        } catch (org.springframework.web.server.ResponseStatusException ex) {
+            // Preserve the intended status (e.g. 409 when a super-admin already exists). Returning
+            // it as a ResponseEntity body stops the resource-server entry point from rewriting an
+            // uncaught exception on this permitAll path into a generic 401.
+            return ResponseEntity.status(ex.getStatusCode())
+                    .body(java.util.Map.of("error", ex.getReason() == null ? "bootstrap failed" : ex.getReason()));
+        }
     }
 
     @PostMapping("/api/v1/auth/mfa/enrollment/begin")

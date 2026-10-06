@@ -11,6 +11,32 @@ public final class JwtAuthorities {
      */
     public static final String WILDCARD = "SCOPE_*";
 
+    /**
+     * The complete set of scope authorities the edge (gateway) enforces via
+     * {@code @PreAuthorize("hasAuthority('SCOPE_x')")}. A super-admin token carries scope {@code *},
+     * but Spring Security 7 authorizes by comparing authority STRINGS (not object equality), so a
+     * bare {@code SCOPE_*} does not satisfy {@code hasAuthority('SCOPE_farm:read')}. We therefore
+     * expand {@code *} into these concrete authorities so a root token passes every scope gate.
+     *
+     * <p>KEEP THIS IN SYNC with the gateway controllers: when you add a new
+     * {@code hasAuthority('SCOPE_...')} check, add the bare scope here so super-admin keeps working.
+     * (Enumerated from the gateway's @PreAuthorize usages.)</p>
+     */
+    public static final Set<String> KNOWN_SCOPES = Set.of(
+            "farm:read",
+            "orders:read",
+            "orders:write",
+            "orders:saga:admin",
+            "tasks:write",
+            "inventory:write",
+            "report:read",
+            "report:write",
+            "identity:principal:read",
+            "identity:security:read",
+            "identity:user:read",
+            "identity:role:read"
+    );
+
     private JwtAuthorities() {
     }
 
@@ -21,6 +47,14 @@ public final class JwtAuthorities {
         Object roles = jwt.getClaims().get("roles");
         if (roles instanceof Collection<?> list) for (Object role : list) {
             if (role instanceof String s && s.matches("[A-Za-z0-9_:-]{1,64}")) result.add("ROLE_" + s);
+        }
+        // Super-admin: a wildcard scope "*" (-> SCOPE_*) is expanded to the concrete known scope
+        // authorities so plain hasAuthority('SCOPE_x') checks pass. SCOPE_* itself is retained so
+        // isSuperAdmin() still recognises the root token.
+        if (result.contains(WILDCARD)) {
+            for (String scope : KNOWN_SCOPES) {
+                result.add("SCOPE_" + scope);
+            }
         }
         return Set.copyOf(result);
     }

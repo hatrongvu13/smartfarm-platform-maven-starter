@@ -73,10 +73,13 @@ public class AuthenticatorService {
                 userId, AuthenticatorType.TOTP, AuthenticatorStatus.ACTIVE)) {
             throw new IllegalStateException("An active TOTP authenticator already exists");
         }
-        if (authenticators.existsByUserIdAndTypeAndStatus(
-                userId, AuthenticatorType.TOTP, AuthenticatorStatus.PENDING)) {
-            throw new IllegalStateException("A pending TOTP enrollment already exists");
-        }
+        // A prior begin that was never confirmed leaves a PENDING authenticator. Rather than
+        // dead-ending the user (previously threw "A pending TOTP enrollment already exists"),
+        // supersede it: delete the stale pending row and issue a fresh secret. Only the
+        // confirm step promotes PENDING -> ACTIVE, so discarding an unconfirmed one is safe.
+        authenticators.findFirstByUserIdAndTypeAndStatus(
+                userId, AuthenticatorType.TOTP, AuthenticatorStatus.PENDING)
+                .ifPresent(authenticators::delete);
         byte[] secretBytes = new byte[20];
         random.nextBytes(secretBytes);
         String secret = Base32Support.encode(secretBytes);

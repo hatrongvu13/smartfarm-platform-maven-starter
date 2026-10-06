@@ -39,6 +39,16 @@ public class AuthProxyController {
     }
 
     @PostMapping(
+            value = "/api/v1/auth/bootstrap-superadmin",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public Mono<ResponseEntity<String>> bootstrapSuperAdmin(
+            @RequestBody(required = false) String body
+    ) {
+        return post("/api/v1/auth/bootstrap-superadmin", body);
+    }
+
+    @PostMapping(
             value = "/api/v1/auth/mfa/verify",
             produces = MediaType.APPLICATION_JSON_VALUE
     )
@@ -46,6 +56,26 @@ public class AuthProxyController {
             @RequestBody(required = false) String body
     ) {
         return post("/api/v1/auth/mfa/verify", body);
+    }
+
+    @PostMapping(
+            value = "/api/v1/auth/mfa/enrollment/begin",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public Mono<ResponseEntity<String>> beginTotpEnrollment(
+            @RequestBody(required = false) String body
+    ) {
+        return post("/api/v1/auth/mfa/enrollment/begin", body);
+    }
+
+    @PostMapping(
+            value = "/api/v1/auth/mfa/enrollment/confirm",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public Mono<ResponseEntity<String>> confirmTotpEnrollment(
+            @RequestBody(required = false) String body
+    ) {
+        return post("/api/v1/auth/mfa/enrollment/confirm", body);
     }
 
     @PostMapping(

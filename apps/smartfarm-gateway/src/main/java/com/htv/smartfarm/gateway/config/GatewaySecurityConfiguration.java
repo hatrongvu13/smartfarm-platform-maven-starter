@@ -75,7 +75,10 @@ public class GatewaySecurityConfiguration {
                                 HttpMethod.POST,
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
+                                "/api/v1/auth/bootstrap-superadmin",
                                 "/api/v1/auth/mfa/verify",
+                                "/api/v1/auth/mfa/enrollment/begin",
+                                "/api/v1/auth/mfa/enrollment/confirm",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout"
                         )

@@ -46,6 +46,8 @@ public class AuthService {
     public static final String MFA_REQUIRED = "MFA_REQUIRED";
     public static final String MFA_ENROLLMENT_REQUIRED =
             "MFA_ENROLLMENT_REQUIRED";
+    public static final String TENANT_SELECTION_REQUIRED =
+            "TENANT_SELECTION_REQUIRED";
 
     public record Tokens(
             String accessToken,
@@ -73,12 +75,14 @@ public class AuthService {
             String refreshToken,
             String challengeToken,
             List<String> availableMethods,
-            long challengeExpiresIn
+            long challengeExpiresIn,
+            List<TenantOption> tenants
     ) {
         public AuthenticationResponse {
             availableMethods = availableMethods == null
                     ? List.of()
                     : List.copyOf(availableMethods);
+            tenants = tenants == null ? List.of() : List.copyOf(tenants);
         }
 
         static AuthenticationResponse completed(Tokens value) {
@@ -90,7 +94,8 @@ public class AuthService {
                     value.refreshToken(),
                     null,
                     List.of(),
-                    0
+                    0,
+                    List.of()
             );
         }
 
@@ -107,7 +112,8 @@ public class AuthService {
                     null,
                     token,
                     methods,
-                    expiresIn
+                    expiresIn,
+                    List.of()
             );
         }
 
@@ -123,10 +129,22 @@ public class AuthService {
                     null,
                     challengeToken,
                     List.of("TOTP_ENROLLMENT"),
-                    challengeExpiresIn
+                    challengeExpiresIn,
+                    List.of()
+            );
+        }
+
+        static AuthenticationResponse tenantSelectionRequired(List<TenantOption> options) {
+            return new AuthenticationResponse(
+                    TENANT_SELECTION_REQUIRED,
+                    null, null, 0, null, null,
+                    List.of(), 0,
+                    options
             );
         }
     }
+
+    public record TenantOption(String tenantId, String tenantCode, String tenantName) { }
 
     private final UserAccountRepository accounts;
     private final TenantRepository tenants;
@@ -146,6 +164,7 @@ public class AuthService {
     private final SecureRandom random = new SecureRandom();
     private final String dummyHash;
     private IdentityIntegrationEventPublisher events;
+    private com.htv.smartfarm.identity.bootstrap.SuperAdminBootstrapService bootstrap;
 
     public AuthService(
             UserAccountRepository accounts,
@@ -187,6 +206,33 @@ public class AuthService {
             IdentityIntegrationEventPublisher events
     ) {
         this.events = events;
+    }
+
+    @Autowired
+    void setSuperAdminBootstrapService(
+            com.htv.smartfarm.identity.bootstrap.SuperAdminBootstrapService bootstrap
+    ) {
+        this.bootstrap = bootstrap;
+    }
+
+    /**
+     * One-time system super-admin registration (D1): creates the first super-admin and returns a
+     * COMPLETED token immediately. No TOTP gate; the TOTP enrollment is printed to the service
+     * console for the admin to enable later. Refuses (409) once any super-admin exists.
+     */
+    @Transactional
+    public AuthenticationResponse bootstrapSuperAdmin(String rawEmail, String rawPassword) {
+        password(rawPassword);
+        var result = bootstrap.createFirstSuperAdmin(rawEmail, rawPassword);
+        UserAccountEntity account = accounts.findByIdForUpdate(result.userId())
+                .orElseThrow(AuthService::unauthorized);
+        TenantMembershipEntity membership = memberships
+                .findByTenantAndUserForUpdate(result.tenantId(), result.userId())
+                .orElseThrow(AuthService::unauthorized);
+        account.recordLoginSuccess(clock.instant());
+        return AuthenticationResponse.completed(
+                issue(account, membership, UUID.randomUUID().toString())
+        );
     }
 
     public static String email(String input) {
@@ -258,7 +304,7 @@ public class AuthService {
             String rawEmail,
             String rawPassword
     ) {
-        if (tenantId == null || tenantId.isBlank() || rawPassword == null) {
+        if (rawPassword == null) {
             throw unauthorized();
         }
         String normalizedEmail = email(rawEmail);
@@ -301,8 +347,35 @@ public class AuthService {
             throw unauthorized();
         }
 
+        // Resolve the tenant from EMAIL. tenantId is optional: with a single active membership we
+        // log in straight away; with several we return the choosable list; an explicit tenantId
+        // (the user's follow-up choice, or a legacy caller) is honoured as before.
+        String resolvedTenantId = tenantId;
+        if (resolvedTenantId == null || resolvedTenantId.isBlank()) {
+            List<TenantMembershipEntity> active = memberships
+                    .findAllByUserIdOrderByTenantNameAsc(account.getId())
+                    .stream()
+                    .filter(m -> m.getStatus() == MembershipStatus.ACTIVE
+                            && m.getTenant().isEnabled())
+                    .toList();
+            if (active.isEmpty()) {
+                throw unauthorized();
+            }
+            if (active.size() > 1) {
+                return AuthenticationResponse.tenantSelectionRequired(
+                        active.stream()
+                                .map(m -> new TenantOption(
+                                        m.getTenant().getId(),
+                                        m.getTenant().getCode(),
+                                        m.getTenant().getName()))
+                                .toList()
+                );
+            }
+            resolvedTenantId = active.get(0).getTenant().getId();
+        }
+
         TenantMembershipEntity membership = memberships
-                .findByTenantAndUserForUpdate(tenantId, account.getId())
+                .findByTenantAndUserForUpdate(resolvedTenantId, account.getId())
                 .orElseThrow(AuthService::unauthorized);
 
         if (!membership.getTenant().isEnabled()
@@ -310,17 +383,19 @@ public class AuthService {
             throw unauthorized();
         }
 
+        final String effectiveTenantId = resolvedTenantId;
+
         account.resetLoginFailure();
         List<String> methods = mfaChallenges.availableMethods(account.getId());
         boolean required = mfaRequirements.requiresTotp(
-                tenantId,
+                effectiveTenantId,
                 account.getId()
         );
 
         if (!methods.isEmpty()) {
             var challenge = mfaChallenges.create(
                     account.getId(),
-                    tenantId,
+                    effectiveTenantId,
                     MfaChallengePurpose.LOGIN
             );
             return AuthenticationResponse.challenge(
@@ -337,7 +412,7 @@ public class AuthService {
         if (required) {
             var challenge = mfaChallenges.create(
                     account.getId(),
-                    tenantId,
+                    effectiveTenantId,
                     MfaChallengePurpose.TOTP_ENROLLMENT
             );
             return AuthenticationResponse.enrollmentRequired(
@@ -352,7 +427,7 @@ public class AuthService {
 
         account.recordLoginSuccess(clock.instant());
         publishLoginSucceeded(
-                tenantId,
+                effectiveTenantId,
                 account,
                 "PASSWORD",
                 false
