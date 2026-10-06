@@ -25,15 +25,23 @@ public class IdentityMqttHealthIndicator implements HealthIndicator {
         Health.Builder health = snapshot.connected()
                 ? Health.up()
                 : Health.status(snapshot.state().name());
-        return health
+        health
                 .withDetail("state", snapshot.state().name())
                 .withDetail("connected", snapshot.connected())
-                .withDetail("consecutiveFailures", snapshot.consecutiveFailures())
-                .withDetail("clientId", snapshot.clientId())
-                .withDetail("startedAt", snapshot.startedAt())
-                .withDetail("lastConnectedAt", snapshot.lastConnectedAt())
-                .withDetail("lastDisconnectedAt", snapshot.lastDisconnectedAt())
-                .withDetail("lastErrorCode", snapshot.lastErrorCode())
-                .build();
+                .withDetail("consecutiveFailures", snapshot.consecutiveFailures());
+        // Optional fields are null until the client has connected / failed / errored.
+        // Health.Builder.withDetail rejects null values, so only add them when present.
+        addIfPresent(health, "clientId", snapshot.clientId());
+        addIfPresent(health, "startedAt", snapshot.startedAt());
+        addIfPresent(health, "lastConnectedAt", snapshot.lastConnectedAt());
+        addIfPresent(health, "lastDisconnectedAt", snapshot.lastDisconnectedAt());
+        addIfPresent(health, "lastErrorCode", snapshot.lastErrorCode());
+        return health.build();
+    }
+
+    private static void addIfPresent(Health.Builder health, String key, Object value) {
+        if (value != null) {
+            health.withDetail(key, value);
+        }
     }
 }
