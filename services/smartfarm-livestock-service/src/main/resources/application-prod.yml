@@ -20,3 +20,7 @@ smartfarm:
       allow-local-http: false
   outbox:
     enabled: false
+server:
+  # SINGLE-HOST prod: HTTP bound to loopback (gateway is the sole ingress).
+  address: ${LIVESTOCK_BIND_ADDRESS:127.0.0.1}
+spring.grpc.server.address: ${LIVESTOCK_GRPC_BIND_ADDRESS:127.0.0.1}

@@ -18,3 +18,6 @@ smartfarm:
       audiences:
         - smartfarm-health
       allow-local-http: false
+server:
+  address: ${HEALTH_BIND_ADDRESS:127.0.0.1}
+spring.grpc.server.address: ${HEALTH_GRPC_BIND_ADDRESS:127.0.0.1}

@@ -10,6 +10,9 @@ spring:
       port: 9097
 server:
   port: 8087
+  # SINGLE-INGRESS: internal service. Bind loopback only; the gateway is the sole public
+  # ingress. Override HEALTH_BIND_ADDRESS only for a private cross-host mesh.
+  address: ${HEALTH_BIND_ADDRESS:127.0.0.1}
 management:
   endpoints:
     web:

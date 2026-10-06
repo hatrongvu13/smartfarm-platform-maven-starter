@@ -15,6 +15,9 @@ spring:
 server:
   shutdown: graceful
   port: 8085
+  # SINGLE-INGRESS: internal service. Bind loopback only; the gateway is the sole public
+  # ingress. Override ORDER_BIND_ADDRESS only for a private cross-host mesh.
+  address: ${ORDER_BIND_ADDRESS:127.0.0.1}
 management:
   endpoint:
     health:

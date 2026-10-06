@@ -7,6 +7,11 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 server:
   port: 8081
+  # SINGLE-INGRESS: internal service. Bind loopback only so no external host reaches it
+  # directly — the gateway (same host) is the sole public ingress. Override
+  # LIVESTOCK_BIND_ADDRESS only when gateway/service run on different hosts behind a
+  # private network/mesh with its own access controls.
+  address: ${LIVESTOCK_BIND_ADDRESS:127.0.0.1}
 management:
   endpoints:
     web:

@@ -13,3 +13,6 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
   h2.console.enabled: false
+server:
+  address: ${REPORTING_BIND_ADDRESS:127.0.0.1}
+spring.grpc.server.address: ${REPORTING_GRPC_BIND_ADDRESS:127.0.0.1}

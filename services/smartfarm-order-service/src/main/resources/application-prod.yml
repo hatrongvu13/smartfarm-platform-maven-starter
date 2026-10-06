@@ -15,6 +15,13 @@ spring:
   grpc:
     server:
       port: ${ORDER_GRPC_PORT:9095}
+      # SINGLE-HOST prod: bind gRPC to loopback. Override ORDER_GRPC_BIND_ADDRESS=0.0.0.0
+      # (and set the callers' *_GRPC_HOST) only when services run on separate hosts.
+      address: ${ORDER_GRPC_BIND_ADDRESS:127.0.0.1}
+server:
+  # SINGLE-HOST prod: HTTP (dev REST facades + actuator) bound to loopback; the gateway
+  # is the sole public ingress. Override ORDER_BIND_ADDRESS only for a cross-host mesh.
+  address: ${ORDER_BIND_ADDRESS:127.0.0.1}
 smartfarm:
   security:
     # Dạng lồng `jwt` bắt buộc theo SmartFarmSecurityProperties.

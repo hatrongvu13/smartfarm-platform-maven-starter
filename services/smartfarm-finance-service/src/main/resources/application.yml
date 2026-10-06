@@ -7,6 +7,9 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 server:
   port: 8084
+  # SINGLE-INGRESS: internal service. Bind loopback only; the gateway is the sole public
+  # ingress. Override FINANCE_BIND_ADDRESS only for a private cross-host mesh.
+  address: ${FINANCE_BIND_ADDRESS:127.0.0.1}
 management:
   endpoints:
     web:

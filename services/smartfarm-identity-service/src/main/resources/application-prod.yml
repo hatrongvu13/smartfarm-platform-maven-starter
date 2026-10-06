@@ -13,7 +13,7 @@ spring:
     baseline-version: 0
 
 server:
-  address: ${IDENTITY_BIND_ADDRESS:0.0.0.0}
+  address: ${IDENTITY_BIND_ADDRESS:127.0.0.1}
 
 smartfarm:
   security:

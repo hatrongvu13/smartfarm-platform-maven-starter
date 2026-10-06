@@ -13,6 +13,9 @@ spring:
   grpc:
     server:
       port: 9093
+      address: ${INVENTORY_GRPC_BIND_ADDRESS:127.0.0.1}
+server:
+  address: ${INVENTORY_BIND_ADDRESS:127.0.0.1}
 smartfarm:
   security:
     jwt:
