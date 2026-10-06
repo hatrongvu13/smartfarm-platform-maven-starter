@@ -55,6 +55,7 @@ public class IdentityConfiguration {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/.well-known/jwks.json",
+                                "/api/v1/platform/deployment-state",
                                 "/actuator/health",
                                 "/actuator/health/**"
                         ).permitAll()

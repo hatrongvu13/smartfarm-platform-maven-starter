@@ -58,6 +58,11 @@ public class GatewaySecurityConfiguration {
                         )
                         .permitAll()
                         .pathMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/platform/deployment-state"
+                        )
+                        .permitAll()
+                        .pathMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",

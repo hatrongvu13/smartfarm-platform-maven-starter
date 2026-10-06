@@ -2,6 +2,7 @@ package com.htv.smartfarm.gateway.identity;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -93,6 +94,17 @@ public class AuthProxyController {
             @RequestBody(required = false) String body
     ) {
         return post("/api/v1/auth/logout", body);
+    }
+
+    @GetMapping(
+            value = "/api/v1/platform/deployment-state",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public Mono<ResponseEntity<String>> deploymentState() {
+        return identity.get()
+                .uri("/api/v1/platform/deployment-state")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchangeToMono(response -> response.toEntity(String.class));
     }
 
     private Mono<ResponseEntity<String>> post(
