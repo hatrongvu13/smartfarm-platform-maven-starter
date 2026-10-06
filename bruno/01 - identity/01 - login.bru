@@ -1,0 +1,56 @@
+meta {
+  name: 01 - login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  // Capture whichever token the response carries so later requests can use it.
+  if (b.challengeToken) bru.setEnvVar("challengeToken", b.challengeToken);
+  if (b.accessToken)  bru.setEnvVar("accessToken", b.accessToken);
+  if (b.refreshToken) bru.setEnvVar("refreshToken", b.refreshToken);
+  bru.setVar("authenticationStatus", b.authenticationStatus);
+  // TENANT_SELECTION_REQUIRED: the email has several tenants — pick one and resend login
+  // with "tenantId" added to the body (its id is listed in response .tenants[]).
+  if (Array.isArray(b.tenants) && b.tenants.length) {
+    bru.setVar("tenantOptions", b.tenants.map(t => `${t.tenantCode}=${t.tenantId}`).join(", "));
+  }
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("has an authenticationStatus", function () {
+    expect(res.getBody().authenticationStatus).to.be.a("string");
+  });
+}
+
+docs {
+  Step 1 of auth. Body is now just `{email, password}` — the identity service resolves the tenant
+  from the email. The response's `authenticationStatus` decides your path:
+
+  - **COMPLETED** → `accessToken` is captured; skip straight to any protected request.
+  - **MFA_REQUIRED** → account has TOTP enrolled. `challengeToken` captured → go to `05 - mfa-verify`.
+  - **MFA_ENROLLMENT_REQUIRED** → SUPERADMIN/ADMIN without TOTP yet. `challengeToken` captured →
+    go to `02 - mfa-enrollment-begin`.
+  - **TENANT_SELECTION_REQUIRED** → the email belongs to several tenants; `.tenants[]` lists them
+    (captured into the runtime var `tenantOptions`). Re-send this request with `"tenantId": "<id>"`
+    added to the body to pick one.
+
+  There is no auto-created default admin: seed the first super-admin via `00 - bootstrap-superadmin`.
+  The admin `{{adminEmail}}` has role SUPERADMIN (forced TOTP), so a brand-new super-admin that has
+  not enrolled yet returns MFA_ENROLLMENT_REQUIRED on first login.
+}

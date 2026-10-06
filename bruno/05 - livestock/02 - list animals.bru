@@ -1,0 +1,30 @@
+meta {
+  name: 02 - list animals
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/livestock/animals?farmId={{farmId}}&limit=50
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+params:query {
+  farmId: {{farmId}}
+  limit: 50
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns animals array", function () { expect(res.getBody().animals).to.be.an("array"); });
+}
+
+docs {
+  Needs `SCOPE_farm:read`. Query params `farmId` (required), `batchId?`, `limit`
+  (verified from `LivestockRegistryController.listAnimals`). Response `{count, animals[]}`.
+}

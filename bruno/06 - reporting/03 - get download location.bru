@@ -1,0 +1,24 @@
+meta {
+  name: 03 - get download location
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/reports/{{reportJobId}}/download
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+}
+
+docs {
+  Once the job is COMPLETED, fetch its download location. Needs `SCOPE_report:read`.
+  Returns `{url, contentType, expiresAt?}` (verified from `ReportingDevController.download`).
+}

@@ -1,0 +1,47 @@
+meta {
+  name: 02 - receive stock
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/inventory/receipts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Idempotency-Key: bruno-receipt-{{$timestamp}}
+}
+
+body:json {
+  {
+    "itemId": "{{itemId}}",
+    "farmId": "{{farmId}}",
+    "warehouseId": "wh-1",
+    "quantity": "500",
+    "unit": "KG"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.lotId) bru.setVar("lotId", b.lotId);
+  bru.setEnvVar("warehouseId", "wh-1");
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns a movementId", function () { expect(res.getBody().movementId).to.be.a("string"); });
+}
+
+docs {
+  DEV-only. Receives stock for the item created in step 1. Body
+  `{itemId, farmId, warehouseId, quantity, unit}` (verified from
+  `InventoryDevSetupController.Receive`). Run `01 - create item` first so `{{itemId}}`
+  is populated. Saves `warehouseId` for the order folder.
+}

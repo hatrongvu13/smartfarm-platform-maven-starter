@@ -1,0 +1,49 @@
+meta {
+  name: 00 - bootstrap-superadmin
+  type: http
+  seq: 0
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/bootstrap-superadmin
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "root@system.test",
+    "password": "a-very-long-admin-password-123"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.accessToken)  bru.setEnvVar("accessToken", b.accessToken);
+  if (b.refreshToken) bru.setEnvVar("refreshToken", b.refreshToken);
+}
+
+tests {
+  test("first bootstrap returns a token (200)", function () {
+    // 200 on the FIRST call; 409 "already exists" once a super-admin is present.
+    if (res.getStatus() === 200) {
+      expect(res.getBody().authenticationStatus).to.equal("COMPLETED");
+      expect(res.getBody().accessToken).to.be.a("string");
+    } else {
+      expect(res.getStatus()).to.equal(409);
+    }
+  });
+}
+
+docs {
+  ONE-TIME system super-admin registration. Run this ONCE on a fresh system (no super-admin yet):
+  it creates the first SUPERADMIN (email + password), grants the wildcard `*` scope, and returns a
+  COMPLETED access token immediately (D1 — no TOTP gate). `accessToken` is auto-saved, so you can
+  use every protected request right away.
+
+  - Second and later calls return **409** ("bootstrap is closed") — the gate is one-shot.
+  - TOTP is OPTIONAL and enabled later: the identity service prints an `otpauth://` enrollment URI
+    to its CONSOLE on first bootstrap; scan it and confirm via `03 - mfa-enrollment-confirm` when you
+    want MFA on. The secret is never returned over HTTP.
+  - There is NO auto-created default admin anymore; this endpoint is the only way to seed the first one.
+}

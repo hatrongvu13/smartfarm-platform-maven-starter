@@ -1,0 +1,25 @@
+meta {
+  name: 02 - get export job
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/reports/{{reportJobId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+}
+
+docs {
+  Poll the job from step 1 until `status` is terminal (e.g. REPORT_STATUS_COMPLETED).
+  Needs `SCOPE_report:read`. Returns the job view with `status`, `createdAt`,
+  `completedAt`, `errorCode?` (verified from `ReportingDevController.get`).
+}

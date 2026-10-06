@@ -1,0 +1,29 @@
+meta {
+  name: 03 - get order
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/orders/{{orderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.version !== undefined) bru.setEnvVar("orderVersion", String(b.version));
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+}
+
+docs {
+  Reads the current order state after submit (watch `status` move through the saga).
+  Needs `SCOPE_orders:read`. Refreshes `orderVersion` so a later cancel uses the latest.
+}

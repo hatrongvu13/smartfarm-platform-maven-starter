@@ -1,0 +1,44 @@
+meta {
+  name: 01 - request export
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/reports
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Idempotency-Key: bruno-report-{{$timestamp}}
+}
+
+body:json {
+  {
+    "farmId": "{{farmId}}",
+    "type": "LIVESTOCK_INVENTORY",
+    "format": "CSV"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.jobId) bru.setEnvVar("reportJobId", b.jobId);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns a jobId", function () { expect(res.getBody().jobId).to.be.a("string"); });
+}
+
+docs {
+  Needs `SCOPE_report:write` + `Idempotency-Key`. Body `{farmId, type?, format?,
+  fromEpochMs?, toEpochMs?, templateId?}` (verified from `ReportingDevController.RequestExport`).
+  `type`/`format` map to `REPORT_TYPE_*` / `REPORT_FORMAT_*` enums (plain name accepted).
+  Saves `reportJobId` for the poll + download steps.
+}

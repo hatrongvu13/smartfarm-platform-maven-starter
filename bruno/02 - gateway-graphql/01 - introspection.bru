@@ -1,0 +1,39 @@
+meta {
+  name: 01 - introspection
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{gatewayUrl}}/graphql
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:graphql {
+  {
+    __schema {
+      queryType { name }
+      mutationType { name }
+      subscriptionType { name }
+    }
+  }
+}
+
+tests {
+  test("HTTP 200 (token present)", function () { expect(res.getStatus()).to.equal(200); });
+  test("schema introspectable", function () {
+    expect(res.getBody().data.__schema.queryType.name).to.equal("Query");
+  });
+}
+
+docs {
+  `/graphql` is NOT public (verified from `GatewaySecurityConfiguration` — only
+  /actuator/health, /v3/api-docs, /graphiql, /ws, and the auth endpoints are permitAll).
+  So introspection needs a Bearer token: finish `01 - identity` first. Confirms the SDL
+  has Query + Mutation and no Subscription type.
+}

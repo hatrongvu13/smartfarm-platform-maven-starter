@@ -1,0 +1,18 @@
+vars:pre-request {
+  @gateway: {{gatewayUrl}}
+  @identity: {{identityUrl}}
+}
+
+docs {
+  # SmartFarm Platform — Bruno Collection
+
+  Ingress gateway: **{{gatewayUrl}}** (REST `/api/v1/*`, GraphQL `/graphql`).
+  Identity service direct: **{{identityUrl}}** (needed ONLY for TOTP enrollment).
+
+  Open this folder in Bruno (File → Open Collection), pick the **local** environment,
+  then run folders top-down. Full walkthrough is in `README.md` beside this file.
+
+  Auth model: everything except the public auth endpoints needs a Bearer token.
+  Run `01 - identity/` first — it logs in and (for the SUPERADMIN admin account)
+  walks TOTP enrollment, saving `accessToken` into the environment automatically.
+}

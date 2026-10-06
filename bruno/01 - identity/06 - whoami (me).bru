@@ -1,0 +1,25 @@
+meta {
+  name: 06 - whoami (me)
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200 with a valid token", function () { expect(res.getStatus()).to.equal(200); });
+}
+
+docs {
+  Smoke-check your token. `GET /api/v1/me` (verified from `WhoAmIController`) echoes the
+  JWT claims the gateway sees — subject, tenant_id, scopes/roles. If this is 401, your
+  `accessToken` is missing/expired; re-run the login→verify flow. Tokens live 15 min max.
+}

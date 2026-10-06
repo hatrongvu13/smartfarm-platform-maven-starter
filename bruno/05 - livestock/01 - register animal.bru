@@ -1,0 +1,38 @@
+meta {
+  name: 01 - register animal
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/livestock/animals
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "farmId": "{{farmId}}",
+    "tagCode": "COW-001",
+    "species": "CATTLE"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.animalId) bru.setEnvVar("animalId", b.animalId);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+}
+
+docs {
+  Needs `SCOPE_tasks:write`. Body `{farmId, tagCode, species?, barnId?, batchId?,
+  birthDateEpochMs?}` (verified from `LivestockRegistryController.registerAnimal`).
+  `farmId` + `tagCode` are required. Saves `animalId`.
+}

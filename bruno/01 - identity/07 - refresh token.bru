@@ -1,0 +1,36 @@
+meta {
+  name: 07 - refresh token
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refreshToken": "{{refreshToken}}"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.accessToken)  bru.setEnvVar("accessToken", b.accessToken);
+  if (b.refreshToken) bru.setEnvVar("refreshToken", b.refreshToken);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("rotates to a new access token", function () {
+    expect(res.getBody().accessToken).to.be.a("string");
+  });
+}
+
+docs {
+  Exchange the saved `refreshToken` for a fresh `accessToken` (and a rotated refresh
+  token — the old one is invalidated). Body `{refreshToken}` (verified from
+  `AuthController.Refresh`). Use when your 15-min access token expires mid-session.
+}

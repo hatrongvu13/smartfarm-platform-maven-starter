@@ -1,0 +1,47 @@
+meta {
+  name: 03 - mfa-enrollment-confirm
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/mfa/enrollment/confirm
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "challengeToken": "{{challengeToken}}",
+    "authenticatorId": "{{authenticatorId}}",
+    "code": "{{totpCode}}"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  const a = b.authentication || {};
+  if (a.accessToken)  bru.setEnvVar("accessToken", a.accessToken);
+  if (a.refreshToken) bru.setEnvVar("refreshToken", a.refreshToken);
+  if (Array.isArray(b.recoveryCodes)) bru.setVar("recoveryCodes", b.recoveryCodes.join(","));
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("enrollment yields an access token", function () {
+    expect(res.getBody().authentication.accessToken).to.be.a("string");
+  });
+}
+
+docs {
+  Step 3 — confirm enrollment, through the gateway `{{gatewayUrl}}`. Set env var
+  **`totpCode`** to the current 6-digit code
+  from the authenticator you set up in step 2, THEN send (the code rotates every 30s —
+  send promptly). Body `{challengeToken, authenticatorId, code}` (verified from
+  `AuthController.TotpEnrollmentConfirm`); both ids are already in the env from steps 1–2.
+
+  Response `{authenticatorId, recoveryCodes[], authentication:{accessToken,...}}`:
+  - **Save the `recoveryCodes`** somewhere safe — they are shown once.
+  - `accessToken` is auto-saved → you are now authenticated. Enrollment is a
+    one-time step; future logins use `04 - login (after enrollment)` + `05 - mfa-verify`.
+}

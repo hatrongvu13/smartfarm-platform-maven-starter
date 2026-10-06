@@ -1,0 +1,38 @@
+meta {
+  name: 02 - platformStatus
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{gatewayUrl}}/graphql
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:graphql {
+  query {
+    platformStatus {
+      name
+      status
+      tenantId
+    }
+  }
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("no GraphQL errors", function () {
+    expect(res.getBody().errors).to.be.undefined;
+  });
+}
+
+docs {
+  Requires authority `SCOPE_farm:read` (verified from `PlatformQuery.@PreAuthorize`).
+  The SUPERADMIN admin has the wildcard scope `*` → passes. A user without `farm:read`
+  gets a GraphQL `errors` entry (HTTP is still 200). Returns name/status/tenantId.
+}

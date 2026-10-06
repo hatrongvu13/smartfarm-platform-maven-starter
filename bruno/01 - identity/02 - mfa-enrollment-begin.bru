@@ -1,0 +1,55 @@
+meta {
+  name: 02 - mfa-enrollment-begin
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/mfa/enrollment/begin
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "challengeToken": "{{challengeToken}}",
+    "displayName": "SmartFarm Admin"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.authenticatorId) bru.setEnvVar("authenticatorId", b.authenticatorId);
+  // Extract the base32 TOTP secret from the otpauth URI for easy manual entry.
+  if (b.otpauthUri) {
+    const m = /[?&]secret=([^&]+)/i.exec(b.otpauthUri);
+    bru.setVar("otpauthUri", b.otpauthUri);
+    bru.setVar("totpSecret", m ? m[1] : "");
+  }
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns authenticatorId + otpauthUri", function () {
+    const b = res.getBody();
+    expect(b.authenticatorId).to.be.a("string");
+    expect(b.otpauthUri).to.match(/^otpauth:\/\/totp\//);
+  });
+}
+
+docs {
+  Step 2 — begin TOTP enrollment, through the gateway `{{gatewayUrl}}` (the gateway now
+  proxies the enrollment endpoints too, so clients never touch the identity service
+  directly). Needs the `challengeToken` captured in step 1.
+
+  Response `{authenticatorId, otpauthUri, expiresAt}` (verified from `TotpEnrollment`):
+  - `authenticatorId` is auto-saved to the env.
+  - `otpauthUri` is `otpauth://totp/...?secret=BASE32...`. The post-response script
+    pulls the `secret=` out into the runtime var `totpSecret`.
+
+  **Scan the code**: open the Response, copy `otpauthUri`, and either
+  (a) paste it into an authenticator app that accepts otpauth URIs, or
+  (b) feed `totpSecret` to a TOTP generator — CLI: `oathtool --totp -b "<secret>"`
+      (install `oath-toolkit`), or any authenticator (Google Authenticator / 1Password / Authy).
+  You have `expiresAt` (~5 min) to finish step 3.
+}

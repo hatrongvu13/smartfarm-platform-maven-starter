@@ -1,0 +1,57 @@
+meta {
+  name: 01 - create draft order
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/orders/drafts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Idempotency-Key: bruno-order-{{$timestamp}}
+}
+
+body:json {
+  {
+    "farmId": "{{farmId}}",
+    "lines": [
+      {
+        "itemId": "{{itemId}}",
+        "quantity": "10",
+        "unit": "KG",
+        "currency": "VND",
+        "unitPriceMinor": 1000,
+        "warehouseId": "{{warehouseId}}"
+      }
+    ]
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.orderId) bru.setEnvVar("orderId", b.orderId);
+  if (b.version !== undefined) bru.setEnvVar("orderVersion", String(b.version));
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns an orderId + version", function () {
+    const b = res.getBody();
+    expect(b.orderId).to.be.a("string");
+    expect(b.version).to.be.a("number");
+  });
+}
+
+docs {
+  Needs `SCOPE_orders:write` + `Idempotency-Key`. Body `{farmId, batchId?, lines[]}` with
+  each line `{itemId, quantity, unit, currency, unitPriceMinor, warehouseId}` (verified
+  from `OrderRestController.Create`/`Line`). Run the inventory folder first so `{{itemId}}`
+  and `{{warehouseId}}` exist. Saves `orderId` + `orderVersion` for submit/cancel.
+}

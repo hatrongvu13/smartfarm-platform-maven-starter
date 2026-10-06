@@ -1,0 +1,44 @@
+meta {
+  name: 03 - create task
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/livestock/tasks
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Idempotency-Key: bruno-task-{{$timestamp}}
+}
+
+body:json {
+  {
+    "farmId": "{{farmId}}",
+    "title": "Morning feeding round",
+    "type": "FEEDING"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.taskId) bru.setEnvVar("taskId", b.taskId);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns a taskId", function () { expect(res.getBody().taskId).to.be.a("string"); });
+}
+
+docs {
+  Needs `SCOPE_tasks:write` + `Idempotency-Key`. Body `{farmId, title, type?, assigneeId?,
+  dueAtEpochMs?}` (verified from `LivestockDevController.create`); `farmId` + `title`
+  required. Saves `taskId` — then `/{id}/assign`, `/{id}/accept`, `/{id}/complete` follow
+  the same controller if you want to exercise the task lifecycle.
+}

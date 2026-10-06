@@ -1,0 +1,31 @@
+meta {
+  name: 05 - cancel order
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/orders/{{orderId}}/cancel
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "reason": "bruno manual test cleanup"
+  }
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+}
+
+docs {
+  Cancels `{{orderId}}` (triggers compensation if stock was already reserved). Needs
+  `SCOPE_orders:write`. Body `{reason}` optional (verified from `OrderRestController.Cancel`).
+  Use as the teardown step for a manual order run.
+}

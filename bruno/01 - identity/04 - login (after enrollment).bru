@@ -1,0 +1,38 @@
+meta {
+  name: 04 - login (after enrollment)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.challengeToken) bru.setEnvVar("challengeToken", b.challengeToken);
+  if (b.accessToken)  bru.setEnvVar("accessToken", b.accessToken);
+  if (b.refreshToken) bru.setEnvVar("refreshToken", b.refreshToken);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("already-enrolled account asks for MFA, not enrollment", function () {
+    expect(res.getBody().authenticationStatus).to.equal("MFA_REQUIRED");
+  });
+}
+
+docs {
+  Every login AFTER enrollment returns `MFA_REQUIRED` with a fresh `challengeToken`
+  (auto-saved). Then go to `05 - mfa-verify`. Use this instead of `01 - login` once
+  the admin has TOTP set up.
+}

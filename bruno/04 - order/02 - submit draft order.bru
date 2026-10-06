@@ -1,0 +1,39 @@
+meta {
+  name: 02 - submit draft order
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/orders/drafts/{{orderId}}/submit
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "expectedVersion": {{orderVersion}}
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.version !== undefined) bru.setEnvVar("orderVersion", String(b.version));
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("order advanced past DRAFT", function () {
+    expect(res.getBody().status).to.not.equal("ORDER_STATUS_DRAFT");
+  });
+}
+
+docs {
+  Submits the draft from step 1, kicking off the order saga (reserve stock → post ledger).
+  Body `{expectedVersion}` (verified from `OrderRestController.Version`) — optimistic
+  concurrency; `{{orderVersion}}` is carried from the previous step and refreshed here.
+}

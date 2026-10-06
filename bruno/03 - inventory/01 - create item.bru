@@ -1,0 +1,44 @@
+meta {
+  name: 01 - create item
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/inventory/items
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Idempotency-Key: bruno-item-{{$timestamp}}
+}
+
+body:json {
+  {
+    "sku": "FEED-001",
+    "name": "Starter Feed",
+    "unit": "KG",
+    "reorderThreshold": "100"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.itemId) bru.setEnvVar("itemId", b.itemId);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns an itemId", function () { expect(res.getBody().itemId).to.be.a("string"); });
+}
+
+docs {
+  DEV-only (`@Profile dev & !prod`). Needs `SCOPE_inventory:write` and an `Idempotency-Key`
+  header (auto-generated here). Body `{sku, name, unit, reorderThreshold}` (verified from
+  `InventoryDevSetupController.CreateItem`). Saves `itemId` for the receipt + order folders.
+}

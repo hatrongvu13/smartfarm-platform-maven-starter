@@ -1,0 +1,27 @@
+meta {
+  name: 08 - logout
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/logout
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refreshToken": "{{refreshToken}}"
+  }
+}
+
+tests {
+  test("HTTP 204 No Content", function () { expect(res.getStatus()).to.equal(204); });
+}
+
+docs {
+  Revoke the current refresh token. Body `{refreshToken}` (verified from
+  `AuthController.logout`). Returns 204. The access token stays valid until it expires
+  (stateless JWT), but it can no longer be refreshed.
+}

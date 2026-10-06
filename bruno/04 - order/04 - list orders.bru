@@ -1,0 +1,33 @@
+meta {
+  name: 04 - list orders
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/orders?farmId={{farmId}}&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+params:query {
+  farmId: {{farmId}}
+  size: 20
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns an orders array", function () {
+    expect(res.getBody().orders).to.be.an("array");
+  });
+}
+
+docs {
+  Cursor-paginated list. Needs `SCOPE_orders:read`. Query params `farmId`, `status?`,
+  `warehouseId?`, `size` (1–100), `pageToken` (verified from `OrderRestController.list`).
+  Response `{orders[], nextPageToken}` — pass `nextPageToken` back as `pageToken` to page.
+}

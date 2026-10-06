@@ -1,0 +1,41 @@
+meta {
+  name: 05 - mfa-verify
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/auth/mfa/verify
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "challengeToken": "{{challengeToken}}",
+    "method": "TOTP",
+    "code": "{{totpCode}}"
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.accessToken)  bru.setEnvVar("accessToken", b.accessToken);
+  if (b.refreshToken) bru.setEnvVar("refreshToken", b.refreshToken);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("verify completes auth with a token", function () {
+    const b = res.getBody();
+    expect(b.authenticationStatus).to.equal("COMPLETED");
+    expect(b.accessToken).to.be.a("string");
+  });
+}
+
+docs {
+  Step after `04 - login (after enrollment)`. Set env var **`totpCode`** to the current
+  6-digit code, then send. Body `{challengeToken, method:"TOTP", code}` (verified from
+  `AuthController.MfaVerification`). On success `accessToken` is captured and every
+  protected request in the other folders will work.
+}
