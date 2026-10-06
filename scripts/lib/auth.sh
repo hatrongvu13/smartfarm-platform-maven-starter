@@ -33,8 +33,11 @@ AUTH_TOKEN="${AUTH_TOKEN:-}"
 export AUTH_TOKEN
 
 # auth_available — true (0) only if credentials are configured.
+# auth_available — true (0) only if credentials are configured. tenantId is OPTIONAL now:
+# the identity service resolves the tenant from the email (single active membership logs in
+# straight away; several return a tenant list to choose from). Only username+password are needed.
 auth_available() {
-  [ -n "${TEST_TENANT_ID:-}" ] && [ -n "${TEST_USERNAME:-}" ] && [ -n "${TEST_PASSWORD:-}" ]
+  [ -n "${TEST_USERNAME:-}" ] && [ -n "${TEST_PASSWORD:-}" ]
 }
 
 # login — obtain and cache a Bearer token. Idempotent within a run.
@@ -43,14 +46,19 @@ auth_available() {
 login() {
   if [ -n "$AUTH_TOKEN" ]; then return 0; fi
   if ! auth_available; then
-    log_warn "auth not configured (set TEST_TENANT_ID/TEST_USERNAME/TEST_PASSWORD) — skipping authenticated tests"
+    log_warn "auth not configured (set TEST_USERNAME/TEST_PASSWORD) — skipping authenticated tests"
     return 2
   fi
 
   local payload
-  payload="$(jq -nc \
-    --arg t "$TEST_TENANT_ID" --arg e "$TEST_USERNAME" --arg p "$TEST_PASSWORD" \
-    '{tenantId:$t, email:$e, password:$p}')"
+  # tenantId is optional; include it only when set (e.g. to pick one of several tenants).
+  if [ -n "${TEST_TENANT_ID:-}" ]; then
+    payload="$(jq -nc --arg t "$TEST_TENANT_ID" --arg e "$TEST_USERNAME" --arg p "$TEST_PASSWORD" \
+      '{tenantId:$t, email:$e, password:$p}')"
+  else
+    payload="$(jq -nc --arg e "$TEST_USERNAME" --arg p "$TEST_PASSWORD" \
+      '{email:$e, password:$p}')"
+  fi
 
   # Call WITHOUT a bearer header (none exists yet). AUTH_TOKEN is empty here.
   http_request POST "${AUTH_BASE_URL:?AUTH_BASE_URL not set}/api/v1/auth/login" "$payload"
@@ -69,6 +77,16 @@ login() {
       export AUTH_TOKEN
       log_success "login COMPLETED (token ${AUTH_TOKEN:0:8}…, masked)"
       return 0
+      ;;
+    TENANT_SELECTION_REQUIRED)
+      # Email belongs to several tenants. Re-login with an explicit TEST_TENANT_ID to pick one.
+      if [ -n "${TEST_TENANT_ID:-}" ]; then
+        log_warn "multiple tenants for this email; retrying with TEST_TENANT_ID"
+        AUTH_TOKEN=""; TEST_TENANT_ID="$TEST_TENANT_ID" login; return $?
+      fi
+      log_warn "login needs a tenant choice (email has several tenants); set TEST_TENANT_ID — skipping"
+      printf '%s' "$HTTP_BODY" | jq -r '.tenants[]? | "  tenant: \(.tenantCode) (\(.tenantId))"' >&2 2>/dev/null || true
+      return 10
       ;;
     MFA_REQUIRED)
       if [ -n "${TEST_TOTP_CODE:-}" ]; then
