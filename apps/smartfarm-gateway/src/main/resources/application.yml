@@ -78,7 +78,10 @@ smartfarm:
     grpc-port: ${REPORTING_GRPC_PORT:9096}
   finance:
     grpc-host: ${FINANCE_GRPC_HOST:localhost}
-    grpc-port: ${FINANCE_GRPC_PORT:9097}
+    grpc-port: ${FINANCE_GRPC_PORT:9094}
+  health:
+    grpc-host: ${HEALTH_GRPC_HOST:localhost}
+    grpc-port: ${HEALTH_GRPC_PORT:9097}
 
 management:
   endpoint:
