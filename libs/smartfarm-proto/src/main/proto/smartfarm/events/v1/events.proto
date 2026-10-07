@@ -40,4 +40,14 @@ message OrderLifecycleEvent {
   smartfarm.order.v1.FarmOrder order = 9;
 }
 message ExportJobChanged { smartfarm.reporting.v1.ExportJob job = 1; }
-message DomainEvent { EventMetadata metadata = 1; oneof payload { TaskChanged task_changed = 10; AnimalChanged animal_changed = 11; ObservationRecorded observation_recorded = 12; VaccinationRecorded vaccination_recorded = 13; HealthAlertRaised health_alert_raised = 14; StockMovementRecorded stock_movement_recorded = 15; StockReservationChanged stock_reservation_changed = 16; LowStockDetected low_stock_detected = 17; FinanceTransactionRecorded finance_transaction_recorded = 18; DebtChanged debt_changed = 19; OrderChanged order_changed = 20; ExportJobChanged export_job_changed = 21; TaskDeadlineBreached task_deadline_breached = 22; OrderLifecycleEvent order_lifecycle_event = 23; } }
+// Operational/audit event emitted by identity (account/role/membership/mfa lifecycle). Mirrors the
+// generic shape of OrderLifecycleEvent: a typed envelope carrying a free-form string map so identity
+// does not need a dedicated proto message per account/role/membership change. Does not participate in
+// any ordered projection; consumed by the gateway WS bridge for live admin UX.
+message IdentityLifecycleEvent {
+  string event_type = 1;      // e.g. identity.role.created, identity.membership.suspended
+  string aggregate_type = 2;  // e.g. account, role, membership
+  string actor_id = 3;        // who performed the action (may be empty for system)
+  map<string, string> data = 4; // flattened event detail (scalar values stringified)
+}
+message DomainEvent { EventMetadata metadata = 1; oneof payload { TaskChanged task_changed = 10; AnimalChanged animal_changed = 11; ObservationRecorded observation_recorded = 12; VaccinationRecorded vaccination_recorded = 13; HealthAlertRaised health_alert_raised = 14; StockMovementRecorded stock_movement_recorded = 15; StockReservationChanged stock_reservation_changed = 16; LowStockDetected low_stock_detected = 17; FinanceTransactionRecorded finance_transaction_recorded = 18; DebtChanged debt_changed = 19; OrderChanged order_changed = 20; ExportJobChanged export_job_changed = 21; TaskDeadlineBreached task_deadline_breached = 22; OrderLifecycleEvent order_lifecycle_event = 23; IdentityLifecycleEvent identity_lifecycle_event = 24; } }
