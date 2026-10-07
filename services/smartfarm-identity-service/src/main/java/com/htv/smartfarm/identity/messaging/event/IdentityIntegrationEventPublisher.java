@@ -1,34 +1,37 @@
 package com.htv.smartfarm.identity.messaging.event;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.protobuf.Timestamp;
 import com.htv.smartfarm.identity.messaging.outbox.IdentityEventRecorder;
+import com.htv.smartfarm.proto.events.v1.DomainEvent;
+import com.htv.smartfarm.proto.events.v1.EventMetadata;
+import com.htv.smartfarm.proto.events.v1.IdentityLifecycleEvent;
 
 import org.springframework.stereotype.Service;
 
+/**
+ * Publishes identity account/role/membership/mfa lifecycle events as protobuf {@link DomainEvent}
+ * frames (payload {@link IdentityLifecycleEvent}) — the SAME wire format every other service uses,
+ * so the gateway WS bridge ({@code DomainEvent.parseFrom}) accepts them. Previously these were
+ * serialized as JSON, which the protobuf-only bridge silently dropped (EVT-01).
+ */
 @Service
 public class IdentityIntegrationEventPublisher {
 
     private static final String SOURCE = "smartfarm-identity-service";
 
     private final IdentityEventRecorder recorder;
-    private final ObjectMapper objectMapper;
     private final Clock clock;
-
 
     public IdentityIntegrationEventPublisher(
             IdentityEventRecorder recorder,
-            ObjectMapper objectMapper,
             Clock clock
     ) {
         this.recorder = recorder;
-        this.objectMapper = objectMapper;
         this.clock = clock;
     }
 
@@ -46,31 +49,40 @@ public class IdentityIntegrationEventPublisher {
         int schemaVersion = 1;
         String eventId = UUID.randomUUID().toString();
         Instant occurredAt = clock.instant();
-        IdentityEventPayload envelope = new IdentityEventPayload(
-                eventId,
-                eventType,
-                schemaVersion,
-                SOURCE,
-                tenantId,
-                actorId,
-                correlationId,
-                causationId,
-                aggregateType,
-                aggregateId,
-                aggregateVersion,
-                occurredAt,
-                data
-        );
-        byte[] payload;
-        try {
-            payload = objectMapper.writeValueAsString(envelope).getBytes(StandardCharsets.UTF_8);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Unable to serialize identity integration event", exception);
+
+        EventMetadata.Builder metadata = EventMetadata.newBuilder()
+                .setEventId(eventId)
+                .setTenantId(nullToEmpty(tenantId))
+                // Identity is a tenant-global aggregate: no farm scope. The WS bridge keys on this.
+                .setFarmId("_global")
+                .setAggregateId(nullToEmpty(aggregateId))
+                .setCorrelationId(nullToEmpty(correlationId))
+                .setCausationId(nullToEmpty(causationId))
+                .setProducer(SOURCE)
+                .setOccurredAt(toTimestamp(occurredAt))
+                .setAggregateVersion(aggregateVersion);
+
+        IdentityLifecycleEvent.Builder lifecycle = IdentityLifecycleEvent.newBuilder()
+                .setEventType(nullToEmpty(eventType))
+                .setAggregateType(nullToEmpty(aggregateType))
+                .setActorId(nullToEmpty(actorId));
+        if (data != null) {
+            data.forEach((k, v) -> {
+                if (k != null) {
+                    lifecycle.putData(k, v == null ? "" : String.valueOf(v));
+                }
+            });
         }
+
+        byte[] payload = DomainEvent.newBuilder()
+                .setMetadata(metadata)
+                .setIdentityLifecycleEvent(lifecycle)
+                .build()
+                .toByteArray();
+
         String eventName = eventType.substring(eventType.lastIndexOf('.') + 1);
         String topic = IdentityEventTopics.domain(
                 tenantId,
-                aggregateType,
                 eventName,
                 schemaVersion
         );
@@ -90,5 +102,16 @@ public class IdentityIntegrationEventPublisher {
                 occurredAt
         );
         return eventId;
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
+    }
+
+    private static Timestamp toTimestamp(Instant instant) {
+        return Timestamp.newBuilder()
+                .setSeconds(instant.getEpochSecond())
+                .setNanos(instant.getNano())
+                .build();
     }
 }

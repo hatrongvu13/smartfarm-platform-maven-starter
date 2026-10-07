@@ -10,11 +10,16 @@ public final class IdentityEventTopics {
     private IdentityEventTopics() {
     }
 
-    public static String domain(String tenantId, String aggregateType, String eventName, int version) {
+    /**
+     * Standard SmartFarm domain topic: {@code smartfarm/<tenant>/_global/domain/<event>/v<n>}.
+     * Identity is tenant-global (no farm), so the farm segment is the literal {@code _global}; this
+     * matches the gateway WS bridge filter {@code smartfarm/+/+/domain/#} (EVT-02 — previously used a
+     * non-standard {@code <aggregate>-<event>} segment).
+     */
+    public static String domain(String tenantId, String eventName, int version) {
         return "smartfarm/" + segment(tenantId, "tenantId")
                 + "/_global/domain/"
-                + segment(normalize(aggregateType), "aggregateType")
-                + "-" + segment(normalize(eventName), "eventName")
+                + segment(normalize(eventName), "eventName")
                 + "/v" + version;
     }
 
