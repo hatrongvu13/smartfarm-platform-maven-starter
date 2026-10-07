@@ -19,6 +19,15 @@ management:
       exposure:
         include: health,info
 smartfarm:
+  health:
+    # EVT-03: the outbox relay + MQTT publisher are now active in every profile
+    # (previously dev-only). Gated here so a service can still opt out explicitly.
+    outbox:
+      enabled: ${HEALTH_OUTBOX_ENABLED:true}
+      poll-ms: ${HEALTH_OUTBOX_POLL_MS:2000}
+    mqtt:
+      # Loopback by default (dev); override SMARTFARM_MQTT_URL / HEALTH_MQTT_URL to the real broker in prod.
+      url: ${HEALTH_MQTT_URL:${SMARTFARM_MQTT_URL:tcp://localhost:1883}}
   security:
     jwt:
       issuer: ${SMARTFARM_JWT_ISSUER:}

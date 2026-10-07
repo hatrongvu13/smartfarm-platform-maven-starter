@@ -7,15 +7,14 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Single-instance development relay. The DB state changes only after broker confirmation.
+ * Outbox relay for health domain events. Active in every profile (gated by
+ * {@code smartfarm.health.outbox.enabled}); the DB state changes only after broker confirmation.
  */
 @Component
-@Profile("dev & !prod")
 @ConditionalOnProperty(prefix = "smartfarm.health.outbox", name = "enabled", havingValue = "true")
 public class HealthOutboxRelay {
     private static final Logger log = LoggerFactory.getLogger(HealthOutboxRelay.class);

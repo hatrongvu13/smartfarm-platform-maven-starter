@@ -9,11 +9,15 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+/**
+ * Paho-based health event publisher. Active in every profile (gated by
+ * {@code smartfarm.health.outbox.enabled}); it signs each frame via {@link MqttSecurityVerifier}
+ * before publishing. The broker URL comes from {@code smartfarm.health.mqtt.url} — loopback in dev,
+ * the real broker in prod. An empty URL is rejected so a misconfigured prod never silently no-ops.
+ */
 @Component
-@Profile("dev & !prod")
 @ConditionalOnProperty(prefix = "smartfarm.health.outbox", name = "enabled", havingValue = "true")
 public final class PahoHealthEventPublisher implements HealthEventPublisher, AutoCloseable {
     private final String brokerUrl;
@@ -22,9 +26,9 @@ public final class PahoHealthEventPublisher implements HealthEventPublisher, Aut
 
     public PahoHealthEventPublisher(@Value("${smartfarm.health.mqtt.url:tcp://localhost:1883}") String brokerUrl,
                                     MqttSecurityVerifier mqttSecurity) {
-        if (!brokerUrl.equals("tcp://localhost:1883")
-                && !brokerUrl.equals("tcp://127.0.0.1:1883")) {
-            throw new IllegalArgumentException("Development publisher requires loopback MQTT broker");
+        if (brokerUrl == null || brokerUrl.isBlank()) {
+            throw new IllegalArgumentException(
+                    "smartfarm.health.mqtt.url must be set when the outbox relay is enabled");
         }
         this.brokerUrl = brokerUrl;
         this.mqttSecurity = mqttSecurity;
