@@ -74,3 +74,70 @@ These are feature/security gaps, not quick fixes — see the status doc for the 
 | ISSUE-02 | **Code wired (part 1, earlier this session):** HMAC sign/verify is on every producer+consumer; dev `sign+verify=ON` (shared dev secret), prod default-OFF with 2-phase rollout env knobs; simulator observer made envelope-aware; compose documents the shared dev secret + broker hardening pointer. **Broker ACL+TLS remains documented sample config, not enabled** (per direction). Still **not verified live over MQTT**. |
 
 **Still OPEN after this pass:** ISSUE-02 live-verify (needs broker + services up), ISSUE-06, ISSUE-10/11/13/15/16, EVT-03 (health prod event path), GW-01/02.
+
+---
+
+## Live verification 2026-10-07 (part 3) — ISSUE-02 + EVT-01/02 PROVEN over MQTT
+
+Verified end-to-end against running services (gateway + identity + order + livestock + finance +
+inventory + reporting) on the dev Mosquitto broker (`127.0.0.1:1883`), MAVEN_HOME
+`/Users/jaxmac/sdk/apache-maven-3.9.16`.
+
+**Trigger (guaranteed real event):** wrong-password login against the real account
+`root@system.test` (tenant `farm-demo`) → `AuthService.publishLoginFailure` → `sf_identity_outbox`
+row → `IdentityOutboxRelay` (2s poll) → `IdentityMqttConnectionManager.sign(topic, payload)` → broker.
+
+**Observed frame** (independent observer `BusVerifyProbe`, re-computes HMAC + parses protobuf):
+
+```
+topic   : smartfarm/farm-demo/_global/domain/failed/v1
+bytes   : 448  prefix=53464d31...  magic=SFM1(signed)
+verify  : ACCEPTED
+proto   : DomainEvent OK  case=IDENTITY_LIFECYCLE_EVENT
+identity: type=identity.login.failed aggType=user-security
+          data={attemptCount=1, authenticationStage=PASSWORD, locked=false, subjectId=56b31cc7-...}
+```
+
+| ID | Live result |
+|----|-------------|
+| ISSUE-02 (app-level HMAC) | **VERIFIED LIVE.** Producer emitted an `SFM1` HMAC-SHA256 envelope (`53464d31` = `SFM1`); observer re-computed the topic-bound HMAC with the shared dev secret → ACCEPTED. Negative controls (`HmacEnforcementCheck`) all PASS: unsigned→REJECTED, tampered→REJECTED, replay-on-other-topic→REJECTED, wrong-secret→REJECTED. Enforcement proven in both directions, not just unwrap. |
+| EVT-01 (identity protobuf) | **VERIFIED LIVE.** Inner payload parsed as protobuf `DomainEvent` with `case=IDENTITY_LIFECYCLE_EVENT` (new oneof field 24). Pre-fix this was JSON and would fail `parseFrom`. |
+| EVT-02 (topic schema) | **VERIFIED LIVE.** Emitted topic `smartfarm/farm-demo/_global/domain/failed/v1` matches the WS-bridge filter `smartfarm/+/+/domain/#`. |
+
+**Scope note:** broker ACL + mTLS remain documented sample config only (per direction), NOT enabled —
+dev broker is `allow_anonymous true`. App-level HMAC is the enforced mechanism and is now live-proven.
+
+**Verification scaffolding** (NOT product code) added under
+`platform/smartfarm-farm-simulator/src/main/java/com/htv/smartfarm/simulator/verify/`:
+`BusVerifyProbe` (live bus observer), `HmacEnforcementCheck` (negative controls), `IdentityDbProbe`
+(read-only account/outbox inspector). Keep as reusable live-check tools or remove before commit.
+
+---
+
+## Fix pass 2026-10-07 (part 4) — GW-01 + EVT-03 (verified: build + health 5/5 tests green)
+
+MAVEN_HOME `/Users/jaxmac/sdk/apache-maven-3.9.16`. Build+test level; live-verify needs a health +
+gateway restart (deferred — host memory tight, services currently running the old jars).
+
+| ID | Resolution |
+|----|-----------|
+| GW-01 | **RESOLVED (code).** Health-service is no longer orphaned from the gateway. Added `smartfarm.health.grpc-host/grpc-port` (`:9097`) to gateway `application.yml`; new `HealthDevClientConfig` (`@Bean healthChannel` + `AnimalHealthServiceBlockingStub`) and `HealthDevController` (`@RestController @Profile("dev & !prod")`, `/api/v1/health/{observations,vaccinations,alerts}`, scope `health:read`, per-service token for the `smartfarm-health` audience). Mirrors `ReportingDevClientConfig`/`ReportingDevController`. Security: covered by the gateway's `anyExchange().authenticated()` + method `@PreAuthorize` — no security-config change. Dev REST facade only (per decision); prod exposure is a separate pass. |
+| EVT-03 | **RESOLVED (code), Option A (prod event path).** Removed `@Profile("dev & !prod")` from `HealthOutboxRelay`, `HealthOutboxScheduling`, `PahoHealthEventPublisher` — they are now active in every profile, gated by `smartfarm.health.outbox.enabled`. Relaxed the publisher's loopback-only constructor guard to accept a configured broker (`smartfarm.health.mqtt.url`), rejecting only a blank URL so a misconfigured prod fails loudly instead of silently no-op'ing. Added the previously-absent `smartfarm.health.outbox.{enabled,poll-ms}` + `smartfarm.health.mqtt.url` keys to base `application.yml` (enabled default `true`, loopback url default). **Note:** these keys never existed before, so the relay/publisher beans were inactive in *every* profile (not just prod) — health events were fully dead. Publisher still signs via `MqttSecurityVerifier` (HMAC), consistent with ISSUE-02. |
+
+**Pre-existing bug found + fixed (in scope, same file):** gateway `application.yml` had `finance.grpc-port=9097`,
+but finance-service actually serves gRPC on `9094` (`spring.grpc.server.port: 9094`); `9097` is in fact
+health's port. Corrected finance to `9094`. This was a latent gateway→finance misroute, surfaced while
+wiring health.
+
+**Still OPEN:** ISSUE-02 live-verify DONE (part 3); EVT-01/02 DONE (part 3); GW-01/EVT-03 live-verify
+(needs health + gateway restart); ISSUE-06, ISSUE-10/11/13/15/16, GW-02 (finance prod path).
+
+---
+
+## Fix pass 2026-10-07 (part 5) — ISSUE-06 reclassified (by-design)
+
+| ID | Resolution |
+|----|-----------|
+| ISSUE-06 | **BY-DESIGN (not a bug), no code change.** `identity.command.result` has no *backend* consumer, but it is NOT orphaned: `IdentityMqttCommandDispatcher` (inbound MQTT admin commands, feature-flagged `smartfarm.identity.mqtt.commands.enabled`, default OFF) emits it on `smartfarm/<tenant>/_global/domain/command.result/v1`, which matches the gateway WS-bridge filter `smartfarm/+/+/domain/#`. After EVT-01 it reaches **WS clients** as a protobuf `IdentityLifecycleEvent` — it is the async **command-ack** for the FE that issued the command (matched via `commandId`/`correlationId`). This is a valid async-command → result-event → WS-push pattern. Decision (user): **keep the publisher**, document the contract (`docs/architecture/service-communications.md` → "Inbound MQTT commands + command-ack"), reclassify as by-design. Nothing is lost or broken; the whole command path is simply off until an operator enables the flag. |
+
+**Still OPEN:** ISSUE-10/11/13/15/16, GW-02 (finance prod path), GW-01/EVT-03 live-verify.

@@ -24,7 +24,7 @@ flowchart TB
     fin["finance :8084/9094"]:::partial
     liv["livestock :8081/9091"]:::ok
     rep["reporting :8086/9096"]:::partial
-    hea["health"]:::missing
+    hea["health"]:::ok
   end
   pg[("Postgres 17")]:::ok
   redis[("Redis")]:::ok
@@ -40,8 +40,8 @@ flowchart TB
   id --> redis
   ord -. outbox .-> broker
   liv -. outbox .-> broker
-  hea -. "outbox (dev only)" .-> broker
-  id -. "outbox (JSON!)" .-> broker
+  hea -. "outbox (protobuf)" .-> broker
+  id -. "outbox (protobuf)" .-> broker
   broker -. sub .-> inv
   broker -. "sub (CQRS)" .-> ord
   classDef ok fill:#1b5e20,color:#fff,stroke:#2e7d32;
@@ -50,7 +50,7 @@ flowchart TB
   classDef planned fill:#424242,color:#fff,stroke:#757575;
 ```
 
-🔴 **health-service** không có bất kỳ đường gateway nào (không REST, không GraphQL, không khai báo gRPC client trong gateway `application.yml`). 🟡 **finance** chỉ lộ 2 GraphQL dev-only.
+🟢 **health-service** giờ đã nối vào gateway: dev REST facade `/api/v1/health/*` (observations/vaccinations/alerts) qua gRPC client `AnimalHealthService` (GW-01 fixed). 🟡 **finance** chỉ lộ 2 GraphQL dev-only.
 
 ## 3. Service dependency graph
 
@@ -86,6 +86,7 @@ flowchart LR
     livd["/api/v1/livestock/* (dev only)"]:::partial
     invd["/api/v1/inventory/* (dev only)"]:::partial
     repd["/api/v1/reports/* (dev only)"]:::partial
+    head["/api/v1/health/* (dev only)"]:::partial
     ws["/ws/** (events WS)"]:::ok
   end
   c --> auth & me & ords & saga & gql & livd & invd & repd & ws
@@ -178,7 +179,7 @@ flowchart LR
   subgraph pub[Publishers - outbox relay]
     ord["order protobuf"]:::ok
     liv["livestock protobuf"]:::ok
-    hea["health protobuf (dev only, loopback-only)"]:::partial
+    hea["health protobuf (all profiles, signed)"]:::ok
     id["identity protobuf (lifecycle)"]:::ok
   end
   broker(["MQTT smartfarm/{tenant}/{farm}/domain/.../v1"]):::partial
@@ -200,7 +201,7 @@ flowchart LR
 - ✅ **EVT-01 (RESOLVED)**: identity giờ emit **protobuf `DomainEvent`** (payload `IdentityLifecycleEvent`, oneof field 24) → WS bridge parse được. Trước đây emit JSON nên bị drop.
 - ✅ **EVT-02 (RESOLVED)**: identity topic chuẩn hoá về `smartfarm/{tenant}/_global/domain/{event}/v1` (bỏ segment `{aggr}-{event}`), khớp filter `smartfarm/+/+/domain/#`.
 - 🟡 inventory chỉ sub `task-changed/v1`; 6 leaf lifecycle livestock khác chỉ WS bridge nhận.
-- 🟡 health publisher dev-only + từ chối broker non-loopback → **không có đường event health ở prod** (EVT-03, còn mở).
+- 🟢 health publisher giờ active mọi profile (gated `smartfarm.health.outbox.enabled`), ký HMAC, nhận broker cấu hình → **đã có đường event health ở prod** (EVT-03 fixed, Option A).
 
 ---
 
