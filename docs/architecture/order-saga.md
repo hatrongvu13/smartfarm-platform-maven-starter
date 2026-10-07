@@ -77,20 +77,20 @@ Mỗi step: `idempotencyKey = orderId + ":" + stepKey` (dựng tại `graph()`),
 stateDiagram-v2
     [*] --> PENDING
     PENDING --> RUNNING: claim + forward step
-    RUNNING --> RUNNING: step succeeded, còn step
-    RUNNING --> COMPLETED: tất cả forward step SUCCEEDED
-    RUNNING --> WAITING_MANUAL_REVIEW: POST_FINANCE hết attempt
-    RUNNING --> COMPENSATING: forward fail (non-finance) hết attempt / deadline
-    WAITING_MANUAL_REVIEW --> COMPENSATING: hết financeManualReviewWindow
-    COMPENSATING --> COMPENSATED: tất cả compensation step xong
-    COMPENSATING --> MANUAL_REVIEW: compensation hết attempt / quá compensationDeadline / có COMMIT_STOCK đã chạy
+    RUNNING --> RUNNING: step succeeded, con step
+    RUNNING --> COMPLETED: tat ca forward step SUCCEEDED
+    RUNNING --> WAITING_MANUAL_REVIEW: POST_FINANCE het attempt
+    RUNNING --> COMPENSATING: forward fail (non-finance) het attempt / deadline
+    WAITING_MANUAL_REVIEW --> COMPENSATING: het financeManualReviewWindow
+    COMPENSATING --> COMPENSATED: tat ca compensation step xong
+    COMPENSATING --> MANUAL_REVIEW: compensation het attempt / qua compensationDeadline / co COMMIT_STOCK da chay
     COMPLETED --> [*]
     COMPENSATED --> [*]
     MANUAL_REVIEW --> [*]
     FAILED --> [*]
     note right of MANUAL_REVIEW
       TerminalIntent: FAILED | CANCELLED | MANUAL_REVIEW
-      Partial inventory commit ⇒ buộc MANUAL_REVIEW
+      Partial inventory commit => buoc MANUAL_REVIEW
     end note
 ```
 Terminal: `COMPLETED, COMPENSATED, FAILED, MANUAL_REVIEW`. Claimable: `PENDING, RUNNING, COMPENSATING`.
@@ -102,12 +102,12 @@ stateDiagram-v2
     [*] --> PENDING
     PENDING --> PROCESSING: claimStep
     PROCESSING --> SUCCEEDED: execute ok
-    PROCESSING --> FAILED: lỗi, còn attempt (lên lịch retry)
-    FAILED --> PROCESSING: tới nextAttemptAt
-    PROCESSING --> MANUAL_REVIEW: hết attempt (POST_FINANCE) / compensation hết attempt
-    PENDING --> SKIPPED: nhánh bù không cần (compensation không required)
-    SKIPPED --> COMPENSATING: activateCompensation (khi cần bù)
-    COMPENSATING --> COMPENSATED: bù xong
+    PROCESSING --> FAILED: loi, con attempt (len lich retry)
+    FAILED --> PROCESSING: toi nextAttemptAt
+    PROCESSING --> MANUAL_REVIEW: het attempt (POST_FINANCE) / compensation het attempt
+    PENDING --> SKIPPED: nhanh bu khong can (compensation khong required)
+    SKIPPED --> COMPENSATING: activateCompensation (khi can bu)
+    COMPENSATING --> COMPENSATED: bu xong
     SUCCEEDED --> [*]
     COMPENSATED --> [*]
     SKIPPED --> [*]
@@ -130,7 +130,7 @@ sequenceDiagram
     G->>G: persist OrderEntity + lines (idempotent on key)
     G->>TX: create(saga + step graph)
     G-->>C: OrderResponse (CREATED)
-    loop mỗi poll
+    loop moi poll
       W->>TX: claimBatch / nextForwardStepKey / claimStep
       W->>F: execute(step)
       F->>INV: reserveStock (reserve:n)
@@ -138,7 +138,7 @@ sequenceDiagram
       F->>INV: commitReservation (commit:n)
       W->>TX: markStepSucceeded / checkpoints
     end
-    W->>TX: forwardStepsCompleted ⇒ COMPLETED
+    W->>TX: forwardStepsCompleted => COMPLETED
 ```
 
 ## 10. Compensation (sequence)
@@ -150,17 +150,17 @@ sequenceDiagram
     participant K as CompensationExecutor
     participant FIN as finance
     participant INV as inventory
-    W->>TX: markForwardStepFailed (hết attempt) ⇒ beginCompensation
-    TX->>TX: activate reverse-finance (nếu financePosted), release:n (nếu reserved & chưa commit)
-    loop compensation steps (ngược)
+    W->>TX: markForwardStepFailed (het attempt) => beginCompensation
+    TX->>TX: activate reverse-finance (neu financePosted), release:n (neu reserved & chua commit)
+    loop compensation steps (nguoc)
       W->>TX: nextCompensationStepKey / claimStep
       W->>K: execute(step)
       K->>FIN: reverseExpense (originalExpenseKey = orderId:finance)
       K->>INV: releaseReservation (reservationId)
       W->>TX: markStepCompensated
     end
-    W->>TX: compensationStepsCompleted ⇒ COMPENSATED
-    note over TX: Nếu có COMMIT_STOCK đã SUCCEEDED ⇒ TerminalIntent MANUAL_REVIEW (không tự đảo)
+    W->>TX: compensationStepsCompleted => COMPENSATED
+    note over TX: Neu co COMMIT_STOCK da SUCCEEDED => TerminalIntent MANUAL_REVIEW (khong tu dao)
 ```
 
 ## 11. Claim / recovery

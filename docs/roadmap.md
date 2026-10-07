@@ -6,12 +6,14 @@
 
 ```mermaid
 flowchart LR
-  V0["Foundation<br/>build+boot+config<br/>✅ DONE"]:::done
+  V0["Foundation<br/>build+boot+config<br/> DONE"]:::done
   V1["V1 Core Platform<br/>identity/order/saga/domain<br/>~ IN PROGRESS"]:::current
   V2["V2 Warehouse Ops<br/>storage/QR/classification<br/>NOT STARTED"]:::todo
   V3["V3 Connected Farm<br/>IoT/MQTT telemetry/actuator<br/>NOT STARTED"]:::todo
   V0 --> V1 --> V2 --> V3
-  classDef done fill:#1b5e20,color:#fff; classDef current fill:#8d6e00,color:#fff; classDef todo fill:#424242,color:#fff;
+  classDef done fill:#1b5e20,color:#fff;
+  classDef current fill:#8d6e00,color:#fff;
+  classDef todo fill:#424242,color:#fff;
 ```
 
 **Hiện tại: cuối Foundation / giữa V1.** Build+boot+config đã ổn định (profile fix, security key fix). Core domain + saga + security hoàn chỉnh; còn khoá event-integrity, gateway coverage (health/finance), prod-ize facade.

@@ -36,7 +36,7 @@ sequenceDiagram
 sequenceDiagram
   participant C as Client
   participant GW as Gateway (AuthProxyController)
-  participant ID as identity (AuthController → AccountService)
+  participant ID as identity (AuthController -> AccountService)
   participant PG as Postgres
   C->>GW: POST /api/v1/auth/register {email, password, displayName, ...}
   GW->>ID: REST proxy
@@ -44,7 +44,7 @@ sequenceDiagram
   ID->>PG: insert IdentityOutbox event (JSON)
   ID-->>GW: 201 {principal}
   GW-->>C: created
-  Note over ID: outbox relay async → MQTT (identity JSON, topic: smartfarm/{tenant}/_global/domain/...)
+  Note over ID: outbox relay async -> MQTT (identity JSON, topic: smartfarm/{tenant}/_global/domain/...)
 ```
 
 🟡 Lưu ý: event identity = **JSON** (không phải protobuf DomainEvent) → WS bridge gateway parse-fail.
@@ -81,7 +81,7 @@ sequenceDiagram
   participant CQRS as order read-model (OrderChangedConsumer)
   
   C->>GW: POST /api/v1/orders {Idempotency-Key, farmId, lines}
-  Note over GW: @PreAuthorize SCOPE_orders:write; JWT→gRPC context
+  Note over GW: @PreAuthorize SCOPE_orders:write; JWT->gRPC context
   GW->>ORD: gRPC PlaceOrder
   ORD->>ORD: persist Order (CREATED) + SagaExecution
   ORD-->>GW: Order(view)
@@ -106,9 +106,9 @@ sequenceDiagram
     SAGA->>ORD: persist outbox event (OrderChanged)
   end
 
-  ORD-. outbox relay .->MQTT: protobuf DomainEvent
+  ORD->>MQTT: outbox relay: protobuf DomainEvent
   MQTT->>CQRS: OrderChangedConsumer (CQRS read-model)
-  MQTT->>GW: WS bridge → browser push
+  MQTT->>GW: WS bridge -> browser push
 ```
 
 🟢 5 saga gRPC calls verified. Idempotency key required. Outbox at-least-once. CQRS projection + gap-recovery.
@@ -125,9 +125,9 @@ sequenceDiagram
 
   GW->>LIV: gRPC CreateTask / AssignTask / CompleteTask ...
   LIV->>LIV: domain logic + persist outbox event
-  LIV-. outbox relay .->MQTT: smartfarm/{tenant}/{farm}/domain/task-changed/v1
+  LIV->>MQTT: outbox relay: smartfarm/{tenant}/{farm}/domain/task-changed/v1
   MQTT->>INV: subscribe task-changed/v1 only
-  Note over INV: Inventory chỉ sub topic task-changed; 6 leaf lifecycle khác (assigned/accepted/completed/cancelled) → chỉ WS bridge nhận
+  Note over INV: Inventory chi sub topic task-changed; 6 leaf lifecycle khac (assigned/accepted/completed/cancelled) -> chi WS bridge nhan
 ```
 
 🟡 dev-only. inventory chỉ lắng nghe `task-changed/v1` — phạm vi hẹp.
@@ -136,20 +136,20 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  subgraph Publishers["Publishers (outbox relay → MQTT)"]
-    O["order 🟢 protobuf<br/>smartfarm/{t}/{f}/domain/order-changed/v1"]
-    L["livestock 🟢 protobuf<br/>smartfarm/{t}/{f}/domain/task-*/v1"]
-    H["health 🟡 protobuf (dev only)<br/>smartfarm/{t}/{f}/domain/health-*/v1"]
-    I["identity 🔴 JSON (mismatch)<br/>smartfarm/{t}/_global/domain/{aggr}-{event}/v{n}"]
+  subgraph Publishers["Publishers (outbox relay -> MQTT)"]
+    O["order  protobuf<br/>smartfarm/{t}/{f}/domain/order-changed/v1"]
+    L["livestock  protobuf<br/>smartfarm/{t}/{f}/domain/task-*/v1"]
+    H["health  protobuf (dev only)<br/>smartfarm/{t}/{f}/domain/health-*/v1"]
+    I["identity  JSON (mismatch)<br/>smartfarm/{t}/_global/domain/{aggr}-{event}/v{n}"]
   end
-  broker(["MQTT Mosquitto :1883<br/>allow_anonymous=true (⚠️)"])
+  broker(["MQTT Mosquitto :1883<br/>allow_anonymous=true ()"])
   subgraph Consumers
     IC["inventory<br/>sub: task-changed/v1"]
     OC["order CQRS<br/>sub: order-changed/*"]
     WS["gateway WS bridge<br/>sub: smartfarm/+/+/domain/#"]
   end
   O & L & H --> broker
-  I -.->|"JSON → parse fail at protobuf consumers"| broker
+  I -.->|"JSON -> parse fail at protobuf consumers"| broker
   broker --> IC & OC & WS
 ```
 

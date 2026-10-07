@@ -60,3 +60,17 @@
 **Still OPEN (unchanged, need their own focused pass):** ISSUE-02 (MQTT HMAC enable + broker ACL/TLS,
 CRITICAL), ISSUE-06 (orphan `identity.command.result`), ISSUE-10/11/13/15/16, EVT-01/02/03, GW-01/02.
 These are feature/security gaps, not quick fixes — see the status doc for the roadmap.
+
+---
+
+## Fix pass 2026-10-07 (part 2) — EVT-01/02 + MQTT HMAC wiring
+
+**Resolved this pass (verified: build + 62 identity tests green, MAVEN_HOME confirmed):**
+
+| ID | Resolution |
+|----|-----------|
+| EVT-01 | **RESOLVED (code).** Identity now emits protobuf `DomainEvent` instead of JSON. Added `IdentityLifecycleEvent` message to `libs/smartfarm-proto/.../events/v1/events.proto` (oneof field 24, generic `event_type`/`aggregate_type`/`actor_id` + `map<string,string> data`, mirroring the accepted `OrderLifecycleEvent` pattern). Rewrote `IdentityIntegrationEventPublisher` to build the proto; deleted the now-unused JSON `IdentityEventPayload`. The gateway WS bridge (`DomainEvent.parseFrom`) now accepts identity events. **Not yet verified live over MQTT** (needs services running). |
+| EVT-02 | **RESOLVED (code).** `IdentityEventTopics.domain(...)` now emits the standard `smartfarm/<tenant>/_global/domain/<event>/v1` (dropped the non-standard `<aggregate>-<event>` segment); matches the WS filter `smartfarm/+/+/domain/#`. `farm` segment is the literal `_global` since identity is tenant-global. |
+| ISSUE-02 | **Code wired (part 1, earlier this session):** HMAC sign/verify is on every producer+consumer; dev `sign+verify=ON` (shared dev secret), prod default-OFF with 2-phase rollout env knobs; simulator observer made envelope-aware; compose documents the shared dev secret + broker hardening pointer. **Broker ACL+TLS remains documented sample config, not enabled** (per direction). Still **not verified live over MQTT**. |
+
+**Still OPEN after this pass:** ISSUE-02 live-verify (needs broker + services up), ISSUE-06, ISSUE-10/11/13/15/16, EVT-03 (health prod event path), GW-01/02.
