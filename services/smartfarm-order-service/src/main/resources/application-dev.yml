@@ -29,6 +29,15 @@ smartfarm:
       audiences:
         - smartfarm-order
       allow-local-http: true
+    # DEV: app-level MQTT message auth (HMAC-SHA256 signed envelope). Both toggles ON
+    # so sign+verify run live over the dev broker. The secret is a DEV-ONLY shared value
+    # identical across every service; prod injects MQTT_HMAC_SECRET from a vault.
+    mqtt:
+      sign-enabled: ${MQTT_SIGN_ENABLED:true}
+      verify-enabled: ${MQTT_VERIFY_ENABLED:true}
+      hmac-secret: ${MQTT_HMAC_SECRET:dev-mqtt-hmac-secret-shared-across-all-services}
+      key-id: ${MQTT_HMAC_KEY_ID:dev-key-1}
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
   order:
     service-client:
       id: order

@@ -24,6 +24,13 @@ smartfarm:
       audiences:
         - smartfarm-inventory
       allow-local-http: false
+    # PROD: app-level MQTT message auth (HMAC-SHA256). Default OFF; rollout in docs/security/mqtt-acl-mtls.md.
+    mqtt:
+      sign-enabled: ${MQTT_SIGN_ENABLED:false}
+      verify-enabled: ${MQTT_VERIFY_ENABLED:false}
+      hmac-secret: ${MQTT_HMAC_SECRET:}
+      key-id: ${MQTT_HMAC_KEY_ID:default}
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
   inventory:
     mqtt:
       enabled: false

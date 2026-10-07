@@ -24,3 +24,10 @@ smartfarm:
       audiences:
         - smartfarm-health
       allow-local-http: true
+    # DEV: app-level MQTT message auth (HMAC-SHA256). sign+verify ON live; shared DEV-ONLY secret.
+    mqtt:
+      sign-enabled: ${MQTT_SIGN_ENABLED:true}
+      verify-enabled: ${MQTT_VERIFY_ENABLED:true}
+      hmac-secret: ${MQTT_HMAC_SECRET:dev-mqtt-hmac-secret-shared-across-all-services}
+      key-id: ${MQTT_HMAC_KEY_ID:dev-key-1}
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}

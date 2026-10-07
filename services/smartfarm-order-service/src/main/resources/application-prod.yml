@@ -32,6 +32,15 @@ smartfarm:
       audiences:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
       allow-local-http: false
+    # PROD: app-level MQTT message auth (HMAC-SHA256). Default OFF — operator rollout is
+    # sign-enabled=true on ALL producers first, then verify-enabled=true on consumers once
+    # every producer is confirmed signing. hmac-secret MUST be identical across all services.
+    mqtt:
+      sign-enabled: ${MQTT_SIGN_ENABLED:false}
+      verify-enabled: ${MQTT_VERIFY_ENABLED:false}
+      hmac-secret: ${MQTT_HMAC_SECRET:}
+      key-id: ${MQTT_HMAC_KEY_ID:default}
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
   identity:
     base-url: ${IDENTITY_BASE_URL}
   order:

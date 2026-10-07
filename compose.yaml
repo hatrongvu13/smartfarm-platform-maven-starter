@@ -1,3 +1,21 @@
+# SmartFarm local infra (services run on the HOST via `mvn spring-boot:run`, not here).
+#
+# App-level MQTT message auth (HMAC-SHA256 signed envelope) is wired into every producer and
+# consumer and is ON by default in the `dev` profile with a shared DEV-ONLY secret baked into
+# each service's application-dev.yml. To override the shared dev secret for all host services,
+# export these in your shell BEFORE starting them (every service must share the SAME secret):
+#
+#   export MQTT_HMAC_SECRET=<same-value-everywhere>
+#   export MQTT_SIGN_ENABLED=true MQTT_VERIFY_ENABLED=true MQTT_HMAC_KEY_ID=dev-key-1
+#
+# The dev broker below is anonymous (allow_anonymous true). Broker-level auth + ACL + mTLS is a
+# PROD concern documented (sample config, not enabled here) in docs/security/mqtt-acl-mtls.md.
+x-mqtt-hmac-dev: &mqtt-hmac-dev
+  MQTT_SIGN_ENABLED: "true"
+  MQTT_VERIFY_ENABLED: "true"
+  MQTT_HMAC_SECRET: "dev-mqtt-hmac-secret-shared-across-all-services"
+  MQTT_HMAC_KEY_ID: "dev-key-1"
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -13,6 +31,8 @@ services:
       retries: 10
   mqtt:
     image: eclipse-mosquitto:2
+    # DEV broker: anonymous. PROD hardening (password_file + acl_file + TLS listener) is in
+    # docs/security/mqtt-acl-mtls.md — sample config, intentionally not enabled in this dev compose.
     ports: [ "1883:1883", "9001:9001" ]
     volumes:
       - ./infra/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
