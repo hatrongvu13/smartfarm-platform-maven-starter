@@ -19,7 +19,9 @@ tests {
 }
 
 docs {
-  Smoke-check your token. `GET /api/v1/me` (verified from `WhoAmIController`) echoes the
-  JWT claims the gateway sees — subject, tenant_id, scopes/roles. If this is 401, your
-  `accessToken` is missing/expired; re-run the login→verify flow. Tokens live 15 min max.
+  Smoke-check your token. `GET /api/v1/me` (verified from `WhoAmIController`) is **THIN**: it
+  returns only `{subject, tenantId}` from the verified JWT (scope-gated `SCOPE_farm:read`). It is
+  NOT the profile — use GraphQL `me` for profile/membership, and read scopes from the JWT itself.
+  If this is 401, your `accessToken` is missing/expired; re-run the login→verify flow. Tokens
+  live 15 min max.
 }

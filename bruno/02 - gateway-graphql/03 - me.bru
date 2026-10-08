@@ -17,10 +17,11 @@ auth:bearer {
 body:graphql {
   query {
     me {
-      userId
-      email
-      roles
-      scopes
+      subjectId
+      active
+      version
+      profile { displayName email firstName lastName phoneNumber locale timeZone emailVerified phoneVerified }
+      membership { membershipId tenantId status roles farmIds }
     }
   }
 }
@@ -30,7 +31,9 @@ tests {
 }
 
 docs {
-  Current-user query from the committed SDL (`me`). Confirms the token resolves to a
-  user with roles/scopes. If `errors` mentions a missing field, the live schema differs
-  from the SDL — compare with `01 - introspection`.
+  Current-user query from the committed SDL (`me` → `Principal`). Returns profile + membership
+  (roles/farmIds). NOTE: `Principal` has **no** `scopes` field — scopes come from the JWT access
+  token (`scope`/`scopes` claim), not from GraphQL. Thin REST `/api/v1/me` only returns
+  `{subject, tenantId}`. If `errors` mentions a missing field, the live schema differs from the
+  SDL — compare with `01 - introspection`.
 }
