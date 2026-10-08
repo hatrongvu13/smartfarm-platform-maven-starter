@@ -5,6 +5,7 @@ import com.htv.smartfarm.proto.common.v1.PageRequest;
 import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.reporting.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
+import com.htv.smartfarm.security.grpc.GrpcStatusHttpMapping;
 import io.grpc.StatusRuntimeException;
 
 import java.util.ArrayList;
@@ -63,16 +64,7 @@ public class ReportingDevController {
                 .onErrorMap(StatusRuntimeException.class, e -> {
                     var code = e.getStatus().getCode();
                     if (code == io.grpc.Status.Code.UNAUTHENTICATED) serviceTokens.invalidate(REPORTING_AUDIENCE);
-                    HttpStatus http = switch (code) {
-                        case NOT_FOUND -> HttpStatus.NOT_FOUND;
-                        case INVALID_ARGUMENT -> HttpStatus.BAD_REQUEST;
-                        case FAILED_PRECONDITION -> HttpStatus.CONFLICT;
-                        case UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
-                        case PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
-                        case DEADLINE_EXCEEDED -> HttpStatus.GATEWAY_TIMEOUT;
-                        case UNAVAILABLE, UNIMPLEMENTED -> HttpStatus.BAD_GATEWAY;
-                        default -> HttpStatus.BAD_GATEWAY;
-                    };
+                    HttpStatus http = GrpcStatusHttpMapping.httpStatus(code);
                     return new ResponseStatusException(http, "Reporting " + op + " failed: " + code
                             + (e.getStatus().getDescription() == null ? "" : " (" + e.getStatus().getDescription() + ")"));
                 });

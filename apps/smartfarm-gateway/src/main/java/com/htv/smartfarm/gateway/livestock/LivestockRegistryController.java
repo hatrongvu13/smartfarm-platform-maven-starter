@@ -5,6 +5,7 @@ import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.livestock.v1.*;
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
+import com.htv.smartfarm.security.grpc.GrpcStatusHttpMapping;
 import io.grpc.StatusRuntimeException;
 
 import java.util.ArrayList;
@@ -74,16 +75,7 @@ public class LivestockRegistryController {
                     var code = e.getStatus().getCode();
                     if (code == io.grpc.Status.Code.UNAUTHENTICATED) serviceTokens.invalidate(LIVESTOCK_AUDIENCE);
                     log.warn("Livestock {} failed: grpcStatus={}, description={}", op, code, e.getStatus().getDescription());
-                    HttpStatus http = switch (code) {
-                        case NOT_FOUND -> HttpStatus.NOT_FOUND;
-                        case INVALID_ARGUMENT -> HttpStatus.BAD_REQUEST;
-                        case FAILED_PRECONDITION, ALREADY_EXISTS -> HttpStatus.CONFLICT;
-                        case UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
-                        case PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
-                        case DEADLINE_EXCEEDED -> HttpStatus.GATEWAY_TIMEOUT;
-                        case UNAVAILABLE, UNIMPLEMENTED -> HttpStatus.BAD_GATEWAY;
-                        default -> HttpStatus.BAD_GATEWAY;
-                    };
+                    HttpStatus http = GrpcStatusHttpMapping.httpStatus(code);
                     return new ResponseStatusException(http, "Livestock " + op + " failed: " + code
                             + (e.getStatus().getDescription() == null ? "" : " (" + e.getStatus().getDescription() + ")"));
                 });
