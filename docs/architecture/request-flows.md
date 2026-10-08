@@ -1,6 +1,6 @@
 # Request Flows — SmartFarm Platform
 
-> Verified from source @ HEAD `eaaa112`. Chỉ vẽ flow có **lời gọi thực tế trong source** — không vẽ dependency suy đoán.
+> Verified from source @ HEAD (updated 2026-10-07). Chỉ vẽ flow có **lời gọi thực tế trong source** — không vẽ dependency suy đoán.
 
 ## 1. Login
 
@@ -11,7 +11,7 @@ sequenceDiagram
   participant ID as identity :8092 (AuthController)
   participant PG as Postgres
   participant REDIS as Redis
-  C->>GW: POST /api/v1/auth/login {username, password}
+  C->>GW: POST /api/v1/auth/login {email, password}
   GW->>ID: REST proxy (WebClient) /api/v1/auth/login
   ID->>PG: lookup account, verify BCrypt password
   ID->>ID: check lockout (consecutive fails, timing defense)
@@ -41,13 +41,13 @@ sequenceDiagram
   C->>GW: POST /api/v1/auth/register {email, password, displayName, ...}
   GW->>ID: REST proxy
   ID->>PG: create Account + TenantMembership (default role, default tenant)
-  ID->>PG: insert IdentityOutbox event (JSON)
+  ID->>PG: insert IdentityOutbox event (protobuf)
   ID-->>GW: 201 {principal}
   GW-->>C: created
-  Note over ID: outbox relay async -> MQTT (identity JSON, topic: smartfarm/{tenant}/_global/domain/...)
+  Note over ID: outbox relay async -> MQTT (protobuf DomainEvent, topic: smartfarm/{tenant}/_global/domain/{event}/v1)
 ```
 
-🟡 Lưu ý: event identity = **JSON** (không phải protobuf DomainEvent) → WS bridge gateway parse-fail.
+🟢 Lưu ý: event identity = **protobuf `DomainEvent`** (`IdentityLifecycleEvent`), cùng format mọi service → WS bridge gateway parse OK (EVT-01/02 fixed).
 
 ## 3. Token refresh
 
@@ -139,20 +139,19 @@ flowchart LR
   subgraph Publishers["Publishers (outbox relay -> MQTT)"]
     O["order  protobuf<br/>smartfarm/{t}/{f}/domain/order-changed/v1"]
     L["livestock  protobuf<br/>smartfarm/{t}/{f}/domain/task-*/v1"]
-    H["health  protobuf (dev only)<br/>smartfarm/{t}/{f}/domain/health-*/v1"]
-    I["identity  JSON (mismatch)<br/>smartfarm/{t}/_global/domain/{aggr}-{event}/v{n}"]
+    H["health  protobuf (all profiles, signed)<br/>smartfarm/{t}/{f}/domain/health-*/v1"]
+    I["identity  protobuf (IdentityLifecycleEvent)<br/>smartfarm/{t}/_global/domain/{event}/v1"]
   end
-  broker(["MQTT Mosquitto :1883<br/>allow_anonymous=true ()"])
+  broker(["MQTT Mosquitto :1883<br/>HMAC SFM1 signed; allow_anonymous=true (dev)"])
   subgraph Consumers
     IC["inventory<br/>sub: task-changed/v1"]
     OC["order CQRS<br/>sub: order-changed/*"]
     WS["gateway WS bridge<br/>sub: smartfarm/+/+/domain/#"]
   end
-  O & L & H --> broker
-  I -.->|"JSON -> parse fail at protobuf consumers"| broker
+  O & L & H & I --> broker
   broker --> IC & OC & WS
 ```
 
-**Verified issues**: payload mismatch (identity JSON), topic schema inconsistency (identity vs others), WS bridge expects protobuf, health dev-only publisher.
+**Verified** (2026-10-07): mọi publisher protobuf + ký HMAC `SFM1`; identity events giờ tới được WS bridge (EVT-01/02 live-verified); health có đường event all-profile (EVT-03). Broker ACL+mTLS vẫn sample-only. Còn OPEN: inventory sub hẹp (`task-changed/v1`), ISSUE-10/13 (client-id/session, consumer timeout).
 
 ← [System Overview](./system-overview.md) · [Gateway Mapping](./gateway-mapping.md) · [Documentation Index](../index.md)

@@ -141,3 +141,61 @@ wiring health.
 | ISSUE-06 | **BY-DESIGN (not a bug), no code change.** `identity.command.result` has no *backend* consumer, but it is NOT orphaned: `IdentityMqttCommandDispatcher` (inbound MQTT admin commands, feature-flagged `smartfarm.identity.mqtt.commands.enabled`, default OFF) emits it on `smartfarm/<tenant>/_global/domain/command.result/v1`, which matches the gateway WS-bridge filter `smartfarm/+/+/domain/#`. After EVT-01 it reaches **WS clients** as a protobuf `IdentityLifecycleEvent` — it is the async **command-ack** for the FE that issued the command (matched via `commandId`/`correlationId`). This is a valid async-command → result-event → WS-push pattern. Decision (user): **keep the publisher**, document the contract (`docs/architecture/service-communications.md` → "Inbound MQTT commands + command-ack"), reclassify as by-design. Nothing is lost or broken; the whole command path is simply off until an operator enables the flag. |
 
 **Still OPEN:** ISSUE-10/11/13/15/16, GW-02 (finance prod path), GW-01/EVT-03 live-verify.
+
+---
+
+## Fix pass 2026-10-07 (part 6) — error-code standardization + outstanding-issues triage
+
+MAVEN_HOME `/Users/jaxmac/sdk/apache-maven-3.9.16`. Graphify refreshed from current source first
+(incremental AST re-extract of 180 changed code files; 20 deleted pruned; graph.json now 5697
+nodes / 15362 edges). Source is ground truth over the graph.
+
+**Common-ised (user's explicit ask — "chuẩn hoá các mã lỗi khi request đi qua giữa các service"):**
+
+| Concern | Resolution |
+|---------|-----------|
+| gRPC `Status.Code` → HTTP/stable-code mapping | **RESOLVED (code).** Was duplicated in 5 places that had **drifted** (`GatewayGrpcExceptionMapper` + 4 dev facades: `LivestockDevController`, `LivestockRegistryController`, `ReportingDevController`, `HealthDevController` — differing defaults 502 vs 500, some missing `ALREADY_EXISTS`/`ABORTED`). Extracted the single source of truth to `libs/smartfarm-security/.../grpc/GrpcStatusHttpMapping.java` (`httpStatus(code)` + `stableCode(code)`). `GatewayGrpcExceptionMapper` now delegates (its public `rest()`/`graphQl()` API and the `GatewayRestException`/`GatewayGraphQlException` types are unchanged); the 4 dev facades call `GrpcStatusHttpMapping.httpStatus(code)` and their inline switches are deleted. New unit test `GrpcStatusHttpMappingTest` (6 tests) pins the contract, incl. the three-way 409 split (CONFLICT / FAILED_PRECONDITION / VERSION_CONFLICT). **Verified:** security-lib build + 46 tests green; gateway `-am compile` green. **Behaviour change (intentional, now consistent):** dev facades' UNKNOWN gRPC code → `500` (was `502 BAD_GATEWAY`); platform-wide additions `RESOURCE_EXHAUSTED→429`, `OUT_OF_RANGE→400`. |
+
+**Re-verified, kept as prior verdict:**
+
+| ID | Verdict |
+|----|---------|
+| ISSUE-07 | **FALSE POSITIVE confirmed again** against source: 3 distinct `@AutoConfiguration`/config concerns (properties, MQTT, gRPC), not duplicates. No change. |
+| ISSUE-11 | **CONFIRMED REAL** but **LARGE/behaviour-changing** (gRPC audience not enforced per-service; servlet path does enforce). Code untouched; parked with suggested flag-gated rollout. |
+
+**Triaged to [`outstanding-issues.md`](outstanding-issues.md) (LARGE / needs confirmation — code untouched):**
+ISSUE-11 (gRPC audience), ISSUE-10 (MQTT publisher session; broker-dependent), ISSUE-13
+(circuit-breaker LARGE; dev-facade deadline externalization small-but-parked), ISSUE-15 (ddl-auto
+policy), ISSUE-16 (dev secrets — operator-owned, env files out of scope), GW-02 (finance prod path —
+product decision).
+
+**Still OPEN after this pass:** everything in `outstanding-issues.md` (none safe to auto-fix without
+confirmation); GW-01/EVT-03 live-verify (needs service restart).
+
+---
+
+## Fix pass 2026-10-08 (part 7) — service-token scope grant gap (gateway → identity credential service)
+
+MAVEN_HOME `/Users/jaxmac/sdk/apache-maven-3.9.16`. Triggered by a live
+`PERMISSION_DENIED: Missing required authority: SCOPE_identity:security:read` on
+`IdentityCredentialService.getSecurityProfile` (gateway `mySecurityProfile` query).
+
+**Root cause (verified against source).** The gateway service-token grant for audience
+`smartfarm-identity` (`application-dev.yml` → `service-token.clients.gateway.scopes-by-audience`)
+listed only 9 scopes and was **missing every scope `IdentityCredentialService` requires**. The
+gateway proxies 13 identity operations (`IdentityGraphQlController` `@PreAuthorize` gates); the
+credential/MFA ones demand `identity:security:read`, `identity:mfa:enroll`, `identity:mfa:disable`,
+`identity:mfa:recovery:regenerate`, `identity:user:credential:reset`, `identity:user:mfa:reset`
+(see `IdentityGrpcAuthorities` + `GrpcRequestSecurity.authorizeCredentialSelf`). `getPrincipal`
+worked only because `identity:principal:read` happened to be in the list. The user JWT (super-admin
+`SCOPE_*`) passes the gateway `@PreAuthorize`, but the **service token** attached to the gRPC call
+is what identity authorizes — and it lacked the scope.
+
+| Resolution |
+|-----------|
+| **RESOLVED (config).** Added the 6 missing scopes to `scopes-by-audience.smartfarm-identity` in `services/smartfarm-identity-service/src/main/resources/application-dev.yml`, matching exactly the identity scopes the gateway enforces. Dev-only config; prod (`clients: {}`) is operator-owned. **Verified:** identity restarted on dev → `POST /internal/service-token` (audience `smartfarm-identity`) mints a token whose `scope` claim now contains all 15 identity scopes incl. `identity:security:read` (decoded the JWT payload). Gateway restarted → log clean, no `PERMISSION_DENIED`. Full UI round-trip (`mySecurityProfile` returning data) still blocked only by the absent dev user password (DB reset; super-admin exists, bootstrap closed) — environment limit, not code. |
+
+**Note for prod/CI:** when `service-token.clients` is populated for a real deployment, the
+`smartfarm-identity` audience grant MUST include the credential/MFA scopes above, or the Profile /
+MFA screens will fail the same way. Consider a test asserting the gateway's enforced identity
+scopes are a subset of the granted set (prevents this drift class recurring).

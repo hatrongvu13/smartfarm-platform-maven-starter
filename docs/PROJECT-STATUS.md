@@ -9,10 +9,10 @@
 |---|---|---:|---|---|
 | Architecture (modular monolith→services) | PARTIAL | 85% | order-service coupling (god-nodes) | giữ nguyên; theo dõi, không rewrite |
 | gRPC / Proto contracts | COMPLETE | 95% | — | giữ; thêm contract test |
-| Event-flow (outbox/inbox MQTT) | PARTIAL | 85% | ISSUE-06 identity command-result orphan | khép consumer |
+| Event-flow (outbox/inbox MQTT) | PARTIAL | 92% | — (EVT-01/02/03 fixed; ISSUE-06 by-design) | ISSUE-10/13 polish |
 | Database / Flyway | COMPLETE | 100% | — | — |
 | Security (JWT/RBAC/MFA gRPC) | COMPLETE | 90% | — | giữ |
-| Security (MQTT message integrity) | PARTIAL | 50% | ISSUE-02 wiring (HMAC default-off, chưa nối publisher/consumer) | nối verifier + bật ACL/mTLS |
+| Security (MQTT message integrity) | PARTIAL | 75% | broker ACL/mTLS chưa enable (app-level HMAC đã live-verified) | bật broker auth/TLS prod |
 | Testing | PARTIAL | 65% | thêm IT cross-service / contract | mở rộng coverage |
 | Infrastructure (compose/k8s/obs) | PARTIAL | 75% | RISK-BROKER-01 (MQTT prod hardening) | cấu hình broker prod |
 | Runtime config | PARTIAL | 90% | **CFG-01** (test profile flat key x6) | vá application-test.yml |
@@ -39,8 +39,8 @@ inventory domain/gRPC/MQTT inbox + ITs · livestock task lifecycle + outbox · h
 messaging dispatch classifier + exponential backoff · gateway MQTT→WS bus · readiness SSRF-safe.
 
 ## 42.3 Đang làm gì? (PARTIAL/IN_PROGRESS)
-MQTT message-integrity wiring (ISSUE-02) · reporting non-livestock report types (placeholder+logged) ·
-test coverage mở rộng · identity command-result flow (ISSUE-06 orphan).
+MQTT broker hardening (ISSUE-02 broker ACL/mTLS; app-level HMAC đã xong) · reporting non-livestock report types (placeholder+logged) ·
+test coverage mở rộng.
 
 ## 42.4 Chưa làm gì? (PLANNED/SKELETON/NOT_STARTED)
 V2 warehouse plane (BL-01) · V3 automation plane (BL-02) · farm-simulator hoàn chỉnh (SKELETON, quarantined).
@@ -56,7 +56,7 @@ Prod CHẠY được (ISSUE-01 vá). Hạn chế duy nhất mới: profile `test
 `V0.1-001` (CFG-01, P0 cho CI/test) → xác nhận env prod đầy đủ (P1) → MQTT broker hardening (P1, RISK-BROKER-01).
 
 ## 42.8 Sau khi chạy được? (P2/P3/P4)
-P2: nối MQTT HMAC (ISSUE-02), khép command-result (ISSUE-06), mở rộng IT. P3: reporting read-models, giảm coupling order. P4: V2/V3 planes.
+P2: bật broker ACL/mTLS (ISSUE-02, HMAC app-level đã xong), audit-log super-admin (ISSUE-12), mở rộng IT. P3: reporting read-models, giảm coupling order. P4: V2/V3 planes.
 
 ## 42.9 Task tiếp theo (chưa bị block)
 **`V0.1-001` — vá 6 `application-test.yml` sang nested `smartfarm.security.jwt.*`.** Độc lập, không phụ thuộc.
@@ -90,15 +90,22 @@ P2: nối MQTT HMAC (ISSUE-02), khép command-result (ISSUE-06), mở rộng IT.
 | Prod single-ingress binding | **Done** this pass |
 
 ### Remaining to complete (prioritised)
-- **P1 (prod-blocking security)**: ISSUE-02 — enable MQTT HMAC sign→verify + broker auth/TLS/ACL
-  (currently impl present but default-off, `allow_anonymous true`).
-- **P1 (integration gaps)**: EVT-01 (identity events are JSON, others protobuf → WS bridge drops them);
-  EVT-03 + GW-01 (health-service has no prod event path and is not wired into the gateway at all).
-- **P2**: ISSUE-06 (orphan `identity.command.result` producer), ISSUE-12 (audit-log super-admin actions),
-  GW-02 (finance only dev-only GraphQL, no prod path).
+- **P1 (prod-blocking security)**: ISSUE-02 — broker-level auth/TLS/ACL. App-level HMAC sign→verify is
+  **DONE + live-verified** (2026-10-07, part 3); broker `allow_anonymous true` + mTLS/ACL still sample-only.
+- **P2**: ISSUE-12 (audit-log super-admin actions), GW-02 (finance only dev-only GraphQL, no prod path),
+  live-verify of GW-01/EVT-03 (needs health + gateway restart).
 - **P3/P4**: ISSUE-10/11/13 (MQTT client-id/session, per-service audience, externalize gRPC deadlines +
   circuit-breaker), ISSUE-15 (Flyway-only ddl), ISSUE-16 (externalize dev secrets).
 - **Infra**: k8s manifest exists only for order+gateway — the other services need manifests for a full
   prod deploy.
+
+### Resolved 2026-10-07 (event/gateway pass)
+- **EVT-01/02 (DONE, live-verified)**: identity now emits protobuf `DomainEvent`/`IdentityLifecycleEvent`
+  on the standard topic; reaches the gateway WS bridge.
+- **EVT-03 (DONE, build+test)**: health event publisher active in all profiles, signed, prod-capable
+  (Option A).
+- **GW-01 (DONE, build+test)**: health wired into the gateway (dev REST facade `/api/v1/health/*`).
+- **ISSUE-06 (by-design)**: `identity.command.result` is the WS-facing command-ack, not an orphan bug.
+- **Gateway bugfix**: `finance.grpc-port` corrected `9097→9094`.
 
 Full open-issue detail: `docs/audit/unresolved-items.md`.

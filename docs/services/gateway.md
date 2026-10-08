@@ -1,17 +1,17 @@
 # Service: Gateway (`apps/smartfarm-gateway`)
 
-> Verified @ HEAD `eaaa112`. ← [System Overview](../architecture/system-overview.md)
+> Verified @ HEAD (updated 2026-10-07). ← [System Overview](../architecture/system-overview.md)
 
 ## Trách nhiệm
 Edge/ingress duy nhất của hệ thống. Spring WebFlux reactive, :8080. Terminate client REST + GraphQL, dịch sang gRPC fan-out tới backend; proxy auth sang identity qua HTTP (WebClient); bridge MQTT domain events → WebSocket cho browser.
 
 ## Inbound interface
-- **REST** `/api/v1/...` (auth proxy, `/me`, orders, order-sagas; livestock/inventory/reporting là **dev-only**).
+- **REST** `/api/v1/...` (auth proxy, `/api/v1/me` — THIN `{subject,tenantId}`, scope `farm:read`, profile qua GraphQL `me`; orders, order-sagas; livestock/inventory/reporting/health là **dev-only**).
 - **GraphQL** `/graphql` (19 query + 19 mutation).
 - **WebSocket** `/ws/**` (event stream, permitAll).
 
 ## Outbound dependency
-- gRPC → identity (:9092), order (:9095), inventory (:9093), reporting (:9096), finance, livestock (:9091).
+- gRPC → identity (:9092), order (:9095), inventory (:9093), reporting (:9096), finance (:9094), livestock (:9091), health (:9097, dev REST facade — GW-01).
 - REST → identity (:8092) cho auth.
 - MQTT sub `smartfarm/+/+/domain/#` (default `enabled=false`).
 
@@ -29,13 +29,14 @@ Edge/ingress duy nhất của hệ thống. Spring WebFlux reactive, :8080. Term
 `/actuator/health` (liveness/readiness). Prometheus/Grafana có cho gateway (observability/).
 
 ## Known limitations
-- health-service không có đường qua gateway (GW-01).
+- health-service: đã nối gateway nhưng mới chỉ **dev REST facade** (GW-01 fixed; prod route chưa có).
 - finance chỉ 2 dev-only GraphQL (GW-02).
 - Duplicate order read surface (`order`/`orders` vs v2).
-- Dev-only facade cho livestock/inventory/reporting — chưa có đường prod.
+- Dev-only facade cho livestock/inventory/reporting/health — chưa có đường prod.
 
 ## TODO còn hiệu lực
-- [ ] Prod REST/GraphQL cho livestock/inventory/reporting (EVT/GW).
-- [ ] Khai báo gRPC client cho health.
+- [ ] Prod REST/GraphQL cho livestock/inventory/reporting/health (EVT/GW).
+
+> Bug đã sửa (GW-01 pass): `finance.grpc-port` trong gateway config từng là `9097` (sai — đó là port health); finance thực chạy gRPC `9094`. Đã sửa về `9094`.
 
 [Gateway Mapping](../architecture/gateway-mapping.md) · [Request Flows](../architecture/request-flows.md)

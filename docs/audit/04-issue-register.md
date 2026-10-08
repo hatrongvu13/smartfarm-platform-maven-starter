@@ -1,5 +1,10 @@
 # 04 — Issue Register (Sổ đăng ký vấn đề)
 
+> ⚠️ **Snapshot lịch sử (thời điểm audit).** Trạng thái SỐNG mới nhất đã resolve nhiều mục ở đây —
+> xem [`unresolved-items.md`](unresolved-items.md) (fix pass part 1–5, 2026-10-07). Tính tới 2026-10-07:
+> ISSUE-01/07/12(partial)/DOC-01/02 + EVT-01/02/03 + GW-01 + ISSUE-02(app-level HMAC) đã xử lý;
+> ISSUE-06 reclassified **by-design**. File này giữ nguyên làm bản ghi audit gốc, không chỉnh thân.
+
 > Phạm vi: `order-service`, `identity-service`, `libs/smartfarm-security`, event-flow toàn nền tảng.
 > Mọi khẳng định đều gắn nhãn **FACT / INFERENCE / UNKNOWN / RISK / BLOCKER**. Không chỉnh sửa source — chỉ MÔ TẢ patch.
 > Dòng, file, symbol được xác nhận bằng cách đọc source thật; node/edge tham chiếu graph `graphify-out/graph.json`.

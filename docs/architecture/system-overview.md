@@ -24,7 +24,7 @@ flowchart TB
     fin["finance :8084/9094"]:::partial
     liv["livestock :8081/9091"]:::ok
     rep["reporting :8086/9096"]:::partial
-    hea["health"]:::ok
+    hea["health :8087/9097"]:::ok
   end
   pg[("Postgres 17")]:::ok
   redis[("Redis")]:::ok
@@ -35,6 +35,7 @@ flowchart TB
   gw -->|gRPC dev| liv
   gw -->|gRPC dev| rep
   gw -->|gRPC dev| fin
+  gw -->|gRPC dev| hea
   gw -. "MQTT sub (WS bridge)" .-> broker
   id & ord & inv & fin & liv & rep & hea --> pg
   id --> redis
@@ -89,7 +90,7 @@ flowchart LR
     head["/api/v1/health/* (dev only)"]:::partial
     ws["/ws/** (events WS)"]:::ok
   end
-  c --> auth & me & ords & saga & gql & livd & invd & repd & ws
+  c --> auth & me & ords & saga & gql & livd & invd & repd & head & ws
   auth -->|"REST (WebClient)"| id["identity"]:::ok
   me --> id
   ords & saga -->|gRPC| ord["order"]:::ok
@@ -97,6 +98,7 @@ flowchart LR
   livd -->|gRPC| liv["livestock"]:::ok
   invd -->|gRPC| inv
   repd -->|gRPC| rep["reporting"]:::partial
+  head -->|gRPC| hea["health"]:::partial
   classDef ok fill:#1b5e20,color:#fff;
   classDef partial fill:#8d6e00,color:#fff;
 ```
@@ -136,7 +138,7 @@ sequenceDiagram
   C->>GW: POST /api/v1/auth/register
   GW->>ID: REST proxy /api/v1/auth/register
   ID->>PG: create account + membership (RBAC default role)
-  ID->>ID: enqueue identity domain event (JSON outbox)
+  ID->>ID: enqueue identity domain event (protobuf outbox)
   ID-->>GW: 201 principal
   GW-->>C: created
 ```

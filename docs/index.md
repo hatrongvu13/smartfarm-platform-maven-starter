@@ -38,6 +38,7 @@
 ## Audit (đợt 2026-10-06)
 - [Documentation Audit](audit/documentation-audit.md)
 - [Unresolved Items (active issues + bằng chứng)](audit/unresolved-items.md)
+- [Outstanding Issues (LARGE — need confirmation, code untouched)](audit/outstanding-issues.md)
 - [Removed / Archived Files](audit/removed-or-archived-files.md)
 - [Runtime Readiness](07-runtime-readiness.md)
 - [Implementation Roadmap](10-implementation-roadmap.md) · [Task Dependency Graph](11-task-dependency-graph.md)

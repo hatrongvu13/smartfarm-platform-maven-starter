@@ -1,6 +1,6 @@
 # Gateway Mapping — SmartFarm Platform
 
-> Verified from `apps/smartfarm-gateway` controllers + `graphql/schema.graphqls` + `GatewaySecurityConfiguration` + `application.yml`, @ HEAD `eaaa112`.
+> Verified from `apps/smartfarm-gateway` controllers + `graphql/schema.graphqls` + `GatewaySecurityConfiguration` + `application.yml`, @ HEAD (updated 2026-10-07).
 > Gateway = Spring WebFlux reactive, :8080. REST + GraphQL (`/graphql`) edge → gRPC fan-out. Auth là ngoại lệ: HTTP-proxy sang identity qua WebClient.
 > `dev-only` = controller mang `@Profile("dev & !prod")` → biến mất ở prod.
 
@@ -13,7 +13,7 @@
 | POST | `/api/v1/auth/mfa/verify` | REST → identity | public | — | 🟢 | `AuthProxyController` |
 | POST | `/api/v1/auth/refresh` | REST → identity | public | — | 🟢 | `AuthProxyController` |
 | POST | `/api/v1/auth/logout` | REST → identity | public | — | 🟢 | `AuthProxyController` |
-| GET | `/me` | REST → identity | ✅ | authenticated | 🟢 | `WhoAmIController` |
+| GET | `/api/v1/me` | REST → identity | ✅ | `SCOPE_farm:read` | 🟢 | `WhoAmIController` (THIN: `{subject,tenantId}`; profile qua GraphQL `me`) |
 | POST | `/api/v1/orders` | gRPC → order `PlaceOrder` | ✅ | `SCOPE_orders:write` | 🟢 | `OrderRestController` |
 | POST | `/api/v1/orders/drafts` | gRPC → order `CreateDraftOrder` | ✅ | `orders:write` | 🟢 | `OrderRestController` |
 | PUT | `/api/v1/orders/drafts/{id}` | gRPC → order `UpdateDraftOrder` | ✅ | `orders:write` | 🟢 | `OrderRestController` |
@@ -37,6 +37,7 @@
 | POST | `/api/v1/livestock/tasks` + `/{id}/assign·accept·complete·cancel`, GET `/`,`/{id}` | gRPC → livestock | ✅ | authenticated | 🟡 dev-only | `LivestockDevController` |
 | POST | `/api/v1/inventory/items`, `/receipts` | gRPC → inventory | ✅ | authenticated | 🟡 dev-only | `InventoryDevSetupController` |
 | POST | `/api/v1/reports` + GET `/{id}`,`/`,`/{id}/download` | gRPC → reporting | ✅ | authenticated | 🟡 dev-only | `ReportingDevController` |
+| GET | `/api/v1/health/{observations,vaccinations,alerts}` | gRPC → health `AnimalHealthService` | ✅ | `SCOPE_health:read` | 🟡 dev-only (GW-01 fixed) | `HealthDevController` |
 
 Public (permitAll) từ `GatewaySecurityConfiguration`: `/actuator/health*`, `/v3/api-docs/**`, swagger, `/ws/**`, 5 auth endpoint. Mọi path khác = `authenticated()`.
 
@@ -57,7 +58,7 @@ Public (permitAll) từ `GatewaySecurityConfiguration`: `/actuator/health*`, `/v
 
 ## 3. Phân loại
 
-1. **Mapped & verified**: toàn bộ auth, `/me`, orders REST, saga admin REST, order+identity GraphQL.
+1. **Mapped & verified**: toàn bộ auth, `/api/v1/me` (THIN, scope `farm:read`), orders REST, saga admin REST, order+identity GraphQL.
 2. **Mapped but incomplete (dev-only, chưa có đường prod)**: livestock/inventory/reporting REST + `tasks/dashboard/warehouseInventory/batchCost/cashFlow/lowStock` GraphQL. Javadoc gọi "DEV REST facade" → prod equivalent **có vẻ dự định nhưng chưa build**.
 3. **Implemented in service but NOT exposed by gateway**: xem §4.
 4. **Documented but not implemented**: không phát hiện route tài liệu-hóa mà không có impl (sau khi sửa README broken link).
@@ -66,7 +67,7 @@ Public (permitAll) từ `GatewaySecurityConfiguration`: `/actuator/health*`, `/v
 
 ## 4. Endpoint có trong service nhưng CHƯA mapping qua gateway
 
-- 🔴 **health-service — hoàn toàn orphan**: không REST, không GraphQL, **không khai báo gRPC client** trong gateway `application.yml`. Toàn bộ `HealthGrpcService` không reach được từ gateway.
+- 🟡 **health-service — dev REST facade (GW-01 fixed)**: gateway khai báo gRPC client `AnimalHealthService` (`HealthDevClientConfig`, :9097) + `HealthDevController` (`/api/v1/health/{observations,vaccinations,alerts}`, dev-only, scope `health:read`). 6/10 RPC còn chưa impl ở service; prod route chưa có.
 - 🟡 **finance-service**: không REST, chỉ 2 GraphQL dev-only (`batchCost`,`cashFlow`). 6 RPC finance server không có caller khác saga.
 - 🟡 **identity**: REST `/api/v1/auth/mfa/enrollment/begin|confirm` **không** được `AuthProxyController` proxy (chỉ có qua GraphQL mutation `beginTotpEnrollment/confirmTotpEnrollment`). Saga op `recover-stale` không expose.
 - Nhiều RPC admin identity/platform-auth/directory có impl nhưng không caller gateway (xem [grpc trace](#) trong `unresolved-items`).
@@ -79,6 +80,6 @@ Không phát hiện lỗ hổng: ngoài 5 auth public + health + docs + ws, mọ
 
 ## 7. Route nguy cơ vòng lặp / xung đột path
 - Không phát hiện vòng lặp (order→inventory/finance là cây saga 1 chiều, có compensation).
-- **Duplicate/overlap read surface**: `order`/`orders` vs `orderV2`/`ordersV2`; hai bề mặt `me` (REST `/me` + GraphQL `me`) khác scope — không xung đột path nhưng dư thừa.
+- **Duplicate/overlap read surface**: `order`/`orders` vs `orderV2`/`ordersV2`; hai bề mặt `me` khác nhau — REST `/api/v1/me` là THIN (`{subject,tenantId}`, scope `farm:read`), GraphQL `me` trả về Principal đầy đủ (profile+membership). Không xung đột path, phân vai rõ: scopes lấy từ JWT, profile lấy từ GraphQL `me`.
 
 ← [System Overview](./system-overview.md) · [Documentation Index](../index.md)
