@@ -1,16 +1,43 @@
-import { useState, type FormEvent } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { get, money, newKey, params, post, time, type Order, type OrderLine } from '../api'
-import { Card, Empty, ErrorText, Field, Page, Status } from '../ui'
-import { useAuth, can } from '../auth'
-import { useFarm } from '../app'
-const blank = (): OrderLine => ({ itemId: '', quantity: '1', unit: 'kg', unitPriceMinor: 0, warehouseId: '' })
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { api } from '../lib/api'
+import { useFarm } from '../lib/farm'
+import { Badge, Button, Card, ErrorMsg, PageHeader, statusTone } from '../components/ui'
+
+// GET /api/v1/orders?farmId&status?&warehouseId?&size&pageToken -> { orders[], nextPageToken }
 export default function Orders() {
-    const { farmId } = useFarm(), { me } = useAuth(), cache = useQueryClient(); const [warehouse, setWarehouse] = useState(''), [lines, setLines] = useState<OrderLine[]>([blank()]), [status, setStatus] = useState(''), [selected, setSelected] = useState(''), [reason, setReason] = useState(''), [error, setError] = useState<unknown>(null), [busy, setBusy] = useState(false)
-    const list = useQuery({ queryKey: ['orders', me?.tenantId, farmId, status], queryFn: () => get<{ count: number; orders: Order[] }>(params('/api/v1/orders', { farmId, status, limit: 30 })), enabled: !!farmId && can(me, 'orders:read'), refetchInterval: 10000 })
-    const detail = useQuery({ queryKey: ['order', me?.tenantId, selected], queryFn: () => get<Order>('/api/v1/orders/' + encodeURIComponent(selected)), enabled: !!selected && can(me, 'orders:read'), refetchInterval: q => ['ORDER_STATUS_COMPLETED', 'ORDER_STATUS_FAILED', 'ORDER_STATUS_CANCELLED'].includes(q.state.data?.status || '') ? false : 5000 })
-    function change(i: number, field: keyof OrderLine, value: string | number) { setLines(prev => prev.map((x, n) => n === i ? { ...x, [field]: value } : x)) }
-    async function create(e: FormEvent) { e.preventDefault(); setBusy(true); setError(null); try { const order = await post<Order>('/api/v1/orders', { farmId, batchId: warehouse, currency: 'VND', lines: lines.map(x => ({ ...x, warehouseId: x.warehouseId || undefined, currency: 'VND' })) }, newKey()); setSelected(order.orderId); setLines([blank()]); await cache.invalidateQueries({ queryKey: ['orders'] }) } catch (e) { setError(e) } finally { setBusy(false) } }
-    async function cancel() { if (!selected) return; setBusy(true); setError(null); try { await post('/api/v1/orders/' + encodeURIComponent(selected) + '/cancel', { reason }); await Promise.all([cache.invalidateQueries({ queryKey: ['orders'] }), cache.invalidateQueries({ queryKey: ['order'] })]) } catch (e) { setError(e) } finally { setBusy(false) } }
-    return <Page title="Đơn hàng" subtitle="Theo dõi saga đặt hàng, trạng thái kho và chi phí."><div className="grid"><Card title="Danh sách đơn"><Field label="Trạng thái"><select value={status} onChange={e => setStatus(e.target.value)}><option value="">Tất cả</option>{['CREATED', 'STOCK_RESERVED', 'FINANCE_POSTED', 'COMPLETED', 'FAILED', 'CANCELLED'].map(s => <option key={s}>{s}</option>)}</select></Field>{list.isError ? <ErrorText error={list.error} /> : list.isLoading ? <Empty text="Đang tải..." /> : list.data?.orders.length ? list.data.orders.map(o => <button className="row row-btn" key={o.orderId} onClick={() => setSelected(o.orderId)}><div><b>{o.orderId}</b><small>{money(o.totalMinor, o.currency)} · {time(o.createdAt)}</small></div><Status value={o.status} /></button>) : <Empty />}</Card><Card title="Chi tiết đơn">{detail.isError ? <ErrorText error={detail.error} /> : detail.data ? <><p><b>{detail.data.orderId}</b> · <Status value={detail.data.status} /></p><p>Tổng: {money(detail.data.totalMinor, detail.data.currency)}</p>{detail.data.failureReason && <ErrorText error={detail.data.failureReason} />}<div className="table-scroll"><table><thead><tr><th>Item</th><th>Kho</th><th>Số lượng</th><th>Đơn giá</th></tr></thead><tbody>{detail.data.lines?.map((l, i) => <tr key={i}><td>{l.itemId}</td><td>{l.warehouseId || detail.data?.batchId}</td><td>{l.quantity} {l.unit}</td><td>{money(l.unitPriceMinor)}</td></tr>)}</tbody></table></div>{can(me, 'orders:write') && <div className="actions"><input placeholder="Lý do hủy" value={reason} onChange={e => setReason(e.target.value)} /><button className="danger-btn" disabled={busy || detail.data.status === 'ORDER_STATUS_COMPLETED'} onClick={cancel}>Hủy đơn</button></div>}</> : <Empty text="Chọn đơn hàng để xem chi tiết." />}</Card></div>{can(me, 'orders:write') && <Card title="Tạo đơn nhiều dòng"><form className="stack" onSubmit={create}><Field label="Kho mặc định (batchId)"><input required value={warehouse} onChange={e => setWarehouse(e.target.value)} /></Field>{lines.map((l, i) => <div className="line-grid" key={i}><Field label="Item ID"><input required value={l.itemId} onChange={e => change(i, 'itemId', e.target.value)} /></Field><Field label="Số lượng"><input required inputMode="decimal" value={l.quantity} onChange={e => change(i, 'quantity', e.target.value)} /></Field><Field label="Đơn vị"><input required value={l.unit} onChange={e => change(i, 'unit', e.target.value)} /></Field><Field label="Đơn giá (đồng)"><input type="number" min="0" required value={l.unitPriceMinor} onChange={e => change(i, 'unitPriceMinor', Number(e.target.value))} /></Field><Field label="Kho riêng (tùy chọn)"><input value={l.warehouseId} onChange={e => change(i, 'warehouseId', e.target.value)} /></Field><button className="outline" type="button" disabled={lines.length === 1} onClick={() => setLines(lines.filter((_, n) => n !== i))}>Xóa dòng</button></div>)}<div className="actions"><button type="button" className="outline" onClick={() => setLines([...lines, blank()])}>+ Thêm dòng</button><button disabled={!farmId || busy}>Đặt hàng</button></div></form></Card>}<ErrorText error={error} /></Page>
+  const { farmId } = useFarm()
+  const q = useInfiniteQuery({
+    queryKey: ['orders', farmId],
+    initialPageParam: '' as string,
+    queryFn: ({ pageParam }) => api<{ orders: any[]; nextPageToken?: string }>('/api/v1/orders', { query: { farmId, size: 20, pageToken: pageParam } }),
+    getNextPageParam: l => l.nextPageToken || undefined,
+  })
+  const rows = q.data?.pages.flatMap(p => p.orders ?? []) ?? []
+
+  return (
+    <>
+      <PageHeader title="Đơn hàng" sub={`Farm: ${farmId}`} right={<Link to="/orders/new"><Button>+ Tạo draft</Button></Link>} />
+      <Card>
+        <ErrorMsg error={q.error} />
+        {q.isLoading && <p className="text-sm text-stone-500">Đang tải…</p>}
+        {!q.isLoading && !rows.length && !q.error && <p className="text-sm text-stone-500">Chưa có đơn hàng.</p>}
+        {!!rows.length && (
+          <table className="w-full text-left text-sm">
+            <thead className="border-b text-xs uppercase text-stone-500"><tr><th className="py-2">Mã đơn</th><th>Trạng thái</th><th>Version</th></tr></thead>
+            <tbody>
+              {rows.map(o => (
+                <tr key={o.orderId} className="border-b last:border-0 hover:bg-stone-50">
+                  <td className="py-2"><Link className="font-mono text-brand-700 underline" to={`/orders/${o.orderId}`}>{o.orderId}</Link></td>
+                  <td><Badge tone={statusTone(o.status)}>{o.status}</Badge></td>
+                  <td>{o.version}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {q.hasNextPage && <Button variant="ghost" className="mt-4" onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage}>Tải thêm</Button>}
+      </Card>
+    </>
+  )
 }

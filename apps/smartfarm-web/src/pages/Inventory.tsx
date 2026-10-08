@@ -1,15 +1,56 @@
 import { useState, type FormEvent } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { gql, newKey, post } from '../api'
-import { Card, Empty, ErrorText, Field, Page } from '../ui'
-import { useAuth, can } from '../auth'
-import { useFarm } from '../app'
-type Stock = { warehouseInventory: { itemId: string; warehouseId: string; onHand: { value: string; unit: string }; reserved: { value: string; unit: string }; available: { value: string; unit: string } } }
-const STOCK = 'query Stock($item:ID!,$warehouse:ID!){warehouseInventory(itemId:$item,warehouseId:$warehouse){itemId warehouseId onHand{value unit} reserved{value unit} available{value unit}}}'
+import { useMutation } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { useFarm } from '../lib/farm'
+import { recent } from '../lib/recent'
+import { Button, Card, DevOnly, ErrorMsg, Field, Input, Json, PageHeader } from '../components/ui'
+
+// DEV-only: POST /api/v1/inventory/items (inventory:write) · /receipts
 export default function Inventory() {
-    const { farmId } = useFarm(), { me } = useAuth(), cache = useQueryClient(); const [sku, setSku] = useState(''), [name, setName] = useState(''), [unit, setUnit] = useState('kg'), [threshold, setThreshold] = useState(''), [item, setItem] = useState(''), [warehouse, setWarehouse] = useState(''), [qty, setQty] = useState(''), [error, setError] = useState<unknown>(null), [result, setResult] = useState<unknown>(null)
-    const stock = useQuery({ queryKey: ['stock', me?.tenantId, item, warehouse], queryFn: () => gql<Stock>(STOCK, { item, warehouse }), enabled: !!item && !!warehouse && can(me, 'inventory:read') })
-    async function create(e: FormEvent) { e.preventDefault(); setError(null); try { const v = await post<{ itemId: string }>('/api/v1/inventory/items', { sku, name, unit, reorderThreshold: threshold || undefined }, newKey()); setResult(v); setItem(v.itemId); setSku(''); setName('') } catch (e) { setError(e) } }
-    async function receive(e: FormEvent) { e.preventDefault(); setError(null); try { const v = await post('/api/v1/inventory/receipts', { itemId: item, farmId, warehouseId: warehouse, quantity: qty, unit }, newKey()); setResult(v); setQty(''); await cache.invalidateQueries({ queryKey: ['stock'] }) } catch (e) { setError(e) } }
-    return <Page title="Kho & vật tư" subtitle="Tạo vật tư, nhập kho qua REST; xem tồn qua GraphQL."><div className="grid"><Card title="Tồn kho theo điểm">{can(me, 'inventory:read') ? <><div className="form-grid"><Field label="Item ID"><input value={item} onChange={e => setItem(e.target.value)} /></Field><Field label="Kho"><input value={warehouse} onChange={e => setWarehouse(e.target.value)} /></Field></div>{stock.isError ? <ErrorText error={stock.error} /> : stock.data ? <div className="stats mini"><div><small>Tồn</small><strong>{stock.data.warehouseInventory.onHand.value} {stock.data.warehouseInventory.onHand.unit}</strong></div><div><small>Khả dụng</small><strong>{stock.data.warehouseInventory.available.value} {stock.data.warehouseInventory.available.unit}</strong></div></div> : <Empty text="Nhập Item ID và kho để xem tồn." />}</> : <Empty text="Cần inventory:read." />}</Card><Card title="Thao tác kho">{can(me, 'inventory:write') ? <><form className="stack" onSubmit={create}><h3>Tạo vật tư</h3><Field label="SKU"><input required value={sku} onChange={e => setSku(e.target.value)} /></Field><Field label="Tên"><input required value={name} onChange={e => setName(e.target.value)} /></Field><Field label="Đơn vị"><input required value={unit} onChange={e => setUnit(e.target.value)} /></Field><Field label="Ngưỡng đặt lại (tùy chọn)"><input value={threshold} onChange={e => setThreshold(e.target.value)} /></Field><button>Tạo vật tư</button></form><form className="stack divider" onSubmit={receive}><h3>Nhập kho</h3><p className="muted">Item ID và kho dùng các ô bên trái.</p><Field label="Số lượng"><input required inputMode="decimal" value={qty} onChange={e => setQty(e.target.value)} /></Field><button disabled={!item || !warehouse || !farmId}>Nhập kho</button></form></> : <Empty text="Cần inventory:write." />}</Card></div><ErrorText error={error} />{result !== null && <p className="success-msg">Đã ghi nhận: {JSON.stringify(result)}</p>}</Page>
+  const { farmId } = useFarm()
+  const [item, setItem] = useState({ sku: 'FEED-001', name: 'Starter Feed', unit: 'KG', reorderThreshold: '100' })
+  const [rec, setRec] = useState({ itemId: recent.get('itemId'), warehouseId: recent.get('warehouseId', 'wh-1'), quantity: '500', unit: 'KG' })
+
+  const createItem = useMutation({
+    mutationFn: () => api('/api/v1/inventory/items', { method: 'POST', idempotent: true, body: item }),
+    onSuccess: r => { if (r?.itemId) { recent.set('itemId', r.itemId); setRec(s => ({ ...s, itemId: r.itemId })) } },
+  })
+  const receive = useMutation({
+    mutationFn: () => api('/api/v1/inventory/receipts', { method: 'POST', idempotent: true, body: { ...rec, farmId } }),
+    onSuccess: () => recent.set('warehouseId', rec.warehouseId),
+  })
+
+  return (
+    <>
+      <PageHeader title="Kho" sub={<>Endpoint dev-only <DevOnly /> — chỉ chạy khi backend ở profile <code>dev</code>.</>} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="1. Tạo vật tư">
+          <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); createItem.mutate() }}>
+            <Field label="SKU"><Input required value={item.sku} onChange={e => setItem({ ...item, sku: e.target.value })} /></Field>
+            <Field label="Tên"><Input required value={item.name} onChange={e => setItem({ ...item, name: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Đơn vị"><Input required value={item.unit} onChange={e => setItem({ ...item, unit: e.target.value })} /></Field>
+              <Field label="Ngưỡng đặt lại"><Input required value={item.reorderThreshold} onChange={e => setItem({ ...item, reorderThreshold: e.target.value })} /></Field>
+            </div>
+            <ErrorMsg error={createItem.error} />
+            <Button disabled={createItem.isPending}>Tạo vật tư</Button>
+            {createItem.data && <Json data={createItem.data} />}
+          </form>
+        </Card>
+        <Card title="2. Nhập kho">
+          <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); receive.mutate() }}>
+            <Field label="Item ID" hint="Tự điền sau khi tạo vật tư"><Input required value={rec.itemId} onChange={e => setRec({ ...rec, itemId: e.target.value })} /></Field>
+            <Field label="Warehouse ID"><Input required value={rec.warehouseId} onChange={e => setRec({ ...rec, warehouseId: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Số lượng"><Input required value={rec.quantity} onChange={e => setRec({ ...rec, quantity: e.target.value })} /></Field>
+              <Field label="Đơn vị"><Input required value={rec.unit} onChange={e => setRec({ ...rec, unit: e.target.value })} /></Field>
+            </div>
+            <ErrorMsg error={receive.error} />
+            <Button disabled={receive.isPending}>Nhập kho</Button>
+            {receive.data && <Json data={receive.data} />}
+          </form>
+        </Card>
+      </div>
+    </>
+  )
 }

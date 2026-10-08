@@ -1,13 +1,54 @@
 import { useQuery } from '@tanstack/react-query'
-import { gql, time } from '../api'
-import { Card, Empty, ErrorText, Page, Status } from '../ui'
-import { useFarm } from '../app'
-import { useAuth, can } from '../auth'
-type Dash = { dashboard: { generatedAt: string; tasks: { total: number; created: number; assigned: number; accepted: number; completed: number; overdueAccept: number; overdueReport: number }; orders: { total: number; completed: number; failed: number }; overdueTasks: { taskId: string; title: string; status: string }[]; failedOrders: { orderId: string; status: string; failureReason?: string }[] } }
-const QUERY = `query Dashboard($f:ID!,$n:Int){dashboard(farmId:$f,recentLimit:$n){generatedAt tasks{total created assigned accepted completed overdueAccept overdueReport} orders{total completed failed} overdueTasks{taskId title status} failedOrders{orderId status failureReason}}}`
+import { Link } from 'react-router-dom'
+import { gql } from '../lib/api'
+import { scopesOf, useAuth } from '../lib/auth'
+import { Badge, Card, ErrorMsg, Json, PageHeader } from '../components/ui'
+
 export default function Dashboard() {
-    const { farmId } = useFarm(), { me } = useAuth(); const enabled = !!farmId && can(me, 'farm:read') && can(me, 'orders:read'); const q = useQuery({ queryKey: ['dashboard', me?.tenantId, farmId], queryFn: () => gql<Dash>(QUERY, { f: farmId, n: 10 }), enabled, refetchInterval: 30000 })
-    return <Page title="Tổng quan" subtitle="Tình trạng vận hành từ GraphQL Gateway." action={<button className="outline" onClick={() => q.refetch()} disabled={!enabled}>Làm mới</button>}>
-        {!farmId ? <Empty text="Nhập mã trang trại ở thanh trên để xem dashboard." /> : !enabled ? <Empty text="Dashboard yêu cầu đồng thời farm:read và orders:read." /> : q.isLoading ? <Empty text="Đang tải dữ liệu..." /> : q.isError ? <ErrorText error={q.error} /> : q.data?.dashboard && <><div className="stats"><Card title="Nhiệm vụ"><strong>{q.data.dashboard.tasks.total}</strong><p>{q.data.dashboard.tasks.completed} hoàn thành · {q.data.dashboard.tasks.assigned} đã giao</p></Card><Card title="Đơn hàng"><strong>{q.data.dashboard.orders.total}</strong><p>{q.data.dashboard.orders.completed} hoàn thành · {q.data.dashboard.orders.failed} thất bại</p></Card><Card title="Cảnh báo quá hạn"><strong>{q.data.dashboard.tasks.overdueAccept + q.data.dashboard.tasks.overdueReport}</strong><p>Nhận việc / báo cáo</p></Card></div><div className="grid"><Card title="Nhiệm vụ quá hạn">{q.data.dashboard.overdueTasks.length ? q.data.dashboard.overdueTasks.map(t => <div className="row" key={t.taskId}><div><b>{t.title}</b><small>{t.taskId}</small></div><Status value={t.status} /></div>) : <Empty />}</Card><Card title="Đơn hàng lỗi">{q.data.dashboard.failedOrders.length ? q.data.dashboard.failedOrders.map(o => <div className="row" key={o.orderId}><div><b>{o.orderId}</b><small>{o.failureReason}</small></div><Status value={o.status} /></div>) : <Empty />}</Card></div><p className="muted">Cập nhật: {time(q.data.dashboard.generatedAt)}</p></>}
-    </Page>
+  const { me } = useAuth()
+  const scopes = scopesOf(me)
+  // GraphQL platformStatus cần scope farm:read (super-admin "*" qua được)
+  const status = useQuery({
+    queryKey: ['platformStatus'],
+    queryFn: () => gql<{ platformStatus: { name: string; status: string; tenantId: string } }>('query { platformStatus { name status tenantId } }'),
+  })
+
+  const links = [
+    ['/orders', 'Đơn hàng', 'Tạo draft, submit, theo dõi saga'],
+    ['/inventory', 'Kho', 'Tạo vật tư, nhập kho'],
+    ['/livestock', 'Chăn nuôi', 'Đăng ký vật nuôi, tạo task'],
+    ['/reports', 'Báo cáo', 'Yêu cầu export, tải xuống'],
+  ]
+
+  return (
+    <>
+      <PageHeader title="Tổng quan" sub={`Xin chào ${me?.email ?? me?.sub ?? ''}`} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card title="Trạng thái nền tảng">
+          {status.isLoading && <p className="text-sm text-stone-500">Đang tải…</p>}
+          <ErrorMsg error={status.error} />
+          {status.data && (
+            <dl className="space-y-1 text-sm">
+              <div className="flex justify-between"><dt className="text-stone-500">Tên</dt><dd>{status.data.platformStatus.name}</dd></div>
+              <div className="flex justify-between"><dt className="text-stone-500">Trạng thái</dt><dd><Badge tone="ok">{status.data.platformStatus.status}</Badge></dd></div>
+              <div className="flex justify-between"><dt className="text-stone-500">Tenant</dt><dd>{status.data.platformStatus.tenantId}</dd></div>
+            </dl>
+          )}
+        </Card>
+        <Card title="Phiên đăng nhập">
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {scopes.length ? scopes.map(s => <Badge key={s} tone={s === '*' ? 'warn' : 'info'}>{s}</Badge>) : <span className="text-sm text-stone-500">Không có scope</span>}
+          </div>
+          <details><summary className="cursor-pointer text-sm text-stone-600">Principal (GraphQL me) + scope JWT</summary><div className="mt-2"><Json data={me} /></div></details>
+        </Card>
+      </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {links.map(([to, t, d]) => (
+          <Link key={to} to={to} className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm transition hover:border-brand-500 hover:shadow">
+            <div className="font-semibold">{t}</div><div className="mt-1 text-sm text-stone-500">{d}</div>
+          </Link>
+        ))}
+      </div>
+    </>
+  )
 }

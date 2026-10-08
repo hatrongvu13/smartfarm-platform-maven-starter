@@ -1,15 +1,46 @@
-import { createContext, lazy, Suspense, useContext, useState, type ReactNode } from 'react'
-import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router'
-import { useAuth, can } from './auth'
-import { EventProvider, useEvents } from './events'
-const Login = lazy(() => import('./pages/Login')), Dashboard = lazy(() => import('./pages/Dashboard')), Tasks = lazy(() => import('./pages/Tasks')), Animals = lazy(() => import('./pages/Animals')), Schedules = lazy(() => import('./pages/Schedules')), Inventory = lazy(() => import('./pages/Inventory')), Orders = lazy(() => import('./pages/Orders')), Reports = lazy(() => import('./pages/Reports')), Admin = lazy(() => import('./pages/Admin')), Finance = lazy(() => import('./pages/Finance')), Events = lazy(() => import('./pages/Events'))
-type Farm = { farmId: string; setFarmId: (v: string) => void }
-const FarmContext = createContext<Farm | null>(null)
-export function useFarm() { const ctx = useContext(FarmContext); if (!ctx) throw new Error('Missing farm context'); return ctx }
-function Shell({ children }: { children: ReactNode }) {
-    const { me, logout } = useAuth(), { farmId, setFarmId } = useFarm(), { connected, events } = useEvents(); const links: [string, string, string][] = [['/', 'Tổng quan', 'farm:read'], ['/tasks', 'Công việc', 'farm:read'], ['/animals', 'Vật nuôi', 'farm:read'], ['/schedules', 'Lịch công việc', 'farm:read'], ['/inventory', 'Kho & vật tư', 'inventory:read'], ['/orders', 'Đơn hàng', 'orders:read'], ['/finance', 'Chi phí & dòng tiền', 'report:read'], ['/reports', 'Báo cáo', 'report:read'], ['/events', 'Sự kiện trực tiếp', 'farm:read'], ['/admin', 'Người dùng & quyền', 'identity:admin']]
-    return <div className="shell"><aside className="sidebar"><div className="logo">✳ <span>SmartFarm</span></div><div className="side-label">WORKSPACE</div><nav>{links.filter(([path, , scope]) => can(me, scope) || (path === '/inventory' && can(me, 'inventory:write')) || (path === '/orders' && can(me, 'orders:write')) || (path === '/reports' && can(me, 'report:write')) || (path === '/tasks' && can(me, 'tasks:write'))).map(([path, label]) => <NavLink key={path} end={path === '/'} to={path} className={({ isActive }) => isActive ? 'active' : ''}>{label}{path === '/events' && events.length > 0 && <span className="count">{events.length}</span>}</NavLink>)}</nav><div className="sidebar-bottom"><span>{me?.tenantId}</span><button className="outline" onClick={() => void logout()}>Đăng xuất</button></div></aside><main className="main"><header className="topbar"><label>Trang trại <input aria-label="Mã trang trại" placeholder="Nhập farmId, ví dụ farm-1" value={farmId} onChange={e => setFarmId(e.target.value)} /></label><div className="topright"><span className={connected ? 'live' : 'offline'}>{connected ? '● Trực tiếp' : '○ Ngoại tuyến'}</span><span className="avatar">{me?.roles?.[0]?.slice(0, 2) || 'SF'}</span></div></header>{children}</main></div>
+import { Navigate, Route, Routes } from 'react-router-dom'
+import Layout from './components/Layout'
+import { useAuth } from './lib/auth'
+import Login from './pages/Login'
+import Bootstrap from './pages/Bootstrap'
+import Dashboard from './pages/Dashboard'
+import Orders from './pages/Orders'
+import OrderNew from './pages/OrderNew'
+import OrderDetail from './pages/OrderDetail'
+import Inventory from './pages/Inventory'
+import Livestock from './pages/Livestock'
+import Reports from './pages/Reports'
+import Profile from './pages/Profile'
+import Users from './pages/admin/Users'
+import RequireScope from './components/RequireScope'
+
+export default function App() {
+  const { status } = useAuth()
+  if (status === 'loading') return <div className="p-10 text-stone-500">Đang tải…</div>
+
+  if (status === 'anonymous') {
+    return (
+      <Routes>
+        <Route path="/bootstrap" element={<Bootstrap />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    )
+  }
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="orders/new" element={<OrderNew />} />
+        <Route path="orders/:id" element={<OrderDetail />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="livestock" element={<Livestock />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="admin/users" element={<RequireScope scope="identity:user:read"><Users /></RequireScope>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  )
 }
-function Guard({ scope, children }: { scope: string; children: ReactNode }) { const { me } = useAuth(); return can(me, scope) || (scope === 'inventory:read' && can(me, 'inventory:write')) || (scope === 'orders:read' && can(me, 'orders:write')) || (scope === 'report:read' && can(me, 'report:write')) || (scope === 'farm:read' && can(me, 'tasks:write')) ? <>{children}</> : <div className="page"><h1>Không có quyền truy cập</h1><p>Thiếu quyền {scope}. Quyền cuối cùng vẫn do Gateway xác minh.</p></div> }
-function Router() { const { token } = useAuth(); return <Suspense fallback={<div className="page">Đang tải...</div>}><Routes><Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} /><Route path="/*" element={token ? <EventProvider><Shell><Routes><Route path="/" element={<Guard scope="farm:read"><Dashboard /></Guard>} /><Route path="/tasks" element={<Guard scope="farm:read"><Tasks /></Guard>} /><Route path="/animals" element={<Guard scope="farm:read"><Animals /></Guard>} /><Route path="/schedules" element={<Guard scope="farm:read"><Schedules /></Guard>} /><Route path="/inventory" element={<Guard scope="inventory:read"><Inventory /></Guard>} /><Route path="/orders" element={<Guard scope="orders:read"><Orders /></Guard>} /><Route path="/finance" element={<Guard scope="report:read"><Finance /></Guard>} /><Route path="/reports" element={<Guard scope="report:read"><Reports /></Guard>} /><Route path="/events" element={<Guard scope="farm:read"><Events /></Guard>} /><Route path="/admin" element={<Guard scope="identity:admin"><Admin /></Guard>} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></Shell></EventProvider> : <Navigate to="/login" replace />} /></Routes></Suspense> }
-export default function App() { const [farmId, setFarmId] = useState(''); return <FarmContext.Provider value={{ farmId, setFarmId }}><BrowserRouter><Router /></BrowserRouter></FarmContext.Provider> }

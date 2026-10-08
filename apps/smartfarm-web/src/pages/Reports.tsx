@@ -1,14 +1,54 @@
 import { useState, type FormEvent } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { get, newKey, params, post, time, type Download, type Report } from '../api'
-import { Card, Empty, ErrorText, Field, Page, Status } from '../ui'
-import { useAuth, can } from '../auth'
-import { useFarm } from '../app'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { useFarm } from '../lib/farm'
+import { Badge, Button, Card, DevOnly, ErrorMsg, Field, Input, Json, PageHeader, statusTone } from '../components/ui'
+
+// DEV-only: POST /api/v1/reports {farmId,type,format} -> {jobId} · GET /{id} · GET /{id}/download -> {url,contentType,expiresAt?}
 export default function Reports() {
-    const { farmId } = useFarm(), { me } = useAuth(), cache = useQueryClient(); const [type, setType] = useState('LIVESTOCK_TASKS'), [format, setFormat] = useState('CSV'), [from, setFrom] = useState(''), [to, setTo] = useState(''), [selected, setSelected] = useState(''), [error, setError] = useState<unknown>(null), [download, setDownload] = useState<Download | null>(null)
-    const list = useQuery({ queryKey: ['reports', me?.tenantId, farmId], queryFn: () => get<Report[] | { reports: Report[] }>(params('/api/v1/reports', { farmId, limit: 30 })), enabled: !!farmId && can(me, 'report:read'), refetchInterval: 10000 }); const jobs = Array.isArray(list.data) ? list.data : list.data?.reports || []
-    const job = useQuery({ queryKey: ['report', me?.tenantId, selected], queryFn: () => get<Report>('/api/v1/reports/' + encodeURIComponent(selected)), enabled: !!selected && can(me, 'report:read'), refetchInterval: q => ['COMPLETED', 'FAILED'].includes(q.state.data?.status || '') ? false : 3000 })
-    async function create(e: FormEvent) { e.preventDefault(); setError(null); setDownload(null); try { const result = await post<Report>('/api/v1/reports', { farmId, type, format, fromEpochMs: from ? new Date(from).getTime() : undefined, toEpochMs: to ? new Date(to).getTime() : undefined }, newKey()); setSelected(result.jobId); await cache.invalidateQueries({ queryKey: ['reports'] }) } catch (e) { setError(e) } }
-    async function link() { setError(null); try { const d = await get<Download>('/api/v1/reports/' + encodeURIComponent(selected) + '/download'); setDownload(d) } catch (e) { setError(e) } }
-    return <Page title="Báo cáo" subtitle="Tạo job bất đồng bộ, theo dõi tiến độ và nhận liên kết tải."><div className="grid"><Card title="Danh sách job">{list.isError ? <ErrorText error={list.error} /> : list.isLoading ? <Empty text="Đang tải..." /> : jobs.length ? jobs.map(j => <button className="row row-btn" key={j.jobId} onClick={() => { setSelected(j.jobId); setDownload(null) }}><div><b>{j.type}</b><small>{j.jobId} · {time(j.createdAt)}</small></div><Status value={j.status} /></button>) : <Empty />}</Card><Card title="Chi tiết job">{job.isError ? <ErrorText error={job.error} /> : job.data ? <><p><b>{job.data.type}</b> · <Status value={job.data.status} /></p><p>Định dạng: {job.data.format} · Tạo: {time(job.data.createdAt)}</p>{job.data.errorCode && <ErrorText error={job.data.errorCode} />}<button disabled={job.data.status !== 'COMPLETED'} onClick={link}>Lấy liên kết tải</button>{download && <p><a href={download.url} target="_blank" rel="noopener noreferrer">Tải báo cáo ({download.contentType})</a><small>Hết hạn: {time(download.expiresAt)}</small></p>}</> : <Empty text="Chọn job để theo dõi." />}</Card></div>{can(me, 'report:write') && <Card title="Yêu cầu xuất"><form className="form-grid" onSubmit={create}><Field label="Loại"><select value={type} onChange={e => setType(e.target.value)}>{['LIVESTOCK_TASKS', 'HEALTH', 'INVENTORY', 'BATCH_COST', 'CASH_FLOW'].map(x => <option key={x}>{x}</option>)}</select></Field><Field label="Định dạng"><select value={format} onChange={e => setFormat(e.target.value)}>{['CSV', 'PDF', 'XLSX'].map(x => <option key={x}>{x}</option>)}</select></Field><Field label="Từ"><input type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} /></Field><Field label="Đến"><input type="datetime-local" value={to} onChange={e => setTo(e.target.value)} /></Field><button disabled={!farmId}>Tạo job</button></form><p className="muted">Các loại ngoài LIVESTOCK_TASKS hiện chỉ là báo cáo tóm tắt theo mô tả API.</p></Card>}<ErrorText error={error} /></Page>
+  const { farmId } = useFarm()
+  const [form, setForm] = useState({ type: 'LIVESTOCK_INVENTORY', format: 'CSV' })
+  const [jobId, setJobId] = useState('')
+
+  const request = useMutation({
+    mutationFn: () => api('/api/v1/reports', { method: 'POST', idempotent: true, body: { farmId, ...form } }),
+    onSuccess: r => setJobId(r.jobId),
+  })
+  const job = useQuery({
+    queryKey: ['report', jobId],
+    enabled: !!jobId,
+    queryFn: () => api<any>(`/api/v1/reports/${jobId}`),
+    refetchInterval: q => (/COMPLET|FAIL/.test(String(q.state.data?.status ?? '')) ? false : 2000),
+  })
+  const done = /COMPLET/.test(String(job.data?.status ?? ''))
+  const dl = useQuery({ queryKey: ['reportDl', jobId], enabled: done, queryFn: () => api<{ url: string; contentType: string; expiresAt?: string }>(`/api/v1/reports/${jobId}/download`) })
+
+  return (
+    <>
+      <PageHeader title="Báo cáo" sub={<>Export bất đồng bộ <DevOnly /> — chỉ loại LIVESTOCK_* hoạt động đầy đủ.</>} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Yêu cầu export">
+          <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); request.mutate() }}>
+            <Field label="Loại"><Input value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} /></Field>
+            <Field label="Định dạng"><Input value={form.format} onChange={e => setForm({ ...form, format: e.target.value })} /></Field>
+            <ErrorMsg error={request.error} />
+            <Button disabled={request.isPending}>Gửi yêu cầu</Button>
+          </form>
+        </Card>
+        <Card title="Tiến trình job">
+          {!jobId && <p className="text-sm text-stone-500">Chưa có job.</p>}
+          {jobId && (
+            <div className="space-y-3">
+              <div className="font-mono text-xs text-stone-500">{jobId}</div>
+              <ErrorMsg error={job.error} />
+              {job.data && <Badge tone={statusTone(job.data.status)}>{job.data.status}</Badge>}
+              {dl.data && <a href={dl.data.url} target="_blank" rel="noreferrer"><Button>Tải xuống ({dl.data.contentType})</Button></a>}
+              <ErrorMsg error={dl.error} />
+              <Json data={job.data} />
+            </div>
+          )}
+        </Card>
+      </div>
+    </>
+  )
 }

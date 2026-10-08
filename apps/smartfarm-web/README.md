@@ -1,41 +1,49 @@
-# SmartFarm Web v1 — Gateway only
+# SmartFarm Web (FE)
 
-Frontend tạm thời để **xem và thao tác các tính năng thực có** trong Gateway API v1 do bạn cung cấp (tài liệu ngày 2026-09-28). React 19 + TypeScript + Vite + TanStack Query. Không dùng mock data, không gọi thẳng service nội bộ. Đặt thư mục này cạnh `apps/` trong workspace; không thêm vào Maven reactor.
+Frontend cho SmartFarm Platform — dựng từ bộ tài liệu backend và collection Bruno.
+Stack: **Vite + React 18 + TypeScript + Tailwind v4 + React Router + TanStack Query**.
 
-## Chạy dev
-
-Yêu cầu Node.js >=20.19 hoặc >=22.12. Chạy Gateway :8080, Identity, các service cần dùng và MQTT nếu muốn realtime. Sau đó:
+## Chạy
 
 ```bash
-cd smartfarm-web
 npm install
-npm run dev
-# http://127.0.0.1:5173
-npm run build
+cp .env.example .env      # tuỳ chọn
+npm run dev               # http://localhost:5173
 ```
 
-Vite dev proxy `/api`, `/graphql`, `/ws` tới **Gateway :8080**. Không có proxy Identity riêng. Đăng nhập bằng tenant/email/password thật. Điền `farmId` trên thanh đầu trang để tải dashboard và các danh sách. Swagger của Gateway: http://localhost:8080/swagger-ui.html.
+Backend phải chạy gateway ở `:8080` (+ identity `:8092`). Vite proxy `/api`, `/graphql`, `/actuator`, `/ws` sang `VITE_GATEWAY_URL`, nên không cần CORS khi dev.
 
-## Màn hình
+## Cấu trúc
 
-- Login/logout + refresh token trong bộ nhớ; `/auth/me` lấy quyền; UI ẩn thao tác không đủ scope, nhưng BE luôn phải kiểm tra quyền.
-- Dashboard GraphQL; task tạo/giao/nhận/hoàn thành/hủy + lọc; vật nuôi, lịch cron.
-- Kho tạo item, nhập kho, tồn GraphQL; đơn hàng nhiều dòng và saga; báo cáo tạo job/poll/download.
-- Chi phí lô, dòng tiền, low-stock GraphQL; admin tạo user và cấp/gỡ role; event WebSocket.
-- Không tạo trang Health vì tài liệu không mô tả route Health public qua Gateway.
+```
+src/lib/api.ts      fetch client: Bearer, Idempotency-Key, tự refresh khi 401, gql()
+src/lib/auth.tsx    AuthProvider, scopes (scope "*" = super-admin)
+src/lib/farm.tsx    farmId đang chọn (ô Farm trên header)
+src/pages/          Login (MFA/tenant), Bootstrap, Dashboard, Orders*, Inventory, Livestock, Reports
+src/components/     ui.tsx (Button/Card/Field/Badge...), Layout.tsx
+```
 
-## Điểm cần kiểm tra theo contract thực tế
+## Luồng auth (theo docs)
 
-- Mô tả API bạn đưa gồm hai phần có vài điểm khác nhau: phần chi tiết ưu tiên `batchId` làm kho mặc định của đơn nhiều dòng; phần curl cũ dùng `warehouseId` ở payload đơn một dòng. UI dùng **dạng nhiều dòng**. `GET /orders` theo phần chi tiết là `{count,orders}`.
-- `GET /livestock/tasks`, `/animals`, `/schedules`, `/reports` không có JSON response mẫu đầy đủ; UI hỗ trợ cả mảng trực tiếp và object `{tasks|animals|schedules|reports: [...]}`. Nếu Gateway trả wrapper khác, cập nhật adapter tại trang tương ứng.
-- `GET /auth/me` giả định `{userId,tenantId,roles,permissions}`. Nếu Gateway dùng tên field khác, chỉnh `src/api.ts` và `src/auth.tsx`.
-- GraphQL `warehouseInventory` và `cashFlow` dùng ID/Float theo ví dụ; đối chiếu `/graphql` schema nếu scalar khác.
-- Báo cáo `download` trả `{url,contentType,expiresAt}`; link mở tab mới, không đưa Bearer token vào URL.
-- WebSocket dùng `?token=` vì đó là contract hiện tại. URL chứa token có thể bị log; **không dùng cách này ngoài môi trường dev**. Thiết kế production: cookie HttpOnly + CSRF phù hợp hoặc vé WS ngắn hạn một lần, HTTPS/WSS và CSP.
-- Access/refresh token chỉ ở memory; tải lại trang phải đăng nhập lại. Refresh mỗi 8 phút khi tab đang mở, có thể bị 401 khi tab bị suspend. Logout cố thu hồi refresh token; dù thất bại vẫn xóa state local. Chưa có giải pháp session production.
-- `Idempotency-Key` tạo mỗi lần bấm submit. Nếu mạng đứt sau khi server đã ghi mà trước khi trả response, **đừng bấm lại ngay**: key mới có thể tạo bản ghi trùng. Cần cải tiến lưu key trong bộ nhớ đến khi biết kết quả.
-- Các URL proxy chỉ chạy trong Vite dev; triển khai static production cần reverse proxy `/api`, `/graphql`, `/ws` về Gateway và SPA fallback. Backend service/gRPC/MQTT không được expose trực tiếp.
+1. `GET /api/v1/platform/deployment-state` → nếu `bootstrapRequired` thì gợi ý `/bootstrap`.
+2. `POST /api/v1/auth/login {email,password,tenantId?}` → `COMPLETED | MFA_REQUIRED | MFA_ENROLLMENT_REQUIRED | TENANT_SELECTION_REQUIRED`; màn Login xử lý cả 4 (kèm QR đăng ký TOTP).
+3. Access token (15 phút) giữ trong memory; refresh token trong `localStorage`; 401 → tự `POST /auth/refresh` (rotating).
+4. Sau khi có token: **scopes giải mã trực tiếp từ JWT** (claim `scope` space-delimited và/hoặc `scopes`; super-admin mang `*`), còn **hồ sơ/membership lấy qua GraphQL `me`** (`subjectId`, `profile{...}`, `membership{roles,farmIds,...}`). Principal **không** có trường `scopes`; nếu `me` lỗi tạm thời thì vẫn `authenticated` bằng claim JWT, không đăng xuất.
 
-## Kiểm tra
+## Endpoint đã nối
 
-`npm run build` kiểm tra TypeScript và tạo `dist/` sau khi cài dependency. Trong môi trường tạo gói không tải được dependency nên chưa có `package-lock.json`; chạy `npm install` trên máy bạn để tạo lockfile, sau đó commit và dùng `npm ci`. Chưa có test end-to-end vì không có Gateway chạy trong môi trường dựng source; kiểm thử trên API của bạn trước khi đưa dữ liệu thật vào.
+| Trang | Endpoint | Ghi chú |
+|---|---|---|
+| Đơn hàng | `/api/v1/orders` list/get, `/drafts` create, `/drafts/{id}` edit (PUT) + xoá (DELETE `?expectedVersion`), `/drafts/{id}/submit`, `/{id}/cancel` | Idempotency-Key cho create/draft; submit + delete cần `expectedVersion` |
+| Kho | `/api/v1/inventory/items`, `/receipts` (create) | **dev-only**; **không có list REST** — đọc tồn kho qua GraphQL `warehouseInventory`/`lowStock` |
+| Chăn nuôi | `/api/v1/livestock/animals`, `/tasks` | tasks **dev-only** |
+| Báo cáo | `/api/v1/reports` (+`/{id}`, `/{id}/download`) | **dev-only**, polling job; scope `report:read`/`report:write` (số ít) |
+| Tổng quan | GraphQL `me` (profile+membership), `platformStatus` | scopes lấy từ **JWT**; REST `/api/v1/me` chỉ THIN (`{subject,tenantId}`), cần `farm:read` |
+
+## Việc nên làm tiếp (tài liệu chưa đủ để tôi đoán)
+
+- **Schema GraphQL** (`schema.graphqls`): đã dùng `me` (profile/membership) + `platformStatus`. Còn nên chuyển Dashboard/Kho sang `dashboard`, `warehouseInventory`, `lowStock`, `batchCost`, `cashFlow` (Kho hiện không có list REST nên bắt buộc đi GraphQL).
+- **Hình dạng response** của order/animal/report chỉ suy ra từ test Bruno nên bảng đang hiển thị cột động / JSON thô; chỉnh khi có type chính xác.
+- Task lifecycle (`/tasks/{id}/assign|accept|complete`), health (`/api/v1/health/*`), saga admin (`/order-sagas/{id}`) chưa có UI — body chưa được mô tả.
+- WebSocket `/ws` (domain events, protobuf qua MQTT bridge) chưa nối; gateway mặc định tắt (`SMARTFARM_MQTT_EVENTS_ENABLED=false`).
+- Màu thương hiệu: sửa `--color-brand-*` trong `src/index.css`.
