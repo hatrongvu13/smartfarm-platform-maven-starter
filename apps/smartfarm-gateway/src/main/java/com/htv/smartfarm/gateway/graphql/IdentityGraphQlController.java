@@ -10,6 +10,7 @@ import com.google.protobuf.FieldMask;
 import com.htv.smartfarm.gateway.identity.GatewayRequestContextFactory;
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
 import com.htv.smartfarm.proto.common.v1.PageRequest;
+import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.identity.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 
@@ -51,33 +52,46 @@ public class IdentityGraphQlController {
         this.tokens = tokens;
         this.contexts = contexts;
         this.audience = audience;
-        if (deadline == null || deadline.isZero() || deadline.isNegative()) throw new IllegalArgumentException("identity deadline must be positive");
+        if (deadline == null || deadline.isZero() || deadline.isNegative())
+            throw new IllegalArgumentException("identity deadline must be positive");
         this.deadlineMillis = deadline.toMillis();
     }
 
     @QueryMapping
     @PreAuthorize("hasAuthority('SCOPE_identity:principal:read')")
     public Mono<Map<String, Object>> me() {
-        return jwtCall(jwt -> principal(
-                directory(jwt).getPrincipal(
-                        GetPrincipalRequest.newBuilder()
-                                .setContext(contexts.create(jwt))
-                                .build()
-                ).getPrincipal()
-        ));
+        return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
+            return principal(
+                    directory(jwt, context)
+                            .getPrincipal(
+                                    GetPrincipalRequest.newBuilder()
+                                            .setContext(context)
+                                            .build()
+                            )
+                            .getPrincipal()
+            );
+        });
     }
 
     @QueryMapping
     @PreAuthorize("hasAuthority('SCOPE_identity:security:read')")
     public Mono<Map<String, Object>> mySecurityProfile() {
-        return jwtCall(jwt -> securityProfile(
-                credential(jwt).getSecurityProfile(
-                        GetSecurityProfileRequest.newBuilder()
-                                .setContext(contexts.create(jwt))
-                                .setSubjectId(jwt.getSubject())
-                                .build()
-                ).getSecurityProfile()
-        ));
+        return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
+            return securityProfile(
+                    credential(jwt, context)
+                            .getSecurityProfile(
+                                    GetSecurityProfileRequest.newBuilder()
+                                            .setContext(context)
+                                            .setSubjectId(jwt.getSubject())
+                                            .build()
+                            )
+                            .getSecurityProfile()
+            );
+        });
     }
 
     @QueryMapping
@@ -87,14 +101,20 @@ public class IdentityGraphQlController {
             @Argument Map<String, Object> page
     ) {
         return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
             ListUsersRequest.Builder request = ListUsersRequest.newBuilder()
-                    .setContext(contexts.create(jwt))
+                    .setContext(context)
                     .setPage(page(page));
+
             if (filter != null) {
                 put(filter, "searchText", request::setSearchText);
                 put(filter, "roleCode", request::setRoleCode);
             }
-            ListUsersResponse response = admin(jwt).listUsers(request.build());
+
+            ListUsersResponse response = admin(jwt, context)
+                    .listUsers(request.build());
+
             return connection(
                     response.getUsersList().stream()
                             .map(IdentityGraphQlController::user)
@@ -109,27 +129,41 @@ public class IdentityGraphQlController {
     public Mono<Map<String, Object>> userAuthorization(
             @Argument String subjectId
     ) {
-        return jwtCall(jwt -> authorization(
-                admin(jwt).getUserAuthorization(
-                        GetUserAuthorizationRequest.newBuilder()
-                                .setContext(contexts.create(jwt))
-                                .setSubjectId(subjectId)
-                                .build()
-                ).getAuthorization()
-        ));
+        return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
+            return authorization(
+                    admin(jwt, context)
+                            .getUserAuthorization(
+                                    GetUserAuthorizationRequest.newBuilder()
+                                            .setContext(context)
+                                            .setSubjectId(
+                                                    required(subjectId, "subjectId")
+                                            )
+                                            .build()
+                            )
+                            .getAuthorization()
+            );
+        });
     }
 
     @QueryMapping
     @PreAuthorize("hasAuthority('SCOPE_identity:role:read')")
-    public Mono<Map<String, Object>> roles(@Argument Map<String, Object> page) {
+    public Mono<Map<String, Object>> roles(
+            @Argument Map<String, Object> page
+    ) {
         return jwtCall(jwt -> {
-            ListRolesResponse response = admin(jwt).listRoles(
-                    ListRolesRequest.newBuilder()
-                            .setContext(contexts.create(jwt))
-                            .setPage(page(page))
-                            .setIncludePermissions(true)
-                            .build()
-            );
+            RequestContext context = contexts.create(jwt);
+
+            ListRolesResponse response = admin(jwt, context)
+                    .listRoles(
+                            ListRolesRequest.newBuilder()
+                                    .setContext(context)
+                                    .setPage(page(page))
+                                    .setIncludePermissions(true)
+                                    .build()
+                    );
+
             return connection(
                     response.getRolesList().stream()
                             .map(IdentityGraphQlController::role)
@@ -145,12 +179,16 @@ public class IdentityGraphQlController {
             @Argument Map<String, Object> page
     ) {
         return jwtCall(jwt -> {
-            ListPermissionsResponse response = admin(jwt).listPermissions(
-                    ListPermissionsRequest.newBuilder()
-                            .setContext(contexts.create(jwt))
-                            .setPage(page(page))
-                            .build()
-            );
+            RequestContext context = contexts.create(jwt);
+
+            ListPermissionsResponse response = admin(jwt, context)
+                    .listPermissions(
+                            ListPermissionsRequest.newBuilder()
+                                    .setContext(context)
+                                    .setPage(page(page))
+                                    .build()
+                    );
+
             return connection(
                     response.getPermissionsList().stream()
                             .map(IdentityGraphQlController::permission)
@@ -166,26 +204,80 @@ public class IdentityGraphQlController {
             @Argument Map<String, Object> input
     ) {
         return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
             UpdatePrincipalProfileRequest.Builder request =
                     UpdatePrincipalProfileRequest.newBuilder()
-                            .setContext(contexts.create(jwt))
+                            .setContext(context)
                             .setSubjectId(jwt.getSubject())
-                            .setExpectedVersion(requiredLong(input, "expectedVersion"));
+                            .setExpectedVersion(
+                                    requiredLong(input, "expectedVersion")
+                            );
+
             PrincipalProfile.Builder profile = PrincipalProfile.newBuilder();
             FieldMask.Builder mask = FieldMask.newBuilder();
-            addProfileField(input, "displayName", "display_name", profile::setDisplayName, mask);
-            addProfileField(input, "firstName", "first_name", profile::setFirstName, mask);
-            addProfileField(input, "lastName", "last_name", profile::setLastName, mask);
-            addProfileField(input, "phoneNumber", "phone_number", profile::setPhoneNumber, mask);
-            addProfileField(input, "avatarUrl", "avatar_url", profile::setAvatarUrl, mask);
-            addProfileField(input, "locale", "locale", profile::setLocale, mask);
-            addProfileField(input, "timeZone", "time_zone", profile::setTimeZone, mask);
+
+            addProfileField(
+                    input,
+                    "displayName",
+                    "display_name",
+                    profile::setDisplayName,
+                    mask
+            );
+            addProfileField(
+                    input,
+                    "firstName",
+                    "first_name",
+                    profile::setFirstName,
+                    mask
+            );
+            addProfileField(
+                    input,
+                    "lastName",
+                    "last_name",
+                    profile::setLastName,
+                    mask
+            );
+            addProfileField(
+                    input,
+                    "phoneNumber",
+                    "phone_number",
+                    profile::setPhoneNumber,
+                    mask
+            );
+            addProfileField(
+                    input,
+                    "avatarUrl",
+                    "avatar_url",
+                    profile::setAvatarUrl,
+                    mask
+            );
+            addProfileField(
+                    input,
+                    "locale",
+                    "locale",
+                    profile::setLocale,
+                    mask
+            );
+            addProfileField(
+                    input,
+                    "timeZone",
+                    "time_zone",
+                    profile::setTimeZone,
+                    mask
+            );
+
             if (mask.getPathsCount() == 0) {
-                throw new IllegalArgumentException("At least one profile field is required");
+                throw new IllegalArgumentException(
+                        "At least one profile field is required"
+                );
             }
+
             request.setProfile(profile).setUpdateMask(mask);
+
             return principal(
-                    directory(jwt).updatePrincipalProfile(request.build())
+                    directory(jwt, context)
+                            .updatePrincipalProfile(request.build())
                             .getPrincipal()
             );
         });
@@ -197,14 +289,18 @@ public class IdentityGraphQlController {
             @Argument String displayName
     ) {
         return jwtCall(jwt -> {
-            BeginTotpEnrollmentResponse response = credential(jwt)
-                    .beginTotpEnrollment(
-                            BeginTotpEnrollmentRequest.newBuilder()
-                                    .setContext(contexts.create(jwt))
-                                    .setSubjectId(jwt.getSubject())
-                                    .setDisplayName(safe(displayName))
-                                    .build()
-                    );
+            RequestContext context = contexts.create(jwt);
+
+            BeginTotpEnrollmentResponse response =
+                    credential(jwt, context)
+                            .beginTotpEnrollment(
+                                    BeginTotpEnrollmentRequest.newBuilder()
+                                            .setContext(context)
+                                            .setSubjectId(jwt.getSubject())
+                                            .setDisplayName(safe(displayName))
+                                            .build()
+                            );
+
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("authenticatorId", response.getAuthenticatorId());
             result.put("otpauthUri", response.getOtpauthUri());
@@ -220,18 +316,29 @@ public class IdentityGraphQlController {
             @Argument String code
     ) {
         return jwtCall(jwt -> {
-            ConfirmTotpEnrollmentResponse response = credential(jwt)
-                    .confirmTotpEnrollment(
-                            ConfirmTotpEnrollmentRequest.newBuilder()
-                                    .setContext(contexts.create(jwt))
-                                    .setSubjectId(jwt.getSubject())
-                                    .setAuthenticatorId(authenticatorId)
-                                    .setCode(code)
-                                    .build()
-                    );
+            RequestContext context = contexts.create(jwt);
+
+            ConfirmTotpEnrollmentResponse response =
+                    credential(jwt, context)
+                            .confirmTotpEnrollment(
+                                    ConfirmTotpEnrollmentRequest.newBuilder()
+                                            .setContext(context)
+                                            .setSubjectId(jwt.getSubject())
+                                            .setAuthenticatorId(
+                                                    required(
+                                                            authenticatorId,
+                                                            "authenticatorId"
+                                                    )
+                                            )
+                                            .setCode(required(code, "code"))
+                                            .build()
+                            );
+
             return Map.of(
-                    "authenticatorId", response.getAuthenticatorId(),
-                    "recoveryCodes", response.getRecoveryCodesList()
+                    "authenticatorId",
+                    response.getAuthenticatorId(),
+                    "recoveryCodes",
+                    response.getRecoveryCodesList()
             );
         });
     }
@@ -239,13 +346,24 @@ public class IdentityGraphQlController {
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_identity:mfa:disable')")
     public Mono<Boolean> disableMyMfa(@Argument String authenticatorId) {
-        return jwtCall(jwt -> credential(jwt).disableOwnMfa(
-                DisableOwnMfaRequest.newBuilder()
-                        .setContext(contexts.create(jwt))
-                        .setSubjectId(jwt.getSubject())
-                        .setAuthenticatorId(authenticatorId)
-                        .build()
-        ).getDisabled());
+        return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
+            return credential(jwt, context)
+                    .disableOwnMfa(
+                            DisableOwnMfaRequest.newBuilder()
+                                    .setContext(context)
+                                    .setSubjectId(jwt.getSubject())
+                                    .setAuthenticatorId(
+                                            required(
+                                                    authenticatorId,
+                                                    "authenticatorId"
+                                            )
+                                    )
+                                    .build()
+                    )
+                    .getDisabled();
+        });
     }
 
     @MutationMapping
@@ -254,15 +372,27 @@ public class IdentityGraphQlController {
             @Argument String authenticatorId
     ) {
         return jwtCall(jwt -> {
-            RegenerateRecoveryCodesResponse response = credential(jwt)
-                    .regenerateRecoveryCodes(
-                            RegenerateRecoveryCodesRequest.newBuilder()
-                                    .setContext(contexts.create(jwt))
-                                    .setSubjectId(jwt.getSubject())
-                                    .setAuthenticatorId(authenticatorId)
-                                    .build()
-                    );
-            return Map.of("recoveryCodes", response.getRecoveryCodesList());
+            RequestContext context = contexts.create(jwt);
+
+            RegenerateRecoveryCodesResponse response =
+                    credential(jwt, context)
+                            .regenerateRecoveryCodes(
+                                    RegenerateRecoveryCodesRequest.newBuilder()
+                                            .setContext(context)
+                                            .setSubjectId(jwt.getSubject())
+                                            .setAuthenticatorId(
+                                                    required(
+                                                            authenticatorId,
+                                                            "authenticatorId"
+                                                    )
+                                            )
+                                            .build()
+                            );
+
+            return Map.of(
+                    "recoveryCodes",
+                    response.getRecoveryCodesList()
+            );
         });
     }
 
@@ -272,25 +402,49 @@ public class IdentityGraphQlController {
             @Argument String currentPassword,
             @Argument String newPassword
     ) {
-        return jwtCall(jwt -> credential(jwt).changeOwnPassword(
-                ChangeOwnPasswordRequest.newBuilder()
-                        .setContext(contexts.create(jwt))
-                        .setSubjectId(jwt.getSubject())
-                        .setCurrentPassword(currentPassword)
-                        .setNewPassword(newPassword)
-                        .build()
-        ).getChanged());
+        return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
+            return credential(jwt, context)
+                    .changeOwnPassword(
+                            ChangeOwnPasswordRequest.newBuilder()
+                                    .setContext(context)
+                                    .setSubjectId(jwt.getSubject())
+                                    .setCurrentPassword(
+                                            required(
+                                                    currentPassword,
+                                                    "currentPassword"
+                                            )
+                                    )
+                                    .setNewPassword(
+                                            required(
+                                                    newPassword,
+                                                    "newPassword"
+                                            )
+                                    )
+                                    .build()
+                    )
+                    .getChanged();
+        });
     }
 
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_identity:user:mfa:reset')")
     public Mono<Boolean> resetUserMfa(@Argument String subjectId) {
-        return jwtCall(jwt -> credential(jwt).resetUserMfa(
-                ResetUserMfaRequest.newBuilder()
-                        .setContext(contexts.create(jwt))
-                        .setSubjectId(subjectId)
-                        .build()
-        ).getReset());
+        return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
+            return credential(jwt, context)
+                    .resetUserMfa(
+                            ResetUserMfaRequest.newBuilder()
+                                    .setContext(context)
+                                    .setSubjectId(
+                                            required(subjectId, "subjectId")
+                                    )
+                                    .build()
+                    )
+                    .getReset();
+        });
     }
 
     private <T> Mono<T> jwtCall(java.util.function.Function<Jwt, T> action) {
@@ -310,19 +464,63 @@ public class IdentityGraphQlController {
         );
     }
 
-    private IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory(Jwt jwt) {
-        return directory.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
-                .withCallCredentials(credentials(jwt));
+    private BearerCallCredentials credentials(
+            Jwt jwt,
+            RequestContext context
+    ) {
+        String tenantId = required(
+                jwt.getClaimAsString("tenant_id"),
+                "tenantId"
+        );
+
+        String correlationId = required(
+                context.getCorrelationId(),
+                "correlationId"
+        );
+
+        return new BearerCallCredentials(
+                () -> tokens.tokenFor(
+                        audience,
+                        tenantId,
+                        jwt.getSubject()
+                ),
+                () -> tenantId,
+                () -> correlationId
+        );
     }
 
-    private IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub admin(Jwt jwt) {
-        return admin.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
-                .withCallCredentials(credentials(jwt));
+    private IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory(
+            Jwt jwt,
+            RequestContext context
+    ) {
+        return directory
+                .withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
+                .withCallCredentials(credentials(jwt, context));
     }
 
-    private IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential(Jwt jwt) {
-        return credential.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
-                .withCallCredentials(credentials(jwt));
+    private IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub admin(
+            Jwt jwt,
+            RequestContext context
+    ) {
+        return admin
+                .withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
+                .withCallCredentials(credentials(jwt, context));
+    }
+
+    private IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential(
+            Jwt jwt,
+            RequestContext context
+    ) {
+        return credential
+                .withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
+                .withCallCredentials(credentials(jwt, context));
+    }
+
+    private static String required(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return value.trim();
     }
 
     private static PageRequest page(Map<String, Object> input) {

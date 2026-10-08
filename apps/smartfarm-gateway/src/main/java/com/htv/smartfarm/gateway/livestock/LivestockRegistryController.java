@@ -129,9 +129,9 @@ public class LivestockRegistryController {
     @GetMapping("/animals")
     @PreAuthorize("hasAuthority('SCOPE_farm:read')")
     public Mono<Map<String, Object>> listAnimals(@AuthenticationPrincipal Jwt jwt,
-                                                  @RequestParam String farmId,
-                                                  @RequestParam(required = false) String batchId,
-                                                  @RequestParam(required = false, defaultValue = "50") int limit) {
+                                                 @RequestParam String farmId,
+                                                 @RequestParam(required = false) String batchId,
+                                                 @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListAnimals", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();
@@ -168,8 +168,8 @@ public class LivestockRegistryController {
     @GetMapping("/schedules")
     @PreAuthorize("hasAuthority('SCOPE_farm:read')")
     public Mono<Map<String, Object>> listSchedules(@AuthenticationPrincipal Jwt jwt,
-                                                    @RequestParam String farmId,
-                                                    @RequestParam(required = false, defaultValue = "50") int limit) {
+                                                   @RequestParam String farmId,
+                                                   @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListSchedules", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();

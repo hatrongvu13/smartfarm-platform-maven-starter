@@ -15,15 +15,33 @@ import org.springframework.context.annotation.Configuration;
 public class IdentityGrpcClientConfig {
     @Bean(name = "identityGrpcChannel", destroyMethod = "")
     ManagedChannel channel(GatewayGrpcChannelFactory channels,
-            @Value("${smartfarm.identity.grpc-host:localhost}") String host,
-            @Value("${smartfarm.identity.grpc-port:9092}") int port) {
+                           @Value("${smartfarm.identity.grpc-host:localhost}") String host,
+                           @Value("${smartfarm.identity.grpc-port:9092}") int port) {
         return channels.create(host, port);
     }
-    @Bean IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory(@Qualifier("identityGrpcChannel") ManagedChannel c) { return IdentityDirectoryServiceGrpc.newBlockingStub(c); }
-    @Bean IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub administration(@Qualifier("identityGrpcChannel") ManagedChannel c) { return IdentityAdministrationServiceGrpc.newBlockingStub(c); }
-    @Bean IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential(@Qualifier("identityGrpcChannel") ManagedChannel c) { return IdentityCredentialServiceGrpc.newBlockingStub(c); }
-    @Bean PlatformAuthorizationAdministrationServiceGrpc.PlatformAuthorizationAdministrationServiceBlockingStub platform(@Qualifier("identityGrpcChannel") ManagedChannel c) { return PlatformAuthorizationAdministrationServiceGrpc.newBlockingStub(c); }
-    @Bean(name = "identityChannelCloser") AutoCloseable identityChannelCloser(
+
+    @Bean
+    IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory(@Qualifier("identityGrpcChannel") ManagedChannel c) {
+        return IdentityDirectoryServiceGrpc.newBlockingStub(c);
+    }
+
+    @Bean
+    IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub administration(@Qualifier("identityGrpcChannel") ManagedChannel c) {
+        return IdentityAdministrationServiceGrpc.newBlockingStub(c);
+    }
+
+    @Bean
+    IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential(@Qualifier("identityGrpcChannel") ManagedChannel c) {
+        return IdentityCredentialServiceGrpc.newBlockingStub(c);
+    }
+
+    @Bean
+    PlatformAuthorizationAdministrationServiceGrpc.PlatformAuthorizationAdministrationServiceBlockingStub platform(@Qualifier("identityGrpcChannel") ManagedChannel c) {
+        return PlatformAuthorizationAdministrationServiceGrpc.newBlockingStub(c);
+    }
+
+    @Bean(name = "identityChannelCloser")
+    AutoCloseable identityChannelCloser(
             GatewayGrpcChannelFactory channels,
             @Qualifier("identityGrpcChannel") ManagedChannel channel) {
         return () -> channels.close(channel);
