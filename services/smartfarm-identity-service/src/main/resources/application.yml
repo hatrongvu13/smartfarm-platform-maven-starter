@@ -15,7 +15,16 @@ server:
   # public auth traffic. Override IDENTITY_BIND_ADDRESS only where identity and gateway run on
   # different hosts behind a private network / mesh with its own access controls.
   address: ${IDENTITY_BIND_ADDRESS:127.0.0.1}
+# gRPC server: the gateway dials identity at 9092 (smartfarm.identity.grpc-port). Without this
+# key spring-grpc never binds the identity gRPC server, so the gateway's getPrincipal /
+# getSecurityProfile calls fail with UNAVAILABLE (Connection refused /127.0.0.1:9092).
+spring.grpc.server.port: 9092
 smartfarm:
+  grpc:
+    tls:
+      enabled: false
+      cert-chain: ${GRPC_CERT_CHAIN:}
+      private-key: ${GRPC_PRIVATE_KEY:}
   identity:
     issuer: ${IDENTITY_ISSUER:http://localhost:8092}
     gateway-audience: smartfarm-gateway

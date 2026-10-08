@@ -6,6 +6,7 @@ import com.htv.smartfarm.security.jwt.JwtSecurityFactory;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
@@ -54,6 +55,31 @@ public class ServletResourceSecurity {
                                 "/actuator/health",
                                 "/actuator/health/liveness",
                                 "/actuator/health/readiness"
+                        )
+                        .permitAll()
+                        // Public, pre-authentication endpoints. Shared across services; a service
+                        // that does not expose a given path simply has no controller for it (404),
+                        // so permitting it here opens nothing on that service. These are the
+                        // identity edge: login/registration/bootstrap/MFA/refresh/logout, the
+                        // JWKS endpoint, the deployment-state probe, and the gateway's
+                        // service-token mint (/internal/service-token) which authenticates by a
+                        // client secret in its body, NOT a Bearer token — so it MUST be permitAll
+                        // or the resource-server chain 401s it before the handler runs.
+                        .requestMatchers(HttpMethod.GET,
+                                "/.well-known/jwks.json",
+                                "/api/v1/platform/deployment-state"
+                        )
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/bootstrap-superadmin",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout",
+                                "/api/v1/auth/mfa/verify",
+                                "/api/v1/auth/mfa/enrollment/begin",
+                                "/api/v1/auth/mfa/enrollment/confirm",
+                                "/internal/service-token"
                         )
                         .permitAll()
                         .anyRequest()

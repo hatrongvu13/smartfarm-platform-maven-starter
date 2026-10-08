@@ -28,7 +28,11 @@ smartfarm:
   gateway:
     service-client:
       id: gateway
-      secret: ${GATEWAY_SERVICE_CLIENT_SECRET:}
+      # DEV default matches the BCrypt hash identity whitelists for the `gateway` client
+      # (IDENTITY_GATEWAY_CLIENT_SECRET_HASH). Without it the gateway cannot mint identity
+      # service-tokens -> getPrincipal/getSecurityProfile fail with UNAUTHENTICATED
+      # ("gateway service-client secret is not configured"). Dev-only; prod requires the env var.
+      secret: ${GATEWAY_SERVICE_CLIENT_SECRET:dev-gateway-service-secret}
 
   mqtt:
     url: ${SMARTFARM_MQTT_URL:tcp://localhost:1883}

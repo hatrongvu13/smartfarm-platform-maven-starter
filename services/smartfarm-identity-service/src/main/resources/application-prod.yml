@@ -14,6 +14,9 @@ spring:
 
 server:
   address: ${IDENTITY_BIND_ADDRESS:127.0.0.1}
+# gRPC server bind address — loopback only in prod (gateway is the sole public ingress),
+# mirroring finance/health. Port inherits 9092 from the base profile.
+spring.grpc.server.address: ${IDENTITY_GRPC_BIND_ADDRESS:127.0.0.1}
 
 smartfarm:
   security:
