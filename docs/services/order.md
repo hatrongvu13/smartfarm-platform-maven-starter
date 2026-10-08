@@ -26,7 +26,7 @@ Order lifecycle (draft→place→cancel) + **persistent saga orchestration** (re
 Outbox health indicator; operational metrics; full Prometheus alerts + Grafana dashboard (observability/). Runbook: `docs/operations/ORDER-OPERATIONS-RUNBOOK.md`, SLO: `ORDER-SLO.md`.
 
 ## Known limitations
-- `OrderMqttPublisher` cleanSession=true + random client-id (ISSUE-10).
-- gRPC deadline 5s cố định (ISSUE-13).
+- `OrderMqttPublisher` remains clean-session + random client-id until broker identity/ACL/TLS and per-instance identifiers are enabled together (ISSUE-10).
+- Inventory/Finance Saga deadlines are externalized through `ORDER_INVENTORY_GRPC_DEADLINE` and `ORDER_FINANCE_GRPC_DEADLINE`; circuit-breaker policy remains deferred (ISSUE-13).
 
 [Order saga flow](../architecture/request-flows.md#4-placeorder--cross-service-saga-gateway--order--inventory--finance) · [order-saga.md](../architecture/order-saga.md)

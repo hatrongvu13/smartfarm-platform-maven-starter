@@ -13,9 +13,9 @@
 | Database / Flyway | COMPLETE | 100% | — | — |
 | Security (JWT/RBAC/MFA gRPC) | COMPLETE | 90% | — | giữ |
 | Security (MQTT message integrity) | PARTIAL | 75% | broker ACL/mTLS chưa enable (app-level HMAC đã live-verified) | bật broker auth/TLS prod |
-| Testing | PARTIAL | 65% | thêm IT cross-service / contract | mở rộng coverage |
+| Testing | PARTIAL | 72% | thiếu runtime IT Inventory/Finance thật | contract/invariant tests Order; mở rộng IT |
 | Infrastructure (compose/k8s/obs) | PARTIAL | 75% | RISK-BROKER-01 (MQTT prod hardening) | cấu hình broker prod |
-| Runtime config | PARTIAL | 90% | **CFG-01** (test profile flat key x6) | vá application-test.yml |
+| Runtime config | COMPLETE | 100% | — | CFG-01 resolved; giữ nested `jwt.*` |
 | Reporting (non-livestock types) | PARTIAL | 40% | read-models + object-storage resolver | backlog |
 | V2 Warehouse plane | NOT_STARTED | 0% | BL-01 (new engagement) | defer |
 | V3 Automation plane | NOT_STARTED | 0% | BL-02 (new engagement) | defer |
@@ -47,7 +47,7 @@ V2 warehouse plane (BL-01) · V3 automation plane (BL-02) · farm-simulator hoà
 
 ## 42.5 Có lỗi gì? (BROKEN/BLOCKED)
 - **CFG-01 (HIGH, NEW)** — `test` profile không boot ở 6 service (flat security key). BLOCKED cho ai chạy profile `test`.
-- Tech-debt mở: ISSUE-03 (dual saga key convention) · ISSUE-04/05 (head-of-line blocking, consumer persistence) — không chặn runtime.
+- Tech-debt mở: ISSUE-10 (publisher session, broker-dependent), ISSUE-11 (gRPC audience), ISSUE-13 circuit-breaker. ISSUE-03/04/05 đã resolved.
 
 ## 42.6 Vì sao chưa thể chạy (hoàn toàn)?
 Prod CHẠY được (ISSUE-01 vá). Hạn chế duy nhất mới: profile `test` BLOCKED bởi CFG-01. MQTT prod chưa hardened (RISK-BROKER-01).
@@ -59,7 +59,7 @@ Prod CHẠY được (ISSUE-01 vá). Hạn chế duy nhất mới: profile `test
 P2: bật broker ACL/mTLS (ISSUE-02, HMAC app-level đã xong), audit-log super-admin (ISSUE-12), mở rộng IT. P3: reporting read-models, giảm coupling order. P4: V2/V3 planes.
 
 ## 42.9 Task tiếp theo (chưa bị block)
-**`V0.1-001` — vá 6 `application-test.yml` sang nested `smartfarm.security.jwt.*`.** Độc lập, không phụ thuộc.
+**Order hardening:** tenant-scoped stale-claim administration + Saga contract tests; broker ACL/TLS remains the production infrastructure gate.
 
 
 ---

@@ -9,10 +9,10 @@
 **Fix**: dùng nested form (xem [configuration.md](configuration.md)).
 
 ## Event identity không tới browser (WS)
-**Nguyên nhân**: identity emit JSON, WS bridge expect protobuf (EVT-01). Đang open.
+**Trạng thái**: EVT-01/02 đã resolved và live-verified. Nếu tái diễn, kiểm tra HMAC verification, topic filter và protobuf `DomainEvent`.
 
 ## Health service không gọi được từ gateway
-**Nguyên nhân**: health orphan — gateway chưa khai báo gRPC client (GW-01). Đang open.
+**Trạng thái**: GW-01 đã resolved. Kiểm tra `HEALTH_GRPC_HOST`, `HEALTH_GRPC_PORT=9097`, service token audience và deadline cấu hình Gateway.
 
 ## MQTT không nhận event
 Kiểm tra `SMARTFARM_MQTT_EVENTS_ENABLED` (default `false` ở gateway) và broker `tcp://localhost:1883` chạy (`docker compose up -d mqtt`).

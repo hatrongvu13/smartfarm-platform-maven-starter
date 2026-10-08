@@ -6,7 +6,7 @@
 ## Verdict
 ```
 RUNTIME STATUS (prod):  RUNNABLE (conditional) — ISSUE-01 ĐÃ VÁ (order prod/base YAML dạng nested jwt.*)
-RUNTIME STATUS (test):  BLOCKED cho profile `test` — CFG-01 (6/7 application-test.yml dùng flat key)
+RUNTIME STATUS (test):  RUNNABLE — CFG-01 resolved; all service test profiles use nested jwt.*
 Infra:                  compose.yaml (Postgres17/Redis/Mosquitto) + deploy/kubernetes + observability stack
 ```
 
@@ -20,14 +20,14 @@ Required configuration:      smartfarm.security.jwt.{issuer,jwk-set-uri,audience
 Required startup order:      Postgres/Mosquitto/Redis → identity (JWKS) → services → gateway
 Required ports:              gRPC per-service, gateway HTTP/WS, 1883 MQTT, 5432 PG, 6379 Redis
 Required test:               mvn test (unit) + ITs gated by -Dit.postgres.enabled=true
-Known blockers:              CFG-01 (test profile boot) — xem backlog/v0.1/V0.1-001
+Known blockers:              none for Order build/test; broker ACL/TLS remains a production infrastructure gate
 ```
 
 ## Checklist (spec §30)
 ```
 [x] Build          — Maven reactor compile (ref docs/cleanup/11-verification-result.md: reactor compiles + tests pass)
 [x] Dependencies   — resolve qua reactor; proto generated-sources build
-[~] Configuration  — prod/dev OK; `test` profile BROKEN cho 6 service (CFG-01)
+[x] Configuration  — prod/dev/test use nested `smartfarm.security.jwt.*`; CFG-01 resolved
 [x] Startup (prod) — ISSUE-01 vá; nested jwt.* có mặt ở order base+prod
 [x] Database       — compose Postgres17 + Flyway V* per service
 [x] Infrastructure — compose.yaml (PG/Redis/Mosquitto), k8s manifests, observability
@@ -36,13 +36,12 @@ Known blockers:              CFG-01 (test profile boot) — xem backlog/v0.1/V0.
 [x] Core flow      — order saga forward+compensation (worker path) COMPLETE
 [x] Error handling — dispatch classifier + exponential backoff (libs/messaging)
 [x] Minimal tests  — unit + ITs (inventory/identity/finance Testcontainers)
-[~] Reproducible   — prod/dev reproducible; `test` profile not reproducible until CFG-01 fixed
+[x] Reproducible   — prod/dev/test configuration shape is consistent
 ```
 
 ## Build / Start / Connect / Health / Core flow
 - **Build** (FACT): reactor compiles; proto generates stubs (`FarmOrderServiceGrpc`, `FarmDirectoryServiceGrpc` present).
-- **Start** (FACT→INFERENCE): prod boots — order base/prod YAML dùng nested `jwt.*` (ISSUE-01 vá). Chạy với
-  `SPRING_PROFILES_ACTIVE=test` sẽ FAIL ở 6 service do `SmartFarmSecurityProperties` ném `smartfarm.security.jwt is required`.
+- **Start** (FACT→INFERENCE): prod boots — order base/prod YAML dùng nested `jwt.*` (ISSUE-01 vá). Test profiles use isolated datasource configuration and nested JWT properties.
 - **Connect** (INFERENCE): compose cung cấp PG/Redis/Mosquitto; mỗi service có datasource + MQTT client factory.
 - **Health** (FACT): actuator + readiness-service (SSRF-safe).
 - **Core flow** (FACT): order saga worker path COMPLETE (persistent saga, 11 Flyway, outbox at-least-once,
@@ -51,4 +50,4 @@ Known blockers:              CFG-01 (test profile boot) — xem backlog/v0.1/V0.
 ## RISK carry-forward
 - **RISK-DEV-01**: `dev` profile không được bật ở prod (gates dev facades + dev super-admin bootstrap).
 - **RISK-BROKER-01**: prod MQTT cần `allow_anonymous false` + ACL + TLS (`docs/cleanup/10-mqtt-production-readiness.md`).
-- **RISK-MQTT-SEC**: HMAC envelope (`MqttSecurityVerifier`) đã hiện thực nhưng mặc định TẮT; chưa nối vào publisher/consumer thực (ISSUE-02 còn OPEN phần wiring).
+- **RISK-MQTT-SEC**: HMAC envelope is wired and live-verified; broker authentication, ACL and TLS remain open.

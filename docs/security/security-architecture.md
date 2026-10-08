@@ -26,7 +26,7 @@
 | Service token (gateway→service) | IMPLEMENTED | per-audience token |
 | gRPC TLS | DESIGNED | **off by default** — plaintext nội bộ |
 | MQTT auth/ACL/mTLS | DESIGNED only | broker `allow_anonymous true`; ACL/mTLS = sample config (`docs/security/mqtt-acl-mtls.md`) |
-| MQTT message HMAC envelope | IMPLEMENTED (default-off) | `libs/smartfarm-security` HMAC envelope; `sign-enabled=false`, chưa nối publisher/consumer (ISSUE-02) |
+| MQTT message HMAC envelope | IMPLEMENTED + LIVE-VERIFIED | Signed envelope is wired to producers/consumers; production rollout remains operator-controlled |
 
 ## 4. Secrets
 - Dev: default password trong `application-dev.yml` (postgres/root) — ISSUE-16, dev-only.
@@ -40,7 +40,7 @@
 ## 6. Known security gaps (→ `docs/audit/unresolved-items.md`)
 - gRPC TLS off (DESIGNED).
 - MQTT broker chưa auth/TLS/ACL (ISSUE-02 + RISK-BROKER-01).
-- HMAC envelope chưa bật (ISSUE-02).
+- Production broker authentication/TLS/ACL is not enabled; app-level HMAC is implemented and live-verified.
 - 3 placeholder class rỗng (xác định trong scan security).
 - Super-admin SCOPE_* bypass chưa audit-log (ISSUE-12).
 
@@ -52,7 +52,7 @@
 - [x] Correlation propagation
 - [ ] gRPC TLS enabled
 - [ ] MQTT broker auth + TLS + ACL
-- [ ] MQTT message HMAC enabled (sign→verify rollout)
+- [x] MQTT message HMAC wired and live-verified; production flags remain rollout-controlled
 - [ ] Super-admin bypass audit-logged
 - [ ] Dependency/container scanning (CI có SBOM/provenance; chưa thấy scan gate)
 
