@@ -1,0 +1,28 @@
+meta {
+  name: 06 - inspect saga
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/order-sagas/{{sagaId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns saga and steps", function () {
+    expect(res.getBody().sagaId).to.equal(bru.getEnvVar("sagaId"));
+    expect(res.getBody().steps).to.be.an("array");
+  });
+}
+
+docs {
+  Requires `SCOPE_orders:saga:admin`. Set `sagaId` from an order lifecycle event,
+  an operator query, or the Order database before running administration requests.
+}

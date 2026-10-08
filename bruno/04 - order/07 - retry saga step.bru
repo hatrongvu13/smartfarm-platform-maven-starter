@@ -1,0 +1,21 @@
+meta {
+  name: 07 - retry saga step
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/order-sagas/{{sagaId}}/steps/{{sagaStepKey}}/retry
+  body: json
+  auth: bearer
+}
+
+auth:bearer { token: {{accessToken}} }
+body:json { { "reason": "operator retry after downstream recovery" } }
+
+tests { test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); }); }
+
+docs {
+  Destructive operator action. Run only for a FAILED or MANUAL_REVIEW step after
+  reconciling Inventory and Finance. Requires `orders:saga:admin`.
+}

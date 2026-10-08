@@ -1,0 +1,18 @@
+meta {
+  name: 08 - resume saga
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{gatewayUrl}}/api/v1/order-sagas/{{sagaId}}/resume
+  body: json
+  auth: bearer
+}
+
+auth:bearer { token: {{accessToken}} }
+body:json { { "reason": "operator resume after reconciliation" } }
+
+tests { test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); }); }
+
+docs { Requires `orders:saga:admin`; intended for FAILED or MANUAL_REVIEW sagas. }
