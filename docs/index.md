@@ -33,7 +33,7 @@
 - [Security Architecture](security/security-architecture.md)
 - [Threat Model](security/threat-model.md)
 - [MQTT ACL/mTLS (sample)](security/mqtt-acl-mtls.md)
-- [SECURITY.md (policy)](../SECURITY.md) · [LICENSE-TODO](../LICENSE-TODO.md)
+- [SECURITY.md (policy)](../SECURITY.md) · [LICENSE (PolyForm Strict 1.0.0)](../LICENSE) · [COPYRIGHT](../COPYRIGHT)
 
 ## Audit (đợt 2026-10-06)
 - [Documentation Audit](audit/documentation-audit.md)

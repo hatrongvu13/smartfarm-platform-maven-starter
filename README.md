@@ -80,7 +80,9 @@ REST (client↔gateway, gateway↔identity auth), gRPC (gateway↔services, orde
 JWT RS256 + JWKS, rotating refresh + reuse-detection, TOTP MFA, DB RBAC, gRPC fail-closed authz. Gaps: gRPC TLS off, MQTT broker chưa auth/TLS/ACL, HMAC envelope default-off. Chi tiết: [`SECURITY.md`](./SECURITY.md), [`docs/security/security-architecture.md`](./docs/security/security-architecture.md).
 
 ## 10. License
-⚠️ **Chưa xác định** — cần project owner quyết định. Xem [`LICENSE-TODO.md`](./LICENSE-TODO.md).
+Source-available dưới **PolyForm Strict License 1.0.0** — xem [`LICENSE`](./LICENSE).
+Copyright © 2026 Vu Ha Trong — xem [`COPYRIGHT`](./COPYRIGHT).
+Chỉ được **xem, nghiên cứu, và chạy** cho mục đích **phi thương mại** được phép. Thương mại hoá, phân phối lại, chỉnh sửa, sublicense, và tạo sản phẩm phái sinh đều **không** được phép trừ khi có uỷ quyền riêng bằng văn bản từ chủ sở hữu bản quyền. Liên hệ cấp phép thương mại qua chủ repository trên GitHub.
 
 ## 11. Known limitations
 - health-service không có đường qua gateway (orphan).
