@@ -53,7 +53,7 @@ export default function Livestock() {
               <Button disabled={register.isPending}>Đăng ký</Button>
             </form>
           </Card>
-          <Card title="Tạo task" actions={<DevOnly />}>
+          <Card title="Tạo task" >
             <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); createTask.mutate() }}>
               <Field label="Tiêu đề"><Input required value={task.title} onChange={e => setTask({ ...task, title: e.target.value })} /></Field>
               <Field label="Loại"><Input value={task.type} onChange={e => setTask({ ...task, type: e.target.value })} /></Field>

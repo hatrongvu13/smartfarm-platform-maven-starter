@@ -42,3 +42,19 @@ management:
   endpoint:
     health:
       show-details: never
+  livestock:
+    grpc-host: ${LIVESTOCK_GRPC_HOST}
+    grpc-port: ${LIVESTOCK_GRPC_PORT:9091}
+  inventory:
+    grpc-host: ${INVENTORY_GRPC_HOST}
+    grpc-port: ${INVENTORY_GRPC_PORT:9093}
+  finance:
+    grpc-host: ${FINANCE_GRPC_HOST}
+    grpc-port: ${FINANCE_GRPC_PORT:9094}
+  reporting:
+    grpc-host: ${REPORTING_GRPC_HOST}
+    grpc-port: ${REPORTING_GRPC_PORT:9096}
+  health:
+    grpc-host: ${HEALTH_GRPC_HOST}
+    grpc-port: ${HEALTH_GRPC_PORT:9097}
+

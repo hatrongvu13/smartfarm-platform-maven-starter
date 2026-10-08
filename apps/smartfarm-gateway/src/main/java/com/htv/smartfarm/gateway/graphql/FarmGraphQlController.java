@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.springframework.context.annotation.Profile;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,7 +33,6 @@ import reactor.core.scheduler.Schedulers;
  * (reuses the dev gRPC stubs); a prod build would wire prod stubs the same way.
  */
 @Controller
-@Profile("dev & !prod")
 public class FarmGraphQlController {
 
     private static final String LIVESTOCK_AUDIENCE = "smartfarm-livestock";

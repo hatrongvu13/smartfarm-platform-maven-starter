@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,7 +24,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * DEV REST facade over the reporting gRPC service: request an export, poll its job, list jobs,
+ * authenticated REST facade over the reporting gRPC service: request an export, poll its job, list jobs,
  * and fetch a download location. Per-service token for the reporting audience; human actor
  * carried as actor_id. {@code @Profile("dev & !prod")}.
  */

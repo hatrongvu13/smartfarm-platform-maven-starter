@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,7 +26,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * DEV REST facade over the livestock gRPC service. Proxies the full task lifecycle
+ * authenticated REST facade over the livestock gRPC service. Proxies the full task lifecycle
  * (create / assign / accept / complete / cancel / list / get). Every call is made with a
  * per-service token minted for the livestock audience; the human user is carried as
  * {@code actor_id} in RequestContext for audit. {@code @Profile("dev & !prod")} keeps this

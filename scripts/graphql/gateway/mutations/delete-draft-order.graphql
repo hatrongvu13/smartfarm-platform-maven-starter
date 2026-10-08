@@ -1,3 +1,0 @@
-mutation DeleteDraftOrder($input: DeleteDraftOrderInput!) {
-  deleteDraftOrder(input: $input)
-}

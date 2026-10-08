@@ -22,7 +22,7 @@ export default function Inventory() {
 
   return (
     <>
-      <PageHeader title="Kho" sub={<>Endpoint dev-only <DevOnly /> — chỉ chạy khi backend ở profile <code>dev</code>.</>} />
+      <PageHeader title="Kho" sub={<>Quản lý vật tư và nhập kho qua Gateway bảo mật.</>} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="1. Tạo vật tư">
           <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); createItem.mutate() }}>

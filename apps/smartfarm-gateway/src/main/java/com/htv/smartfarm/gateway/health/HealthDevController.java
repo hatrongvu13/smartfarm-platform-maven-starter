@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,7 +24,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * GW-01 — DEV REST facade over the health gRPC service (AnimalHealthService): list observations,
+ * GW-01 — authenticated REST facade over the health gRPC service (AnimalHealthService): list observations,
  * vaccinations and alerts. Per-service token for the health audience; human actor carried as
  * actor_id. Read-only; write RPCs stay gRPC-internal. {@code @Profile("dev & !prod")}, mirroring
  * {@code ReportingDevController} / {@code LivestockDevController}.

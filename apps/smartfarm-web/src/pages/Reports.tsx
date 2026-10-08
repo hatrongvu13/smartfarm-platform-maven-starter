@@ -7,7 +7,7 @@ import { Badge, Button, Card, DevOnly, ErrorMsg, Field, Input, Json, PageHeader,
 // DEV-only: POST /api/v1/reports {farmId,type,format} -> {jobId} · GET /{id} · GET /{id}/download -> {url,contentType,expiresAt?}
 export default function Reports() {
   const { farmId } = useFarm()
-  const [form, setForm] = useState({ type: 'LIVESTOCK_INVENTORY', format: 'CSV' })
+  const [form, setForm] = useState({ type: 'LIVESTOCK_TASKS', format: 'CSV' })
   const [jobId, setJobId] = useState('')
 
   const request = useMutation({
@@ -25,7 +25,7 @@ export default function Reports() {
 
   return (
     <>
-      <PageHeader title="Báo cáo" sub={<>Export bất đồng bộ <DevOnly /> — chỉ loại LIVESTOCK_* hoạt động đầy đủ.</>} />
+      <PageHeader title="Báo cáo" sub={<>Export bất đồng bộ từ dữ liệu chăn nuôi thực tế.</>} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Yêu cầu export">
           <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); request.mutate() }}>

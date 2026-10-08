@@ -18,8 +18,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Turns an export job into a {@link ReportData} table with REAL data where a source service
  * exposes it. LIVESTOCK_TASKS pulls from the livestock service over gRPC (per-service token for
- * the livestock audience). Other report types currently render a descriptive summary table until
- * their source read-models are wired in — the renderer/format path is identical, so adding a new
+ * the livestock audience). Unsupported report types fail explicitly until their source read-models are wired in — the renderer/format path is identical, so adding a new
  * real source is just another branch here.
  */
 @Component
@@ -49,7 +48,7 @@ public class ReportDataProvider {
             // descriptive summary row (NOT real source data) by design, and are logged so an
             // operator can tell a placeholder export from a real one. Wiring one is a new branch
             // above + removing it from this set.
-            default -> placeholderSummary(job);
+            default -> throw new IllegalArgumentException("report type is not implemented: " + job.getReportType());
         };
     }
 

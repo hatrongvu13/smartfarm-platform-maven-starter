@@ -7,14 +7,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-
 /**
  * GW-01: wires the gateway to the health-service gRPC endpoint (AnimalHealthService).
  * Dev-only facade client, mirroring {@code ReportingDevClientConfig}. Health gRPC runs on 9097.
  */
 @Configuration(proxyBeanMethods = false)
-@Profile("dev & !prod")
 public class HealthDevClientConfig {
     @Bean(name = "healthChannel", destroyMethod = "shutdown")
     ManagedChannel healthChannel(GatewayGrpcChannelFactory channels,

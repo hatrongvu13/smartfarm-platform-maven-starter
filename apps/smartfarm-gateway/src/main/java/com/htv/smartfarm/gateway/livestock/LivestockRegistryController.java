@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,7 +26,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * DEV REST facade for the livestock animal registry and recurring schedules. Separate from
+ * authenticated REST facade for the livestock animal registry and recurring schedules. Separate from
  * {@link LivestockDevController} (which owns task lifecycle) purely so each has a clean base
  * path; both share the same gRPC stub and per-service-token pattern. {@code @Profile("dev & !prod")}.
  */
