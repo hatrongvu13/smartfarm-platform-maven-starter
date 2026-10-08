@@ -1,0 +1,49 @@
+meta {
+  name: Create tenant user
+  type: graphql
+  seq: 40
+}
+
+post {
+  url: {{gatewayUrl}}/graphql
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:graphql {
+  mutation CreateUser($input: CreateUserInput!) {
+    createUser(input: $input) {
+      subjectId
+      membershipId
+      tenantId
+      membershipStatus
+      existingAccount
+    }
+  }
+
+  {
+    "input": {
+      "email": "created.user@example.test",
+      "initialPassword": "ChangeMe-12345",
+      "displayName": "Created User",
+      "locale": "vi-VN",
+      "timeZone": "Asia/Ho_Chi_Minh",
+      "initialRoleCodes": ["USER"],
+      "activateImmediately": true
+    }
+  }
+}
+
+script:post-response {
+  test("GraphQL createUser succeeds", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.errors).to.be.undefined;
+    expect(body.data.createUser.subjectId).to.be.a("string");
+    expect(body.data.createUser.membershipStatus).to.equal("ACTIVE");
+  });
+}

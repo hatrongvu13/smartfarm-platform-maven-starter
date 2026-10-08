@@ -34,6 +34,7 @@ public final class JwtAuthorities {
         "identity:role:read",
         "identity:security:read",
         "identity:user:credential:reset",
+        "identity:user:create",
         "identity:user:mfa:reset",
         "identity:user:read",
         "inventory:read",
