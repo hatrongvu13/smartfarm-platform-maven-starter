@@ -43,7 +43,8 @@ public class ReportingDevController {
         this.serviceTokens = serviceTokens;
     }
 
-    public record RequestExport(String farmId, String type, String format, Long fromEpochMs, Long toEpochMs, String templateId) {
+    public record RequestExport(String farmId, String type, String format, Long fromEpochMs, Long toEpochMs,
+                                String templateId) {
     }
 
     private ReportingServiceGrpc.ReportingServiceBlockingStub authed(String tenant, String actor) {
@@ -70,14 +71,20 @@ public class ReportingDevController {
 
     private static ReportType type(String n) {
         if (n == null || n.isBlank()) return ReportType.REPORT_TYPE_UNSPECIFIED;
-        try { return ReportType.valueOf(n.startsWith("REPORT_TYPE_") ? n : "REPORT_TYPE_" + n); }
-        catch (IllegalArgumentException e) { return ReportType.REPORT_TYPE_UNSPECIFIED; }
+        try {
+            return ReportType.valueOf(n.startsWith("REPORT_TYPE_") ? n : "REPORT_TYPE_" + n);
+        } catch (IllegalArgumentException e) {
+            return ReportType.REPORT_TYPE_UNSPECIFIED;
+        }
     }
 
     private static ReportFormat format(String n) {
         if (n == null || n.isBlank()) return ReportFormat.REPORT_FORMAT_CSV;
-        try { return ReportFormat.valueOf(n.startsWith("REPORT_FORMAT_") ? n : "REPORT_FORMAT_" + n); }
-        catch (IllegalArgumentException e) { return ReportFormat.REPORT_FORMAT_CSV; }
+        try {
+            return ReportFormat.valueOf(n.startsWith("REPORT_FORMAT_") ? n : "REPORT_FORMAT_" + n);
+        } catch (IllegalArgumentException e) {
+            return ReportFormat.REPORT_FORMAT_CSV;
+        }
     }
 
     private static long ms(com.google.protobuf.Timestamp t) {
@@ -100,8 +107,8 @@ public class ReportingDevController {
     @PostMapping
     @PreAuthorize("hasAuthority('SCOPE_report:write')")
     public Mono<Map<String, Object>> request(@AuthenticationPrincipal Jwt jwt,
-                                              @RequestHeader("Idempotency-Key") String key,
-                                              @RequestBody RequestExport body) {
+                                             @RequestHeader("Idempotency-Key") String key,
+                                             @RequestBody RequestExport body) {
         return call("RequestExport", () -> {
             if (body == null || body.farmId() == null || key.isBlank())
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "farmId and Idempotency-Key required");
@@ -112,8 +119,10 @@ public class ReportingDevController {
             if (body.templateId() != null) b.setTemplateId(body.templateId());
             if (body.fromEpochMs() != null || body.toEpochMs() != null) {
                 var range = com.htv.smartfarm.proto.common.v1.DateRange.newBuilder();
-                if (body.fromEpochMs() != null) range.setFrom(com.google.protobuf.Timestamp.newBuilder().setSeconds(body.fromEpochMs() / 1000));
-                if (body.toEpochMs() != null) range.setTo(com.google.protobuf.Timestamp.newBuilder().setSeconds(body.toEpochMs() / 1000));
+                if (body.fromEpochMs() != null)
+                    range.setFrom(com.google.protobuf.Timestamp.newBuilder().setSeconds(body.fromEpochMs() / 1000));
+                if (body.toEpochMs() != null)
+                    range.setTo(com.google.protobuf.Timestamp.newBuilder().setSeconds(body.toEpochMs() / 1000));
                 b.setPeriod(range);
             }
             return jobView(authed(tenant, actor).requestExport(b.build()).getJob());
@@ -134,8 +143,8 @@ public class ReportingDevController {
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_report:read')")
     public Mono<Map<String, Object>> list(@AuthenticationPrincipal Jwt jwt,
-                                           @RequestParam String farmId,
-                                           @RequestParam(required = false, defaultValue = "50") int limit) {
+                                          @RequestParam String farmId,
+                                          @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListExportJobs", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();

@@ -67,7 +67,8 @@ public class MqttEventSubscriber {
                 opts.setPassword(password.toCharArray());
             }
             client.setCallback(new MqttCallbackExtended() {
-                @Override public void connectComplete(boolean reconnect, String serverURI) {
+                @Override
+                public void connectComplete(boolean reconnect, String serverURI) {
                     try {
                         client.subscribe(topicFilter, 1);
                         log.info("WS bridge subscribed to MQTT topic filter '{}' (reconnect={})", topicFilter, reconnect);
@@ -75,13 +76,20 @@ public class MqttEventSubscriber {
                         log.warn("WS bridge subscribe failed: {}", e.getMessage());
                     }
                 }
-                @Override public void connectionLost(Throwable cause) {
+
+                @Override
+                public void connectionLost(Throwable cause) {
                     log.warn("WS bridge MQTT connection lost: {}", cause == null ? "?" : cause.getMessage());
                 }
-                @Override public void messageArrived(String topic, MqttMessage message) {
+
+                @Override
+                public void messageArrived(String topic, MqttMessage message) {
                     onMessage(topic, message.getPayload());
                 }
-                @Override public void deliveryComplete(IMqttDeliveryToken token) { }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {
+                }
             });
             // connect() is best-effort; automaticReconnect retries in the background.
             try {

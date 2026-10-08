@@ -7,15 +7,18 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 @Configuration(proxyBeanMethods = false)
 public class LivestockDevClientConfig {
     @Bean(name = "livestockChannel", destroyMethod = "shutdown")
     ManagedChannel livestockChannel(GatewayGrpcChannelFactory channels,
-            @Value("${smartfarm.livestock.grpc-host:localhost}") String host,
-            @Value("${smartfarm.livestock.grpc-port:9091}") int port) {
+                                    @Value("${smartfarm.livestock.grpc-host:localhost}") String host,
+                                    @Value("${smartfarm.livestock.grpc-port:9091}") int port) {
         return channels.create(host, port);
     }
-    @Bean LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestockStub(@Qualifier("livestockChannel") ManagedChannel channel) {
+
+    @Bean
+    LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub livestockStub(@Qualifier("livestockChannel") ManagedChannel channel) {
         return LivestockTaskServiceGrpc.newBlockingStub(channel);
     }
 }

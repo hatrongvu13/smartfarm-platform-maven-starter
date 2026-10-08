@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class DomainEventBus {
 
-    /** One event as delivered to WebSocket clients. */
+    /**
+     * One event as delivered to WebSocket clients.
+     */
     public record Envelope(String tenantId, String farmId, String topic, String json) {
     }
 

@@ -7,15 +7,18 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 @Configuration(proxyBeanMethods = false)
 public class ReportingDevClientConfig {
     @Bean(name = "reportingChannel", destroyMethod = "shutdown")
     ManagedChannel reportingChannel(GatewayGrpcChannelFactory channels,
-            @Value("${smartfarm.reporting.grpc-host:localhost}") String host,
-            @Value("${smartfarm.reporting.grpc-port:9096}") int port) {
+                                    @Value("${smartfarm.reporting.grpc-host:localhost}") String host,
+                                    @Value("${smartfarm.reporting.grpc-port:9096}") int port) {
         return channels.create(host, port);
     }
-    @Bean ReportingServiceGrpc.ReportingServiceBlockingStub reportingStub(@Qualifier("reportingChannel") ManagedChannel channel) {
+
+    @Bean
+    ReportingServiceGrpc.ReportingServiceBlockingStub reportingStub(@Qualifier("reportingChannel") ManagedChannel channel) {
         return ReportingServiceGrpc.newBlockingStub(channel);
     }
 }

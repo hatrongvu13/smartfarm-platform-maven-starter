@@ -199,6 +199,47 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('SCOPE_identity:user:create')")
+    public Mono<Map<String, Object>> createUser(
+            @Argument Map<String, Object> input
+    ) {
+        return jwtCall(jwt -> {
+            RequestContext context = contexts.create(jwt);
+
+            CreateUserRequest.Builder request = CreateUserRequest.newBuilder()
+                    .setContext(context)
+                    .setEmail(requiredInput(input, "email"))
+                    .setInitialPassword(requiredInput(input, "initialPassword"))
+                    .setDisplayName(requiredInput(input, "displayName"))
+                    .setPhoneNumber(optionalInput(input, "phoneNumber"))
+                    .setLocale(defaultInput(input, "locale", "vi-VN"))
+                    .setTimeZone(defaultInput(input, "timeZone", "Asia/Ho_Chi_Minh"))
+                    .setActivateImmediately(booleanInput(input, "activateImmediately", true));
+
+            Object roleCodes = input == null ? null : input.get("initialRoleCodes");
+            if (roleCodes instanceof List<?> values) {
+                values.stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .map(String::trim)
+                        .filter(value -> !value.isEmpty())
+                        .forEach(request::addInitialRoleCodes);
+            }
+
+            CreateUserResponse response = admin(jwt, context)
+                    .createUser(request.build());
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("subjectId", response.getSubjectId());
+            result.put("membershipId", response.getMembershipId());
+            result.put("tenantId", response.getTenantId());
+            result.put("membershipStatus", enumName(response.getMembershipStatus().name()));
+            result.put("existingAccount", response.getExistingAccount());
+            return result;
+        });
+    }
+
+    @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_identity:principal:update')")
     public Mono<Map<String, Object>> updateMyProfile(
             @Argument Map<String, Object> input
@@ -549,6 +590,38 @@ public class IdentityGraphQlController {
             setter.accept(value == null ? "" : String.valueOf(value));
             mask.addPaths(protoName);
         }
+    }
+
+    private static String requiredInput(Map<String, Object> input, String field) {
+        if (input == null || input.get(field) == null) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return required(String.valueOf(input.get(field)), field);
+    }
+
+    private static String optionalInput(Map<String, Object> input, String field) {
+        if (input == null || input.get(field) == null) return "";
+        return String.valueOf(input.get(field)).trim();
+    }
+
+    private static String defaultInput(
+            Map<String, Object> input,
+            String field,
+            String defaultValue
+    ) {
+        String value = optionalInput(input, field);
+        return value.isEmpty() ? defaultValue : value;
+    }
+
+    private static boolean booleanInput(
+            Map<String, Object> input,
+            String field,
+            boolean defaultValue
+    ) {
+        if (input == null || input.get(field) == null) return defaultValue;
+        Object value = input.get(field);
+        if (value instanceof Boolean booleanValue) return booleanValue;
+        throw new IllegalArgumentException(field + " must be a boolean");
     }
 
     private static long requiredLong(Map<String, Object> input, String field) {

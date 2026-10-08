@@ -111,8 +111,8 @@ public class HealthDevController {
     @GetMapping("/observations")
     @PreAuthorize("hasAuthority('SCOPE_health:read')")
     public Mono<Map<String, Object>> observations(@AuthenticationPrincipal Jwt jwt,
-                                                   @RequestParam String animalId,
-                                                   @RequestParam(required = false, defaultValue = "50") int limit) {
+                                                  @RequestParam String animalId,
+                                                  @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListObservations", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();
@@ -128,8 +128,8 @@ public class HealthDevController {
     @GetMapping("/vaccinations")
     @PreAuthorize("hasAuthority('SCOPE_health:read')")
     public Mono<Map<String, Object>> vaccinations(@AuthenticationPrincipal Jwt jwt,
-                                                   @RequestParam String animalId,
-                                                   @RequestParam(required = false, defaultValue = "50") int limit) {
+                                                  @RequestParam String animalId,
+                                                  @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListVaccinations", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();

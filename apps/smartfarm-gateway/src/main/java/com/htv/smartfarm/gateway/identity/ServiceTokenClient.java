@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -18,13 +19,14 @@ public class ServiceTokenClient {
     private final Map<Key, Object> locks = new ConcurrentHashMap<>();
 
     public ServiceTokenClient(WebClient identityWebClient,
-            @Value("${smartfarm.gateway.service-client.id:gateway}") String clientId,
-            @Value("${smartfarm.gateway.service-client.secret:}") String secret,
-            @Value("${smartfarm.gateway.grpc.service-token-timeout:5s}") Duration requestTimeout) {
+                              @Value("${smartfarm.gateway.service-client.id:gateway}") String clientId,
+                              @Value("${smartfarm.gateway.service-client.secret:}") String secret,
+                              @Value("${smartfarm.gateway.grpc.service-token-timeout:5s}") Duration requestTimeout) {
         this.identity = identityWebClient;
         this.clientId = required(clientId, "clientId");
         this.secret = secret;
-        if (requestTimeout == null || requestTimeout.isZero() || requestTimeout.isNegative()) throw new IllegalArgumentException("service token timeout must be positive");
+        if (requestTimeout == null || requestTimeout.isZero() || requestTimeout.isNegative())
+            throw new IllegalArgumentException("service token timeout must be positive");
         this.requestTimeout = requestTimeout;
     }
 
@@ -34,9 +36,15 @@ public class ServiceTokenClient {
             tenantId = required(tenantId, "tenantId");
         }
     }
-    private record Cached(String token, Instant refreshAfter) { }
-    private record Grant(String accessToken, String tokenType, long expiresInSeconds, String audience) { }
-    private record TokenRequest(String clientId, String secret, String audience, String tenantId, String actorId) { }
+
+    private record Cached(String token, Instant refreshAfter) {
+    }
+
+    private record Grant(String accessToken, String tokenType, long expiresInSeconds, String audience) {
+    }
+
+    private record TokenRequest(String clientId, String secret, String audience, String tenantId, String actorId) {
+    }
 
     public String tokenFor(String audience, String tenantId, String actorId) {
         Key key = new Key(audience, tenantId);
@@ -59,15 +67,20 @@ public class ServiceTokenClient {
     }
 
     public void invalidate(String audience, String tenantId) {
-        Key key = new Key(audience, tenantId); cache.remove(key); locks.remove(key);
+        Key key = new Key(audience, tenantId);
+        cache.remove(key);
+        locks.remove(key);
     }
+
     public void invalidate(String audience) {
         cache.keySet().removeIf(k -> k.audience().equals(audience));
         locks.keySet().removeIf(k -> k.audience().equals(audience));
     }
+
     private static boolean valid(Cached value) {
         return value != null && Instant.now().isBefore(value.refreshAfter());
     }
+
     private static String required(String value, String field) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
         return value.trim();

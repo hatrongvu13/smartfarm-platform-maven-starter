@@ -131,13 +131,13 @@ export async function gql<T = any>(query: string, variables?: Record<string, unk
     const errors = r.errors as Array<{ message?: string; extensions?: Record<string, unknown> }>
     const first = errors[0]
     const extensionStatus = Number(first?.extensions?.status ?? first?.extensions?.httpStatus)
-    const code = typeof first?.extensions?.code === 'string'
-      ? first.extensions.code
-      : 'GRAPHQL_ERROR'
+    const rawCode = first?.extensions?.code ?? first?.extensions?.classification
+    const code = typeof rawCode === 'string' ? rawCode : 'GRAPHQL_ERROR'
     const status = Number.isInteger(extensionStatus) && extensionStatus >= 400
       ? extensionStatus
       : graphqlStatus(code)
     const message = errors.map(item => item.message || code).join('; ')
     throw new ApiError(status, message, { code, errors })
-  }return r.data as T
+  }
+  return r.data as T
 }

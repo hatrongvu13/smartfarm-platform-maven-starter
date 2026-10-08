@@ -75,7 +75,9 @@ public class LivestockDevController {
         return b.build();
     }
 
-    /** Run a gRPC call on the elastic scheduler, mapping gRPC status to HTTP on failure. */
+    /**
+     * Run a gRPC call on the elastic scheduler, mapping gRPC status to HTTP on failure.
+     */
     private <T> Mono<T> call(String op, java.util.concurrent.Callable<T> action) {
         return Mono.fromCallable(action).subscribeOn(Schedulers.boundedElastic())
                 .onErrorMap(StatusRuntimeException.class, e -> {
@@ -88,7 +90,9 @@ public class LivestockDevController {
                 });
     }
 
-    /** Serialise a LivestockTask (including monitoring timestamps) to a JSON-friendly map. */
+    /**
+     * Serialise a LivestockTask (including monitoring timestamps) to a JSON-friendly map.
+     */
     private static Map<String, Object> view(LivestockTask t) {
         var m = new LinkedHashMap<String, Object>();
         m.put("taskId", t.getTaskId());
@@ -125,8 +129,8 @@ public class LivestockDevController {
     @PostMapping
     @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
     public Mono<Map<String, String>> create(@AuthenticationPrincipal Jwt jwt,
-                                             @RequestHeader("Idempotency-Key") String key,
-                                             @RequestBody Create body) {
+                                            @RequestHeader("Idempotency-Key") String key,
+                                            @RequestBody Create body) {
         return call("CreateTask", () -> {
             if (body == null || body.farmId() == null || body.title() == null || key.isBlank())
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
@@ -198,10 +202,10 @@ public class LivestockDevController {
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_farm:read')")
     public Mono<Map<String, Object>> list(@AuthenticationPrincipal Jwt jwt,
-                                           @RequestParam String farmId,
-                                           @RequestParam(required = false) String status,
-                                           @RequestParam(required = false) String assigneeId,
-                                           @RequestParam(required = false, defaultValue = "50") int limit) {
+                                          @RequestParam String farmId,
+                                          @RequestParam(required = false) String status,
+                                          @RequestParam(required = false) String assigneeId,
+                                          @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListTasks", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();

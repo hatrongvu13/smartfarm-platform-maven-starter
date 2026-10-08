@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { gql } from '../../lib/api'
 import { useAuth, hasScope } from '../../lib/auth'
-import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, statusTone } from '../../components/ui'
+import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, Select, statusTone } from '../../components/ui'
 
 const USERS = `query($filter: UserFilter, $page: PageInput) {
   users(filter: $filter, page: $page) {
@@ -18,6 +18,14 @@ const AUTHZ = `query($subjectId: ID!) {
   }
 }`
 const RESET_MFA = `mutation($subjectId: ID!) { resetUserMfa(subjectId: $subjectId) }`
+const ROLES = `query($page: PageInput) {
+  roles(page: $page) { nodes { roleId code name type } nextPageToken }
+}`
+const CREATE_USER = `mutation($input: CreateUserInput!) {
+  createUser(input: $input) {
+    subjectId membershipId tenantId membershipStatus existingAccount
+  }
+}`
 
 type UserSummary = {
   subjectId: string; membershipId: string; tenantId: string; email?: string; displayName?: string
@@ -33,6 +41,7 @@ type UserAuthorization = {
 export default function Users() {
   const { me } = useAuth()
   const canResetMfa = hasScope(me, 'identity:user:mfa:reset')
+  const canCreateUser = hasScope(me, 'identity:user:create')
   const [searchText, setSearchText] = useState('')
   const [roleCode, setRoleCode] = useState('')
   const [applied, setApplied] = useState<{ searchText: string; roleCode: string }>({ searchText: '', roleCode: '' })
@@ -60,6 +69,7 @@ export default function Users() {
   return (
     <>
       <PageHeader title="Người dùng" sub="Quản trị tài khoản, vai trò và MFA." />
+      {canCreateUser && <CreateUserCard />}
       <Card className="mb-4">
         <form className="flex flex-wrap items-end gap-3" onSubmit={applyFilter}>
           <div className="min-w-48 flex-1"><Field label="Tìm kiếm" hint="Email hoặc tên"><Input value={searchText} onChange={e => setSearchText(e.target.value)} /></Field></div>
@@ -100,6 +110,97 @@ export default function Users() {
         <UserDetail subjectId={selected} canResetMfa={canResetMfa} />
       </div>
     </>
+  )
+}
+
+
+type CreateUserResult = {
+  subjectId: string
+  membershipId: string
+  tenantId: string
+  membershipStatus: string
+  existingAccount: boolean
+}
+
+function CreateUserCard() {
+  const qc = useQueryClient()
+  const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [initialPassword, setInitialPassword] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [roleCode, setRoleCode] = useState('USER')
+  const [activateImmediately, setActivateImmediately] = useState(true)
+
+  const roles = useQuery({
+    queryKey: ['adminRolesForCreateUser'],
+    queryFn: () => gql<{ roles: { nodes: { roleId: string; code: string; name: string; type: string }[] } }>(
+      ROLES,
+      { page: { size: 100 } },
+    ).then(r => r.roles.nodes.filter(role => role.type !== 'PLATFORM' && !['SUPERADMIN', 'PLATFORM_ADMIN'].includes(role.code))),
+  })
+
+  const create = useMutation({
+    mutationFn: () => gql<{ createUser: CreateUserResult }>(CREATE_USER, {
+      input: {
+        email: email.trim(),
+        initialPassword,
+        displayName: displayName.trim(),
+        ...(phoneNumber.trim() ? { phoneNumber: phoneNumber.trim() } : {}),
+        locale: 'vi-VN',
+        timeZone: 'Asia/Ho_Chi_Minh',
+        initialRoleCodes: [roleCode || 'USER'],
+        activateImmediately,
+      },
+    }).then(r => r.createUser),
+    onSuccess: async () => {
+      setEmail('')
+      setDisplayName('')
+      setInitialPassword('')
+      setPhoneNumber('')
+      setRoleCode('USER')
+      setActivateImmediately(true)
+      await qc.invalidateQueries({ queryKey: ['adminUsers'] })
+    },
+  })
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    if (initialPassword.length < 12 || initialPassword.length > 128) return
+    create.mutate()
+  }
+
+  return (
+    <Card title="Tạo tài khoản" className="mb-4">
+      <form className="grid gap-3 md:grid-cols-2" onSubmit={submit}>
+        <Field label="Email"><Input type="email" required value={email} onChange={e => setEmail(e.target.value)} /></Field>
+        <Field label="Tên hiển thị"><Input required value={displayName} onChange={e => setDisplayName(e.target.value)} /></Field>
+        <Field label="Mật khẩu ban đầu" hint="Từ 12 đến 128 ký tự.">
+          <Input type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={initialPassword} onChange={e => setInitialPassword(e.target.value)} />
+        </Field>
+        <Field label="Số điện thoại"><Input value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} /></Field>
+        <Field label="Vai trò ban đầu">
+          <Select required value={roleCode} onChange={e => setRoleCode(e.target.value)}>
+            {!roles.data?.length && <option value="USER">USER</option>}
+            {roles.data?.map(role => <option key={role.roleId} value={role.code}>{role.name} ({role.code})</option>)}
+          </Select>
+        </Field>
+        <label className="flex items-center gap-2 self-end pb-2 text-sm text-stone-700">
+          <input type="checkbox" checked={activateImmediately} onChange={e => setActivateImmediately(e.target.checked)} />
+          Kích hoạt ngay
+        </label>
+        <div className="md:col-span-2">
+          <ErrorMsg error={roles.error || create.error} />
+          {create.isSuccess && (
+            <p className="mb-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+              Đã tạo {create.data.existingAccount ? 'membership cho tài khoản hiện có' : 'tài khoản mới'} ở trạng thái {create.data.membershipStatus}.
+            </p>
+          )}
+          <Button disabled={create.isPending || roles.isLoading || initialPassword.length < 12 || initialPassword.length > 128}>
+            {create.isPending ? 'Đang tạo…' : 'Tạo tài khoản'}
+          </Button>
+        </div>
+      </form>
+    </Card>
   )
 }
 

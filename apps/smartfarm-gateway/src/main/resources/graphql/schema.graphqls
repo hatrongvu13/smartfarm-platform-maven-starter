@@ -76,12 +76,32 @@ type Mutation {
   deleteDraftOrder(input: DeleteDraftOrderInput!): Boolean!
   cancelOrder(input: CancelOrderInput!): Order!
   updateMyProfile(input: UpdateProfileInput!): Principal!
+  createUser(input: CreateUserInput!): CreateUserResult!
   beginTotpEnrollment(displayName: String): TotpEnrollment!
   confirmTotpEnrollment(authenticatorId: ID!, code: String!): TotpEnrollmentConfirmation!
   disableMyMfa(authenticatorId: ID!): Boolean!
   regenerateRecoveryCodes(authenticatorId: ID!): RecoveryCodeSet!
   changeMyPassword(currentPassword: String!, newPassword: String!): Boolean!
   resetUserMfa(subjectId: ID!): Boolean!
+}
+
+input CreateUserInput {
+  email: String!
+  initialPassword: String!
+  displayName: String!
+  phoneNumber: String
+  locale: String = "vi-VN"
+  timeZone: String = "Asia/Ho_Chi_Minh"
+  initialRoleCodes: [String!] = ["USER"]
+  activateImmediately: Boolean = true
+}
+
+type CreateUserResult {
+  subjectId: ID!
+  membershipId: ID!
+  tenantId: ID!
+  membershipStatus: MembershipStatus!
+  existingAccount: Boolean!
 }
 
 input UpdateProfileInput {

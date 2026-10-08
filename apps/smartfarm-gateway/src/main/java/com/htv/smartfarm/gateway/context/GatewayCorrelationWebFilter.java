@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class GatewayCorrelationWebFilter implements WebFilter {
     public static final String HEADER = "X-Correlation-Id";
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String correlationId = GatewayCorrelationContext.normalize(exchange.getRequest().getHeaders().getFirst(HEADER));
