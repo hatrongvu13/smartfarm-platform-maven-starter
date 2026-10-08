@@ -454,16 +454,6 @@ public class IdentityGraphQlController {
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
-    private BearerCallCredentials credentials(Jwt jwt) {
-        return new BearerCallCredentials(
-                () -> tokens.tokenFor(
-                        audience,
-                        jwt.getClaimAsString("tenant_id"),
-                        jwt.getSubject()
-                )
-        );
-    }
-
     private BearerCallCredentials credentials(
             Jwt jwt,
             RequestContext context

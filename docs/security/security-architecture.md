@@ -57,3 +57,18 @@
 - [ ] Dependency/container scanning (CI có SBOM/provenance; chưa thấy scan gate)
 
 ← [Documentation Index](../index.md) · [threat-model.md](threat-model.md)
+
+## 8. Delegated actor contract
+
+For Gateway-to-service calls, the service token authenticates the machine caller while
+`RequestContext.actor_id` carries the original authenticated end-user:
+
+- service token `sub`: `svc:<clientId>`
+- service token `client_id`: the registered machine client
+- `RequestContext.actor_id`: the end-user subject verified by Gateway
+- delegation gate: `SCOPE_identity:principal:impersonate`
+
+Identity accepts an actor different from the service-token subject only for a SERVICE token with
+that explicit authority. The verified actor is then used for self-service targeting and audit/event
+metadata. User tokens cannot delegate actors. `context.correlation_id` must still match the
+`x-correlation-id` gRPC metadata value.

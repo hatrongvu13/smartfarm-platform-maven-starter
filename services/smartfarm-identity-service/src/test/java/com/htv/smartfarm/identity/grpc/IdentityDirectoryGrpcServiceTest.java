@@ -414,6 +414,7 @@ class IdentityDirectoryGrpcServiceTest {
         return new SecuredRequest(
                 grpcCaller,
                 TENANT_ID,
+                SUBJECT_ID,
                 SUBJECT_ID
         );
     }

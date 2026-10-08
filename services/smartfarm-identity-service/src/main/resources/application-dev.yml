@@ -64,6 +64,9 @@ smartfarm:
             smartfarm-identity:
               - identity:principal:read
               - identity:principal:update
+              # Allows the trusted gateway service token to carry the already-authenticated
+              # end-user in RequestContext.actor_id. It does not grant arbitrary user scopes.
+              - identity:principal:impersonate
               - identity:permission:check
               - identity:user:read
               - identity:user:create

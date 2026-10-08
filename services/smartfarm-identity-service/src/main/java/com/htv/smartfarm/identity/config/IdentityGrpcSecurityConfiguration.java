@@ -3,6 +3,7 @@ package com.htv.smartfarm.identity.config;
 import com.htv.smartfarm.identity.grpc.security.IdentityGrpcAuthorities;
 import com.htv.smartfarm.proto.identity.v1.IdentityAdministrationServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.IdentityDirectoryServiceGrpc;
+import com.htv.smartfarm.proto.identity.v1.IdentityCredentialServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.PlatformAuthorizationAdministrationServiceGrpc;
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
 
@@ -46,6 +47,15 @@ public class IdentityGrpcSecurityConfiguration {
                                 .getPingMethod()
                                 .getFullMethodName()
                 )
+
+                // Credential self-service and credential administration
+                .requireAuthority(IdentityCredentialServiceGrpc.getGetSecurityProfileMethod().getFullMethodName(), IdentityGrpcAuthorities.SECURITY_READ)
+                .requireAuthority(IdentityCredentialServiceGrpc.getBeginTotpEnrollmentMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_ENROLL)
+                .requireAuthority(IdentityCredentialServiceGrpc.getConfirmTotpEnrollmentMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_ENROLL)
+                .requireAuthority(IdentityCredentialServiceGrpc.getDisableOwnMfaMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_DISABLE)
+                .requireAuthority(IdentityCredentialServiceGrpc.getRegenerateRecoveryCodesMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_RECOVERY_REGENERATE)
+                .requireAuthority(IdentityCredentialServiceGrpc.getResetUserMfaMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_MFA_RESET)
+                .requireAuthority(IdentityCredentialServiceGrpc.getChangeOwnPasswordMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_CREDENTIAL_RESET)
 
                 // Tenant role catalog
                 .requireAuthority(

@@ -6,66 +6,42 @@ import io.grpc.Status;
 
 import org.springframework.stereotype.Component;
 
+/**
+ * Verifies protobuf request metadata against the authenticated gRPC caller.
+ *
+ * <p>A user token acts as itself. A service token acts as its machine subject by default, but a
+ * trusted service carrying {@code identity:principal:impersonate} may propagate the original human
+ * actor in {@link RequestContext#getActorId()}. The verified actor, never the raw body value, is
+ * returned to application services and audit/event code.
+ */
 @Component
 public class GrpcRequestSecurity {
 
-    public static final String PRINCIPAL_READ =
-            IdentityGrpcAuthorities.PRINCIPAL_READ;
-
-    public static final String PRINCIPAL_UPDATE =
-            IdentityGrpcAuthorities.PRINCIPAL_UPDATE;
-
-    public static final String PERMISSION_CHECK =
-            IdentityGrpcAuthorities.PERMISSION_CHECK;
-
-    public static final String PRINCIPAL_IMPERSONATE =
-            IdentityGrpcAuthorities.PRINCIPAL_IMPERSONATE;
-
-    public static final String CROSS_TENANT =
-            IdentityGrpcAuthorities.CROSS_TENANT;
+    public static final String PRINCIPAL_READ = IdentityGrpcAuthorities.PRINCIPAL_READ;
+    public static final String PRINCIPAL_UPDATE = IdentityGrpcAuthorities.PRINCIPAL_UPDATE;
+    public static final String PERMISSION_CHECK = IdentityGrpcAuthorities.PERMISSION_CHECK;
+    public static final String PRINCIPAL_IMPERSONATE = IdentityGrpcAuthorities.PRINCIPAL_IMPERSONATE;
+    public static final String CROSS_TENANT = IdentityGrpcAuthorities.CROSS_TENANT;
 
     private final GrpcCallerProvider callerProvider;
 
-    public GrpcRequestSecurity(
-            GrpcCallerProvider callerProvider
-    ) {
+    public GrpcRequestSecurity(GrpcCallerProvider callerProvider) {
         this.callerProvider = callerProvider;
     }
 
-    public SecuredRequest authorizePrincipalRead(
-            RequestContext requestContext,
-            String requestedSubjectId
-    ) {
-        return authorizeSubjectRequest(
-                requestContext,
-                requestedSubjectId,
-                PRINCIPAL_READ,
-                "Caller cannot read another principal"
-        );
+    public SecuredRequest authorizePrincipalRead(RequestContext context, String subjectId) {
+        return authorizeSubjectRequest(context, subjectId, PRINCIPAL_READ,
+                "Caller cannot read another principal");
     }
 
-    public SecuredRequest authorizeProfileUpdate(
-            RequestContext requestContext,
-            String requestedSubjectId
-    ) {
-        return authorizeSubjectRequest(
-                requestContext,
-                requestedSubjectId,
-                PRINCIPAL_UPDATE,
-                "Caller cannot update another principal"
-        );
+    public SecuredRequest authorizeProfileUpdate(RequestContext context, String subjectId) {
+        return authorizeSubjectRequest(context, subjectId, PRINCIPAL_UPDATE,
+                "Caller cannot update another principal");
     }
 
-    public SecuredRequest authorizePermissionCheck(
-            RequestContext requestContext,
-            String requestedSubjectId
-    ) {
-        return authorizeSubjectRequest(
-                requestContext,
-                requestedSubjectId,
-                PERMISSION_CHECK,
-                "Caller cannot check permissions for another principal"
-        );
+    public SecuredRequest authorizePermissionCheck(RequestContext context, String subjectId) {
+        return authorizeSubjectRequest(context, subjectId, PERMISSION_CHECK,
+                "Caller cannot check permissions for another principal");
     }
 
     public GrpcCaller authenticatedCaller() {
@@ -73,339 +49,159 @@ public class GrpcRequestSecurity {
     }
 
     public SecuredRequest authorizeCredentialSelf(
-            RequestContext requestContext,
+            RequestContext context,
             String requestedSubjectId,
             String requiredAuthority
     ) {
-        if (requestContext == null) {
-            throw Status.INVALID_ARGUMENT
-                    .withDescription("request context is required")
-                    .asRuntimeException();
-        }
-
+        requireContext(context);
         GrpcCaller caller = callerProvider.currentCaller();
         requireAuthority(caller, requiredAuthority);
-        String tenantId = resolveTenant(caller, requestContext);
-        String actorId = normalize(requestContext.getActorId());
-
-        if (actorId == null) {
-            actorId = normalize(caller.subjectId());
-        }
-
-        if (actorId == null) {
-            throw Status.UNAUTHENTICATED
-                    .withDescription("Authenticated actor is missing")
-                    .asRuntimeException();
-        }
-
+        String tenantId = resolveTenant(caller, context);
+        String actorId = resolveVerifiedActor(caller, context);
         String subjectId = normalize(requestedSubjectId);
-        if (subjectId == null) {
-            subjectId = actorId;
-        }
-
+        if (subjectId == null) subjectId = actorId;
         if (!subjectId.equals(actorId)) {
             throw Status.PERMISSION_DENIED
                     .withDescription("Credential self-service cannot target another principal")
                     .asRuntimeException();
         }
-
-        validateCorrelation(caller, requestContext);
-        return new SecuredRequest(caller, tenantId, subjectId);
+        validateCorrelation(caller, context);
+        return new SecuredRequest(caller, tenantId, subjectId, actorId);
     }
 
     private SecuredRequest authorizeSubjectRequest(
-            RequestContext requestContext,
+            RequestContext context,
             String requestedSubjectId,
             String requiredAuthority,
             String crossSubjectError
     ) {
-        if (requestContext == null) {
-            throw Status.INVALID_ARGUMENT
-                    .withDescription(
-                            "request context is required"
-                    )
-                    .asRuntimeException();
-        }
-
+        requireContext(context);
         GrpcCaller caller = callerProvider.currentCaller();
+        requireAuthority(caller, requiredAuthority);
+        String tenantId = resolveTenant(caller, context);
+        String actorId = resolveVerifiedActor(caller, context);
+        String subjectId = normalize(requestedSubjectId);
+        if (subjectId == null) subjectId = actorId;
 
-        requireAuthority(
-                caller,
-                requiredAuthority
-        );
-
-        String tenantId = resolveTenant(
-                caller,
-                requestContext
-        );
-
-        String subjectId = resolveSubject(
-                caller,
-                requestedSubjectId
-        );
-
-        if (!subjectId.equals(caller.subjectId())
-                && !caller.hasAuthorityOrSuperAdmin(
-                PRINCIPAL_IMPERSONATE
-        )) {
-            throw Status.PERMISSION_DENIED
-                    .withDescription(crossSubjectError)
-                    .asRuntimeException();
+        // A normal user may only target itself. A trusted service may target another principal
+        // only when its service token explicitly carries the impersonation authority.
+        if (!subjectId.equals(actorId)
+                && !caller.hasAuthorityOrSuperAdmin(PRINCIPAL_IMPERSONATE)) {
+            throw Status.PERMISSION_DENIED.withDescription(crossSubjectError).asRuntimeException();
         }
-
-        validateContextActor(
-                caller,
-                requestContext
-        );
-
-        validateCorrelation(
-                caller,
-                requestContext
-        );
-
-        return new SecuredRequest(
-                caller,
-                tenantId,
-                subjectId
-        );
+        validateCorrelation(caller, context);
+        return new SecuredRequest(caller, tenantId, subjectId, actorId);
     }
 
-    private String resolveTenant(
-            GrpcCaller caller,
-            RequestContext requestContext
+    public SecuredAdminRequest authorizeTenantAdministration(
+            RequestContext context,
+            String requiredAuthority
     ) {
-        String authenticatedTenant =
-                normalize(caller.tenantId());
+        requireContext(context);
+        GrpcCaller caller = callerProvider.currentCaller();
+        requireAuthority(caller, requiredAuthority);
+        String tenantId = resolveTenant(caller, context);
+        String actorId = resolveVerifiedActor(caller, context);
+        validateCorrelation(caller, context);
+        return new SecuredAdminRequest(caller, tenantId, actorId);
+    }
 
+    public SecuredPlatformRequest authorizePlatformAdministration(
+            RequestContext context,
+            String requiredAuthority
+    ) {
+        requireContext(context);
+        GrpcCaller caller = callerProvider.currentCaller();
+        requireAuthority(caller, requiredAuthority);
+        String actorId = resolveVerifiedActor(caller, context);
+        validateCorrelation(caller, context);
+        return new SecuredPlatformRequest(caller, actorId);
+    }
+
+    private String resolveTenant(GrpcCaller caller, RequestContext context) {
+        String authenticatedTenant = normalize(caller.tenantId());
         if (authenticatedTenant == null) {
-            throw Status.UNAUTHENTICATED
-                    .withDescription(
-                            "Authenticated tenant is missing"
-                    )
+            throw Status.UNAUTHENTICATED.withDescription("Authenticated tenant is missing")
                     .asRuntimeException();
         }
-
-        String requestedTenant =
-                normalize(requestContext.getTenantId());
-
-        if (requestedTenant == null) {
+        String requestedTenant = normalize(context.getTenantId());
+        if (requestedTenant == null || requestedTenant.equals(authenticatedTenant)) {
             return authenticatedTenant;
         }
-
-        if (requestedTenant.equals(authenticatedTenant)) {
-            return authenticatedTenant;
-        }
-
-        if (caller.hasAuthorityOrSuperAdmin(CROSS_TENANT)) {
-            return requestedTenant;
-        }
-
+        if (caller.hasAuthorityOrSuperAdmin(CROSS_TENANT)) return requestedTenant;
         throw Status.PERMISSION_DENIED
-                .withDescription(
-                        "context.tenant_id does not match "
-                                + "authenticated tenant"
-                )
+                .withDescription("context.tenant_id does not match authenticated tenant")
                 .asRuntimeException();
     }
 
-    private String resolveSubject(
-            GrpcCaller caller,
-            String requestedSubjectId
-    ) {
-        String authenticatedSubject =
-                normalize(caller.subjectId());
-
+    private String resolveVerifiedActor(GrpcCaller caller, RequestContext context) {
+        String authenticatedSubject = normalize(caller.subjectId());
         if (authenticatedSubject == null) {
-            throw Status.UNAUTHENTICATED
-                    .withDescription(
-                            "Authenticated subject is missing"
-                    )
+            throw Status.UNAUTHENTICATED.withDescription("Authenticated subject is missing")
                     .asRuntimeException();
         }
-
-        String subjectId = normalize(
-                requestedSubjectId
-        );
-
-        return subjectId == null
-                ? authenticatedSubject
-                : subjectId;
-    }
-
-    private void validateContextActor(
-            GrpcCaller caller,
-            RequestContext requestContext
-    ) {
-        String actorId = normalize(
-                requestContext.getActorId()
-        );
-
-        if (actorId == null) {
-            return;
+        String requestedActor = normalize(context.getActorId());
+        if (requestedActor == null || requestedActor.equals(authenticatedSubject)) {
+            return authenticatedSubject;
         }
-
-        if (actorId.equals(caller.subjectId())) {
-            return;
+        if (caller.isService() && caller.hasAuthority(PRINCIPAL_IMPERSONATE)) {
+            return requestedActor;
         }
-
-        /*
-         * Cho phép trusted service thực hiện tác vụ thay người dùng
-         * nếu có quyền impersonate.
-         */
-        if (caller.hasAuthorityOrSuperAdmin(
-                PRINCIPAL_IMPERSONATE
-        )) {
-            return;
-        }
-
         throw Status.PERMISSION_DENIED
-                .withDescription(
-                        "context.actor_id does not match "
-                                + "authenticated subject"
-                )
+                .withDescription("context.actor_id is not authorized for authenticated caller")
                 .asRuntimeException();
     }
 
-    private void validateCorrelation(
-            GrpcCaller caller,
-            RequestContext requestContext
-    ) {
-        String requestCorrelation = normalize(
-                requestContext.getCorrelationId()
-        );
-
-        if (requestCorrelation == null) {
-            return;
-        }
-
+    private void validateCorrelation(GrpcCaller caller, RequestContext context) {
+        String requestCorrelation = normalize(context.getCorrelationId());
+        if (requestCorrelation == null) return;
         if (requestCorrelation.length() > 128) {
             throw Status.INVALID_ARGUMENT
-                    .withDescription(
-                            "context.correlation_id must not exceed "
-                                    + "128 characters"
-                    )
+                    .withDescription("context.correlation_id must not exceed 128 characters")
                     .asRuntimeException();
         }
-
-        String headerCorrelation = normalize(
-                caller.correlationId()
-        );
-
-        if (headerCorrelation != null
-                && !headerCorrelation.equals(requestCorrelation)) {
+        String headerCorrelation = normalize(caller.correlationId());
+        if (headerCorrelation != null && !headerCorrelation.equals(requestCorrelation)) {
             throw Status.INVALID_ARGUMENT
-                    .withDescription(
-                            "context.correlation_id does not match "
-                                    + "x-correlation-id"
-                    )
+                    .withDescription("context.correlation_id does not match x-correlation-id")
                     .asRuntimeException();
         }
     }
 
-    private void requireAuthority(
-            GrpcCaller caller,
-            String authority
-    ) {
+    private void requireAuthority(GrpcCaller caller, String authority) {
         if (!caller.hasAuthorityOrSuperAdmin(authority)) {
             throw Status.PERMISSION_DENIED
-                    .withDescription(
-                            "Missing required authority: "
-                                    + authority
-                    )
+                    .withDescription("Missing required authority: " + authority)
                     .asRuntimeException();
         }
     }
 
-    private String normalize(String value) {
-        return value == null || value.isBlank()
-                ? null
-                : value.trim();
+    private static void requireContext(RequestContext context) {
+        if (context == null) {
+            throw Status.INVALID_ARGUMENT.withDescription("request context is required")
+                    .asRuntimeException();
+        }
+    }
+
+    private static String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public record SecuredRequest(
             GrpcCaller caller,
             String tenantId,
-            String subjectId
-    ) {
-    }
-
-    public SecuredAdminRequest authorizeTenantAdministration(
-            RequestContext requestContext,
-            String requiredAuthority
-    ) {
-        if (requestContext == null) {
-            throw Status.INVALID_ARGUMENT
-                    .withDescription("request context is required")
-                    .asRuntimeException();
-        }
-
-        GrpcCaller caller = callerProvider.currentCaller();
-
-        requireAuthority(
-                caller,
-                requiredAuthority
-        );
-
-        String tenantId = resolveTenant(
-                caller,
-                requestContext
-        );
-
-        validateContextActor(
-                caller,
-                requestContext
-        );
-
-        validateCorrelation(
-                caller,
-                requestContext
-        );
-
-        return new SecuredAdminRequest(
-                caller,
-                tenantId,
-                caller.subjectId()
-        );
-    }
-
-    public SecuredPlatformRequest authorizePlatformAdministration(
-            RequestContext requestContext,
-            String requiredAuthority
-    ) {
-        if (requestContext == null) {
-            throw Status.INVALID_ARGUMENT
-                    .withDescription("request context is required")
-                    .asRuntimeException();
-        }
-
-        GrpcCaller caller = callerProvider.currentCaller();
-
-        requireAuthority(
-                caller,
-                requiredAuthority
-        );
-
-        validateCorrelation(
-                caller,
-                requestContext
-        );
-
-        return new SecuredPlatformRequest(
-                caller,
-                caller.subjectId()
-        );
-    }
+            String subjectId,
+            String actorId
+    ) { }
 
     public record SecuredAdminRequest(
             GrpcCaller caller,
             String tenantId,
             String actorId
-    ) {
-    }
+    ) { }
 
     public record SecuredPlatformRequest(
             GrpcCaller caller,
             String actorId
-    ) {
-    }
+    ) { }
 }
