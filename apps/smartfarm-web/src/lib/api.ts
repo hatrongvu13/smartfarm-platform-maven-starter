@@ -102,10 +102,42 @@ export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
 }
 
 // GraphQL: lỗi nghiệp vụ trả HTTP 200 + errors[] (xem Bruno README)
+function graphqlStatus(code: string): number {
+  switch (code) {
+    case 'UNAUTHENTICATED': return 401
+    case 'FORBIDDEN':
+    case 'PERMISSION_DENIED': return 403
+    case 'NOT_FOUND': return 404
+    case 'CONFLICT':
+    case 'ALREADY_EXISTS':
+    case 'ABORTED': return 409
+    case 'FAILED_PRECONDITION': return 412
+    case 'RESOURCE_EXHAUSTED': return 429
+    case 'UNAVAILABLE':
+    case 'DOWNSTREAM_UNAVAILABLE': return 502
+    case 'DEADLINE_EXCEEDED': return 504
+    case 'BAD_USER_INPUT':
+    case 'INVALID_ARGUMENT':
+    case 'GRAPHQL_VALIDATION_FAILED': return 400
+    default: return 422
+  }
+}
+
 export async function gql<T = any>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const r = await api<{ data?: T; errors?: { message: string }[] }>('/graphql', {
     method: 'POST', body: { query, variables },
   })
-  if (r.errors?.length) throw new ApiError(200, r.errors.map(e => e.message).join('; '), r.errors)
-  return r.data as T
+  if (r.errors?.length) {
+    const errors = r.errors as Array<{ message?: string; extensions?: Record<string, unknown> }>
+    const first = errors[0]
+    const extensionStatus = Number(first?.extensions?.status ?? first?.extensions?.httpStatus)
+    const code = typeof first?.extensions?.code === 'string'
+      ? first.extensions.code
+      : 'GRAPHQL_ERROR'
+    const status = Number.isInteger(extensionStatus) && extensionStatus >= 400
+      ? extensionStatus
+      : graphqlStatus(code)
+    const message = errors.map(item => item.message || code).join('; ')
+    throw new ApiError(status, message, { code, errors })
+  }return r.data as T
 }

@@ -23,18 +23,27 @@ public final class JwtAuthorities {
      * (Enumerated from the gateway's @PreAuthorize usages.)</p>
      */
     public static final Set<String> KNOWN_SCOPES = Set.of(
-            "farm:read",
-            "orders:read",
-            "orders:write",
-            "orders:saga:admin",
-            "tasks:write",
-            "inventory:write",
-            "report:read",
-            "report:write",
-            "identity:principal:read",
-            "identity:security:read",
-            "identity:user:read",
-            "identity:role:read"
+        "farm:read",
+        "health:read",
+        "identity:mfa:disable",
+        "identity:mfa:enroll",
+        "identity:mfa:recovery:regenerate",
+        "identity:permission:read",
+        "identity:principal:read",
+        "identity:principal:update",
+        "identity:role:read",
+        "identity:security:read",
+        "identity:user:credential:reset",
+        "identity:user:mfa:reset",
+        "identity:user:read",
+        "inventory:read",
+        "inventory:write",
+        "orders:read",
+        "orders:saga:admin",
+        "orders:write",
+        "report:read",
+        "report:write",
+        "tasks:write"
     );
 
     private JwtAuthorities() {
