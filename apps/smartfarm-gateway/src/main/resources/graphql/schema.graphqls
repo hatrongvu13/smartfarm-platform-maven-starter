@@ -7,6 +7,7 @@ type Query {
   orderV2(id: ID!): Order
   ordersV2(filter: OrderFilterInput, page: PageInput): OrderConnection!
   orderSaga(sagaId: ID!): OrderSaga
+  orderSagaByOrder(orderId: ID!): OrderSaga
   dashboard(farmId: ID!, recentLimit: Int): Dashboard!
   warehouseInventory(itemId: ID!, warehouseId: ID!): StockBalance
   batchCost(farmId: ID!, batchId: ID!): BatchCost

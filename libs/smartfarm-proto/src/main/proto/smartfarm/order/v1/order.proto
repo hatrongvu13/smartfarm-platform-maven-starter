@@ -12,6 +12,9 @@ import "google/protobuf/timestamp.proto";
 
 service OrderSagaAdministrationService {
   rpc GetOrderSaga(GetOrderSagaRequest) returns (OrderSagaResponse);
+  // Resolves the tenant-owned Saga from the Order identifier so edge clients do not need
+  // to discover an internal saga_id through the database or MQTT lifecycle events.
+  rpc GetOrderSagaByOrder(GetOrderSagaByOrderRequest) returns (OrderSagaResponse);
   rpc RetryOrderSagaStep(RetryOrderSagaStepRequest) returns (OrderSagaResponse);
   rpc ResumeOrderSaga(OrderSagaActionRequest) returns (OrderSagaResponse);
   rpc ForceCompensateOrder(OrderSagaActionRequest) returns (OrderSagaResponse);
@@ -140,6 +143,11 @@ message CancelOrderRequest {
 message GetOrderSagaRequest {
   smartfarm.common.v1.RequestContext context = 1;
   string saga_id = 2;
+}
+
+message GetOrderSagaByOrderRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string order_id = 2;
 }
 
 message RetryOrderSagaStepRequest {

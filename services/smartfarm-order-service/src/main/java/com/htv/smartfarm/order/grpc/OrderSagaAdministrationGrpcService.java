@@ -21,6 +21,11 @@ public class OrderSagaAdministrationGrpcService extends
     @Override public void getOrderSaga(GetOrderSagaRequest request, StreamObserver<OrderSagaResponse> out) {
         execute(out, () -> administration.inspect(tenant(), required(request.getSagaId(), "saga_id")));
     }
+    @Override public void getOrderSagaByOrder(GetOrderSagaByOrderRequest request,
+            StreamObserver<OrderSagaResponse> out) {
+        execute(out, () -> administration.inspectByOrder(
+                tenant(), required(request.getOrderId(), "order_id")));
+    }
     @Override public void retryOrderSagaStep(RetryOrderSagaStepRequest request, StreamObserver<OrderSagaResponse> out) {
         execute(out, () -> administration.retryStep(tenant(), required(request.getSagaId(), "saga_id"),
                 required(request.getStepKey(), "step_key"), actor(), required(request.getReason(), "reason")));

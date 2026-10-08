@@ -50,6 +50,15 @@ public class OrderSagaAdministrationService {
                 saga.getLastErrorMessage(), stepValues);
     }
 
+    @Transactional(readOnly = true)
+    public OrderSagaInspection inspectByOrder(String tenantId, String orderId) {
+        String normalizedTenant = required(tenantId, "tenantId");
+        String normalizedOrder = required(orderId, "orderId");
+        OrderSagaEntity saga = sagas.findByTenantIdAndOrderId(normalizedTenant, normalizedOrder)
+                .orElseThrow(() -> new IllegalArgumentException("saga not found"));
+        return inspect(normalizedTenant, saga.getId());
+    }
+
     @Transactional
     public OrderSagaInspection retryStep(String tenantId, String sagaId, String stepKey,
             String actorId, String reason) {

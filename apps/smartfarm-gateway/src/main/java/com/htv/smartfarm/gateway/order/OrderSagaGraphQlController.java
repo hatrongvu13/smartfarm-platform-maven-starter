@@ -12,6 +12,7 @@ import reactor.core.scheduler.Schedulers;
 public class OrderSagaGraphQlController {
  private final OrderSagaGateway gateway; public OrderSagaGraphQlController(OrderSagaGateway gateway){this.gateway=gateway;}
  @QueryMapping @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')") public Mono<Map<String,Object>> orderSaga(@Argument String sagaId){return call((jwt,correlationId)->gateway.inspect(jwt,correlationId,required(sagaId,"sagaId")));}
+ @QueryMapping @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')") public Mono<Map<String,Object>> orderSagaByOrder(@Argument String orderId){return call((jwt,correlationId)->gateway.inspectByOrder(jwt,correlationId,required(orderId,"orderId")));}
  @MutationMapping @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')") public Mono<Map<String,Object>> retryOrderSagaStep(@Argument Map<String,Object> input){return call((jwt,correlationId)->gateway.retry(jwt,correlationId,required(input,"sagaId"),required(input,"stepKey"),required(input,"reason")));}
  @MutationMapping @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')") public Mono<Map<String,Object>> resumeOrderSaga(@Argument Map<String,Object> input){return action("ResumeOrderSaga",input);}
  @MutationMapping @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')") public Mono<Map<String,Object>> forceCompensateOrder(@Argument Map<String,Object> input){return action("ForceCompensateOrder",input);}

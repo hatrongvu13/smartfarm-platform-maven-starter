@@ -30,3 +30,13 @@ Outbox health indicator; operational metrics; full Prometheus alerts + Grafana d
 - Inventory/Finance Saga deadlines are externalized through `ORDER_INVENTORY_GRPC_DEADLINE` and `ORDER_FINANCE_GRPC_DEADLINE`; circuit-breaker policy remains deferred (ISSUE-13).
 
 [Order saga flow](../architecture/request-flows.md#4-placeorder--cross-service-saga-gateway--order--inventory--finance) · [order-saga.md](../architecture/order-saga.md)
+
+## Order detail and Saga inspection
+
+- Business detail remains `FarmOrder` through `GetOrder` and `/api/v1/orders/{orderId}`.
+- Privileged processing detail is resolved with `GetOrderSagaByOrder` and
+  `/api/v1/order-sagas/by-order/{orderId}` under `orders:saga:admin`.
+- The edge does not expose idempotency keys. Inventory reservation and Finance transaction
+  references remain visible only inside privileged Saga step inspection.
+- Order Detail UI shows overview, line totals, processing stage, Saga steps, retry/resume and
+  manual-resolution controls. Force actions remain API-only and require deliberate operator use.

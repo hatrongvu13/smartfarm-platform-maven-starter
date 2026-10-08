@@ -1,0 +1,37 @@
+meta {
+  name: 06 - inspect saga by order
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{gatewayUrl}}/api/v1/order-sagas/by-order/{{orderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.sagaId) bru.setEnvVar("sagaId", b.sagaId);
+  const retryable = (b.steps || []).find(s => s.status === "FAILED" || s.status === "MANUAL_REVIEW");
+  const current = (b.steps || []).find(s => s.stepKey === b.currentStepKey);
+  const selected = retryable || current || (b.steps || [])[0];
+  if (selected && selected.stepKey) bru.setEnvVar("sagaStepKey", selected.stepKey);
+}
+
+tests {
+  test("HTTP 200", function () { expect(res.getStatus()).to.equal(200); });
+  test("returns saga for current order", function () {
+    expect(res.getBody().orderId).to.equal(bru.getEnvVar("orderId"));
+    expect(res.getBody().steps).to.be.an("array");
+  });
+}
+
+docs {
+  Requires `SCOPE_orders:saga:admin`. Resolves the Saga by `orderId` and saves `sagaId`
+  plus a useful `sagaStepKey`, removing the need to inspect the database or MQTT events.
+}
