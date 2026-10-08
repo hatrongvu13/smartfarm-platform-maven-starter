@@ -44,4 +44,14 @@ public final class IdentityGrpcAuthorities {
             "SCOPE_identity:user:credential:reset";
     public static final String USER_PROFILE_UPDATE =
             "SCOPE_identity:user:profile:update";
+    public static final String USER_PROFILE_MANAGE =
+            "SCOPE_identity:user:profile:manage";
+    public static final String USER_ACCOUNT_MANAGE =
+            "SCOPE_identity:user:account:manage";
+
+    public static final String ROLE_MANAGE =
+            "SCOPE_identity:role:manage";
+
+    public static final String PERMISSION_MANAGE =
+            "SCOPE_identity:permission:manage";
 }

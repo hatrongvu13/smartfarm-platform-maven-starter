@@ -70,6 +70,11 @@ public class RoleEntity extends AuditableEntity {
         this.systemRole = systemRole;
     }
 
+    public void rename(String name) {
+        if (name == null || name.isBlank()) throw new IllegalArgumentException("name must not be blank");
+        this.name = name.trim();
+    }
+
     public String getId() {
         return id;
     }

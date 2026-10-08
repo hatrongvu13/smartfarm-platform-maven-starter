@@ -16,6 +16,7 @@ type Query {
   me: Principal!
   users(filter: UserFilter, page: PageInput): UserConnection!
   userAuthorization(subjectId: ID!): UserAuthorization!
+  userPrincipal(subjectId: ID!): Principal!
   roles(page: PageInput): RoleConnection!
   permissions(page: PageInput): PermissionConnection!
   mySecurityProfile: SecurityProfile!
@@ -77,6 +78,24 @@ type Mutation {
   cancelOrder(input: CancelOrderInput!): Order!
   updateMyProfile(input: UpdateProfileInput!): Principal!
   createUser(input: CreateUserInput!): CreateUserResult!
+  updateUserProfile(input: AdminUpdateUserProfileInput!): Principal!
+  disableUserMembership(subjectId: ID!, reason: String): UserAuthorization!
+  enableUserMembership(subjectId: ID!): UserAuthorization!
+  suspendUserMembership(subjectId: ID!, reason: String): UserAuthorization!
+  disableUserAccount(subjectId: ID!, reason: String): UserAuthorization!
+  enableUserAccount(subjectId: ID!): UserAuthorization!
+  unlockUserAccount(subjectId: ID!): UserAuthorization!
+
+  createAuthorizationRole(input: AuthorizationRoleInput!): Role!
+  updateAuthorizationRole(input: AuthorizationRoleInput!): Role!
+  deleteAuthorizationRole(code: String!): Boolean!
+  createAuthorizationPermission(input: AuthorizationPermissionInput!): Permission!
+  updateAuthorizationPermission(input: AuthorizationPermissionInput!): Permission!
+  deleteAuthorizationPermission(code: String!): Boolean!
+  grantPermissionToAuthorizationRole(roleCode: String!, permissionCode: String!): Role!
+  revokePermissionFromAuthorizationRole(roleCode: String!, permissionCode: String!): Role!
+  assignAuthorizationRole(subjectId: ID!, roleCode: String!): UserAuthorization!
+  revokeAuthorizationRole(subjectId: ID!, roleCode: String!): UserAuthorization!
   beginTotpEnrollment(displayName: String): TotpEnrollment!
   confirmTotpEnrollment(authenticatorId: ID!, code: String!): TotpEnrollmentConfirmation!
   disableMyMfa(authenticatorId: ID!): Boolean!
@@ -84,6 +103,11 @@ type Mutation {
   changeMyPassword(currentPassword: String!, newPassword: String!): Boolean!
   resetUserMfa(subjectId: ID!): Boolean!
 }
+
+input AuthorizationRoleInput { code: String!, name: String! }
+input AuthorizationPermissionInput { code: String!, resourceType: String!, action: String!, description: String }
+
+input AdminUpdateUserProfileInput { subjectId: ID!, expectedVersion: Float, displayName: String, firstName: String, lastName: String, phoneNumber: String, avatarUrl: String, locale: String, timeZone: String }
 
 input CreateUserInput {
   email: String!

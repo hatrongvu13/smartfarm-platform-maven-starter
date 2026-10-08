@@ -5,29 +5,11 @@ import com.htv.smartfarm.identity.administration.application.command.AssignRoleC
 import com.htv.smartfarm.identity.administration.application.command.CreateTenantUserCommand;
 import com.htv.smartfarm.identity.administration.application.command.RevokeRoleCommand;
 import com.htv.smartfarm.identity.authorization.application.AuthorizationCatalogService;
+import com.htv.smartfarm.identity.account.application.PrincipalProfileService;
+import com.htv.smartfarm.identity.authorization.application.DynamicAuthorizationAdministrationService;
 import com.htv.smartfarm.identity.grpc.security.GrpcRequestSecurity;
 import com.htv.smartfarm.identity.grpc.security.IdentityGrpcAuthorities;
-import com.htv.smartfarm.proto.identity.v1.AssignRoleRequest;
-import com.htv.smartfarm.proto.identity.v1.AssignRoleResponse;
-import com.htv.smartfarm.proto.identity.v1.CreateUserRequest;
-import com.htv.smartfarm.proto.identity.v1.CreateUserResponse;
-import com.htv.smartfarm.proto.identity.v1.DisableMembershipRequest;
-import com.htv.smartfarm.proto.identity.v1.EnableMembershipRequest;
-import com.htv.smartfarm.proto.identity.v1.GetRoleRequest;
-import com.htv.smartfarm.proto.identity.v1.GetRoleResponse;
-import com.htv.smartfarm.proto.identity.v1.GetUserAuthorizationRequest;
-import com.htv.smartfarm.proto.identity.v1.GetUserAuthorizationResponse;
-import com.htv.smartfarm.proto.identity.v1.IdentityAdministrationServiceGrpc;
-import com.htv.smartfarm.proto.identity.v1.ListPermissionsRequest;
-import com.htv.smartfarm.proto.identity.v1.ListPermissionsResponse;
-import com.htv.smartfarm.proto.identity.v1.ListRolesRequest;
-import com.htv.smartfarm.proto.identity.v1.ListRolesResponse;
-import com.htv.smartfarm.proto.identity.v1.ListUsersRequest;
-import com.htv.smartfarm.proto.identity.v1.ListUsersResponse;
-import com.htv.smartfarm.proto.identity.v1.RevokeRoleRequest;
-import com.htv.smartfarm.proto.identity.v1.RevokeRoleResponse;
-import com.htv.smartfarm.proto.identity.v1.SuspendMembershipRequest;
-import com.htv.smartfarm.proto.identity.v1.UpdateMembershipStatusResponse;
+import com.htv.smartfarm.proto.identity.v1.*;
 
 import io.grpc.stub.StreamObserver;
 
@@ -44,6 +26,8 @@ public class IdentityAdministrationGrpcService
             administrationService;
 
     private final AuthorizationCatalogService catalogService;
+    private final DynamicAuthorizationAdministrationService dynamicAuthorization;
+    private final PrincipalProfileService principalProfileService;
     private final IdentityAdministrationProtoMapper protoMapper;
     private final GrpcRequestSecurity requestSecurity;
     private final GrpcExceptionMapper exceptionMapper;
@@ -51,12 +35,16 @@ public class IdentityAdministrationGrpcService
     public IdentityAdministrationGrpcService(
             TenantIdentityAdministrationService administrationService,
             AuthorizationCatalogService catalogService,
+            DynamicAuthorizationAdministrationService dynamicAuthorization,
+            PrincipalProfileService principalProfileService,
             IdentityAdministrationProtoMapper protoMapper,
             GrpcRequestSecurity requestSecurity,
             GrpcExceptionMapper exceptionMapper
     ) {
         this.administrationService = administrationService;
         this.catalogService = catalogService;
+        this.dynamicAuthorization = dynamicAuthorization;
+        this.principalProfileService = principalProfileService;
         this.protoMapper = protoMapper;
         this.requestSecurity = requestSecurity;
         this.exceptionMapper = exceptionMapper;
@@ -285,6 +273,49 @@ public class IdentityAdministrationGrpcService
                     return protoMapper.toCreateUserResponse(result);
                 }
         );
+    }
+
+    @Override public void createTenantRole(CreateTenantRoleRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.ROLE_MANAGE); dynamicAuthorization.createRole(s.tenantId(),r.getCode(),r.getName(),s.actorId(),r.getContext().getCorrelationId()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getCode()))).build(); }); }
+    @Override public void updateTenantRole(UpdateTenantRoleRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.ROLE_MANAGE); dynamicAuthorization.updateRole(s.tenantId(),r.getCode(),r.getName()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getCode()))).build(); }); }
+    @Override public void deleteTenantRole(DeleteTenantRoleRequest r, StreamObserver<DeleteAuthorizationObjectResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.ROLE_MANAGE); return DeleteAuthorizationObjectResponse.newBuilder().setDeleted(dynamicAuthorization.deleteRole(s.tenantId(),r.getCode())).build(); }); }
+    @Override public void createPermission(CreatePermissionRequest r, StreamObserver<PermissionMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); return PermissionMutationResponse.newBuilder().setPermission(protoMapper.toProto(new com.htv.smartfarm.identity.authorization.application.model.PermissionData(dynamicAuthorization.createPermission(r.getCode(),r.getResourceType(),r.getAction(),r.getDescription()).getCode(),r.getResourceType(),r.getAction(),r.getDescription()))).build(); }); }
+    @Override public void updatePermission(UpdatePermissionRequest r, StreamObserver<PermissionMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); var p=dynamicAuthorization.updatePermission(r.getCode(),r.getResourceType(),r.getAction(),r.getDescription()); return PermissionMutationResponse.newBuilder().setPermission(PermissionInfo.newBuilder().setCode(p.getCode()).setResourceType(p.getResourceType()).setAction(p.getAction()).setDescription(p.getDescription()==null?"":p.getDescription())).build(); }); }
+    @Override public void deletePermission(DeletePermissionRequest r, StreamObserver<DeleteAuthorizationObjectResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); return DeleteAuthorizationObjectResponse.newBuilder().setDeleted(dynamicAuthorization.deletePermission(r.getCode())).build(); }); }
+    @Override public void grantPermissionToRole(TenantRolePermissionRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); dynamicAuthorization.grant(s.tenantId(),r.getRoleCode(),r.getPermissionCode(),s.actorId(),r.getContext().getCorrelationId()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getRoleCode()))).build(); }); }
+    @Override public void revokePermissionFromRole(TenantRolePermissionRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); dynamicAuthorization.revoke(s.tenantId(),r.getRoleCode(),r.getPermissionCode(),s.actorId(),r.getContext().getCorrelationId()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getRoleCode()))).build(); }); }
+
+    @Override
+    public void updateUserProfileAsAdministrator(AdminUpdateUserProfileRequest request, StreamObserver<AdminUserPrincipalResponse> observer) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            requireText(request.getSubjectId(), "subject_id");
+            var secured = requestSecurity.authorizeTenantAdministration(request.getContext(), IdentityGrpcAuthorities.USER_PROFILE_MANAGE);
+            var legacy = UpdatePrincipalProfileRequest.newBuilder()
+                    .setContext(request.getContext()).setSubjectId(request.getSubjectId())
+                    .setProfile(request.getProfile()).setUpdateMask(request.getUpdateMask());
+            if (request.hasExpectedVersion()) legacy.setExpectedVersion(request.getExpectedVersion());
+            var command = new IdentityProtoMapper().toUpdateProfileCommand(request.getSubjectId(), legacy.build());
+            var principal = principalProfileService.updateProfile(secured.tenantId(), command, secured.actorId(), request.getContext().getCorrelationId());
+            return AdminUserPrincipalResponse.newBuilder().setPrincipal(new IdentityProtoMapper().toProto(principal)).build();
+        });
+    }
+
+    @Override public void disableUserAccount(AccountAdministrationRequest r, StreamObserver<GetUserAuthorizationResponse> o) { accountAction(r,o,"disable"); }
+    @Override public void enableUserAccount(AccountAdministrationRequest r, StreamObserver<GetUserAuthorizationResponse> o) { accountAction(r,o,"enable"); }
+    @Override public void unlockUserAccount(AccountAdministrationRequest r, StreamObserver<GetUserAuthorizationResponse> o) { accountAction(r,o,"unlock"); }
+
+    private void accountAction(AccountAdministrationRequest r, StreamObserver<GetUserAuthorizationResponse> o, String action) {
+        exceptionMapper.executeUnary(o, () -> {
+            requireContext(r.hasContext()); requireText(r.getSubjectId(), "subject_id");
+            var secured=requestSecurity.authorizeTenantAdministration(r.getContext(), IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE);
+            if (r.getSubjectId().equals(secured.actorId()) && "disable".equals(action)) throw new IllegalStateException("Cannot disable own account");
+            var value = switch(action) {
+                case "disable" -> administrationService.disableAccount(secured.tenantId(),r.getSubjectId(),secured.actorId());
+                case "enable" -> administrationService.enableAccount(secured.tenantId(),r.getSubjectId(),secured.actorId());
+                default -> administrationService.unlockAccount(secured.tenantId(),r.getSubjectId(),secured.actorId());
+            };
+            return GetUserAuthorizationResponse.newBuilder().setAuthorization(protoMapper.toProto(value)).build();
+        });
     }
 
     @Override

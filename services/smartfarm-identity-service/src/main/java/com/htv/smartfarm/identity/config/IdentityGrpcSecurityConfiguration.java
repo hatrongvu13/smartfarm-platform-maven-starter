@@ -99,6 +99,22 @@ public class IdentityGrpcSecurityConfiguration {
                         IdentityGrpcAuthorities.USER_CREATE
                 )
 
+                // Dynamic tenant authorization administration
+                .requireAuthority(IdentityAdministrationServiceGrpc.getCreateTenantRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.ROLE_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getUpdateTenantRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.ROLE_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getDeleteTenantRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.ROLE_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getCreatePermissionMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getUpdatePermissionMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getDeletePermissionMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getGrantPermissionToRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getRevokePermissionFromRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
+
+                // SUPERADMIN profile/account administration
+                .requireAuthority(IdentityAdministrationServiceGrpc.getUpdateUserProfileAsAdministratorMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_PROFILE_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getDisableUserAccountMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getEnableUserAccountMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE)
+                .requireAuthority(IdentityAdministrationServiceGrpc.getUnlockUserAccountMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE)
+
                 // Role assignment
                 .requireAuthority(
                         IdentityAdministrationServiceGrpc

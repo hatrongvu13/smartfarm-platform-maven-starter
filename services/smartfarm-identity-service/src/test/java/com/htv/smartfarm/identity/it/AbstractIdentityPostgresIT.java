@@ -18,7 +18,7 @@ import java.util.Set;
  * Reusable base for identity PostgreSQL integration tests. Real PostgreSQL 17, Flyway migrate ->
  * ddl-auto=validate -> context, isolated schema it_identity. EXTERNAL (-Dit.postgres.url) or
  * TESTCONTAINERS mode; enabled with -Dit.postgres.enabled=true.
- *
+ * <p>
  * Provides a @Primary test FarmDirectoryPort that recognises a fixed set of "known" farms, so a
  * grant for a known farm is NOT blocked by the production fail-closed fallback. The fail-closed
  * behaviour itself (unknown farm -> denied) is still exercised because the test port returns false
@@ -52,7 +52,9 @@ import java.util.Set;
 @EnabledIfSystemProperty(named = "it.postgres.enabled", matches = "true")
 abstract class AbstractIdentityPostgresIT {
 
-    /** Farms this test treats as existing. Grants for these succeed; anything else is denied. */
+    /**
+     * Farms this test treats as existing. Grants for these succeed; anything else is denied.
+     */
     static final Set<String> KNOWN_FARMS = Set.of("farm-A", "farm-B");
 
     @TestConfiguration

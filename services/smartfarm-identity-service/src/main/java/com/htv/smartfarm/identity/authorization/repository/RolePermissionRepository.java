@@ -46,6 +46,15 @@ public interface RolePermissionRepository
             @Param("roleIds") Collection<String> roleIds
     );
 
+    long countByIdPermissionCode(String permissionCode);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            delete from RolePermissionEntity rp
+            where rp.id.permissionCode = :permissionCode
+            """)
+    int deleteAllByPermissionCode(@Param("permissionCode") String permissionCode);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             delete from RolePermissionEntity rp

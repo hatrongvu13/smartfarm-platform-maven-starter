@@ -19,7 +19,8 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
         IdentitySettings.class,
-        ServiceTokenSettings.class
+        ServiceTokenSettings.class,
+        IdentityAuthorizationProperties.class
 })
 @EnableMethodSecurity
 public class IdentityConfiguration {

@@ -15,7 +15,7 @@ export default function Layout() {
   const { me, logout } = useAuth()
   const { farmId, setFarmId } = useFarm()
   // Ẩn mục nav mà user không có scope.
-  const items = [...nav, ...(hasScope(me, 'identity:user:read') ? [{ to: '/admin/users', label: 'Người dùng' }] : [])]
+  const items = [...nav, ...(hasScope(me, 'identity:user:read') ? [{ to: '/admin/users', label: 'Người dùng' }] : []), ...(hasScope(me, 'identity:role:read') ? [{ to: '/admin/authorization', label: 'Vai trò & quyền' }] : [])]
   return (
     <div className="min-h-screen md:flex">
       <aside className="border-b border-stone-200 bg-brand-900 text-stone-100 md:min-h-screen md:w-56 md:border-b-0">

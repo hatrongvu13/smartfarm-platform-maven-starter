@@ -48,6 +48,14 @@ public class PermissionEntity extends AuditableEntity {
         this.description = description;
     }
 
+    public void updateMetadata(String resourceType, String action, String description) {
+        if (resourceType == null || resourceType.isBlank()) throw new IllegalArgumentException("resourceType must not be blank");
+        if (action == null || action.isBlank()) throw new IllegalArgumentException("action must not be blank");
+        this.resourceType = resourceType.trim().toLowerCase(java.util.Locale.ROOT);
+        this.action = action.trim().toLowerCase(java.util.Locale.ROOT);
+        this.description = description == null || description.isBlank() ? null : description.trim();
+    }
+
     public String getCode() {
         return code;
     }

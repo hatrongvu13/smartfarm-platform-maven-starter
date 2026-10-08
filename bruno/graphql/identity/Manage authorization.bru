@@ -1,0 +1,11 @@
+meta { name: Manage authorization type: graphql seq: 41 }
+post { url: {{gatewayUrl}}/graphql body: graphql auth: bearer }
+auth:bearer { token: {{accessToken}} }
+body:graphql {
+  mutation {
+    createAuthorizationRole(input:{code:"FARM_MANAGER",name:"Farm Manager"}) { code name type }
+    createAuthorizationPermission(input:{code:"farm:manage",resourceType:"farm",action:"manage",description:"Manage farm"}) { code }
+    grantPermissionToAuthorizationRole(roleCode:"FARM_MANAGER",permissionCode:"farm:manage") { code permissions { code } }
+  }
+}
+tests { test("authorization management succeeds", function(){ expect(res.getStatus()).to.equal(200); expect(res.getBody().errors).to.be.undefined; }); }

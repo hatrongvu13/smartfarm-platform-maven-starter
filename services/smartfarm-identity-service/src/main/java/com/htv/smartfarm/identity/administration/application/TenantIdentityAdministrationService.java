@@ -70,4 +70,11 @@ public interface TenantIdentityAdministrationService {
             String actorId,
             String reason
     );
+
+    UserAuthorizationData disableAccount(String tenantId, String subjectId, String actorId);
+
+    UserAuthorizationData enableAccount(String tenantId, String subjectId, String actorId);
+
+    UserAuthorizationData unlockAccount(String tenantId, String subjectId, String actorId);
+
 }

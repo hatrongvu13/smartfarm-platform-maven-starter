@@ -219,6 +219,36 @@ public class DefaultTenantIdentityAdministrationService
         return getUserAuthorization(tenantId, subjectId);
     }
 
+    @Override
+    @Transactional
+    public UserAuthorizationData disableAccount(String tenantId, String subjectId, String actorId) {
+        requireMembership(tenantId, subjectId);
+        accountService.disableAccount(subjectId, tenantId, actorId, null);
+        return getUserAuthorization(tenantId, subjectId);
+    }
+
+    @Override
+    @Transactional
+    public UserAuthorizationData enableAccount(String tenantId, String subjectId, String actorId) {
+        requireMembership(tenantId, subjectId);
+        accountService.enableAccount(subjectId, tenantId, actorId, null);
+        return getUserAuthorization(tenantId, subjectId);
+    }
+
+    @Override
+    @Transactional
+    public UserAuthorizationData unlockAccount(String tenantId, String subjectId, String actorId) {
+        requireMembership(tenantId, subjectId);
+        accountService.unlockAccount(subjectId, tenantId, actorId, null);
+        return getUserAuthorization(tenantId, subjectId);
+    }
+
+    private void requireMembership(String tenantId, String subjectId) {
+        if (!membershipRepository.existsByTenantIdAndUserId(tenantId, subjectId)) {
+            throw NotFoundException.entity("TenantMembership", tenantId + ":" + subjectId);
+        }
+    }
+
     private UserSummaryData toUserSummary(TenantMembershipEntity membership) {
         UserAccountEntity account = membership.getUser();
         UserProfileEntity profile = profileRepository.findWithAccountByUserId(account.getId())

@@ -12,6 +12,7 @@ import Livestock from './pages/Livestock'
 import Reports from './pages/Reports'
 import Profile from './pages/Profile'
 import Users from './pages/admin/Users'
+import Authorization from './pages/admin/Authorization'
 import RequireScope from './components/RequireScope'
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="reports" element={<Reports />} />
         <Route path="profile" element={<Profile />} />
         <Route path="admin/users" element={<RequireScope scope="identity:user:read"><Users /></RequireScope>} />
+        <Route path="admin/authorization" element={<RequireScope scope="identity:role:read"><Authorization /></RequireScope>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

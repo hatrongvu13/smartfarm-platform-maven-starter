@@ -138,9 +138,9 @@ public class RoleManagementService {
         requireText(resourceType, "resourceType");
         requireText(action, "action");
 
-        String normalizedCode = normalizeCode(code);
-        String normalizedResourceType = normalizeCode(resourceType);
-        String normalizedAction = normalizeCode(action);
+        String normalizedCode = normalizePermissionCode(code);
+        String normalizedResourceType = normalizePermissionPart(resourceType);
+        String normalizedAction = normalizePermissionPart(action);
 
         if (permissionRepository.existsById(normalizedCode)) {
             throw new ConflictException(
@@ -189,7 +189,7 @@ public class RoleManagementService {
         requireText(permissionCode, "permissionCode");
 
         RoleEntity role = getRole(tenantId, roleCode);
-        String normalizedPermissionCode = normalizeCode(permissionCode);
+        String normalizedPermissionCode = normalizePermissionCode(permissionCode);
 
         PermissionEntity permission = permissionRepository
                 .findById(normalizedPermissionCode)
@@ -247,7 +247,7 @@ public class RoleManagementService {
         requireText(permissionCode, "permissionCode");
 
         RoleEntity role = getRole(tenantId, roleCode);
-        String normalizedPermissionCode = normalizeCode(permissionCode);
+        String normalizedPermissionCode = normalizePermissionCode(permissionCode);
 
         RolePermissionId id = new RolePermissionId(
                 role.getId(),
@@ -431,8 +431,20 @@ public class RoleManagementService {
         }
     }
 
+    /** Role codes are canonical upper-case identifiers. */
     private String normalizeCode(String value) {
         return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    /** Permission codes are OAuth scope identifiers and are canonical lower-case. */
+    private String normalizePermissionCode(String value) {
+        requireText(value, "permissionCode");
+        return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizePermissionPart(String value) {
+        requireText(value, "permissionMetadata");
+        return value.trim().toLowerCase(Locale.ROOT);
     }
 
     private String normalizeNullable(String value) {

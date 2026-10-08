@@ -120,7 +120,64 @@ smartfarm:
             resource-type: "tasks"
             action: "write"
             description: "Allows write access to tasks"
+          - code: "identity:permission:manage"
+            resource-type: "identity-permission"
+            action: "manage"
+            description: "Allows manage access to identity permission"
+          - code: "identity:role:assign"
+            resource-type: "identity-role"
+            action: "assign"
+            description: "Allows assign access to identity role"
+          - code: "identity:role:manage"
+            resource-type: "identity-role"
+            action: "manage"
+            description: "Allows manage access to identity role"
+          - code: "identity:user:disable"
+            resource-type: "identity-user"
+            action: "disable"
+            description: "Allows disable access to identity user"
+          - code: "identity:user:profile:manage"
+            resource-type: "identity-user-profile"
+            action: "manage"
+            description: "Allows SUPERADMIN to update another user profile"
+          - code: "identity:user:account:manage"
+            resource-type: "identity-user-account"
+            action: "manage"
+            description: "Allows SUPERADMIN to disable, enable and unlock accounts"
           # END AUTO-SYNC GATEWAY PERMISSIONS
+      role-sync:
+        enabled: true
+        roles:
+          - code: USER
+            name: User
+            system-role: true
+            permission-codes:
+              - identity:principal:read
+              - identity:principal:update
+              - identity:security:read
+              - identity:mfa:enroll
+              - identity:mfa:disable
+              - identity:mfa:recovery:regenerate
+              - identity:user:credential:reset
+              - farm:read
+          - code: ADMIN
+            name: Tenant Administrator
+            system-role: true
+            permission-codes:
+              - identity:principal:read
+              - identity:principal:update
+              - identity:security:read
+              - identity:user:read
+              - identity:user:create
+              - identity:user:disable
+              - identity:user:mfa:reset
+              - identity:role:read
+              - identity:role:assign
+              - identity:role:manage
+              - identity:permission:read
+              - identity:permission:manage
+              - farm:read
+
     issuer: ${IDENTITY_ISSUER:http://localhost:8092}
     gateway-audience: smartfarm-gateway
     key-id: ${IDENTITY_KEY_ID:dev-key-1}

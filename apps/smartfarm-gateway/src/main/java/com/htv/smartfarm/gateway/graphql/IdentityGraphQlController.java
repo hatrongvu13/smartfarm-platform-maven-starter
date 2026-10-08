@@ -198,6 +198,51 @@ public class IdentityGraphQlController {
         });
     }
 
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:role:manage')")
+    public Mono<Map<String,Object>> createAuthorizationRole(@Argument Map<String,Object> input) { return jwtCall(jwt -> { var c=contexts.create(jwt); var x=admin(jwt,c).createTenantRole(CreateTenantRoleRequest.newBuilder().setContext(c).setCode(requiredInput(input,"code")).setName(requiredInput(input,"name")).build()); return role(x.getRole()); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:role:manage')")
+    public Mono<Map<String,Object>> updateAuthorizationRole(@Argument Map<String,Object> input) { return jwtCall(jwt -> { var c=contexts.create(jwt); var x=admin(jwt,c).updateTenantRole(UpdateTenantRoleRequest.newBuilder().setContext(c).setCode(requiredInput(input,"code")).setName(requiredInput(input,"name")).build()); return role(x.getRole()); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:role:manage')")
+    public Mono<Boolean> deleteAuthorizationRole(@Argument String code) { return jwtCall(jwt -> { var c=contexts.create(jwt); return admin(jwt,c).deleteTenantRole(DeleteTenantRoleRequest.newBuilder().setContext(c).setCode(required(code,"code")).build()).getDeleted(); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    public Mono<Map<String,Object>> createAuthorizationPermission(@Argument Map<String,Object> input) { return jwtCall(jwt -> { var c=contexts.create(jwt); var x=admin(jwt,c).createPermission(CreatePermissionRequest.newBuilder().setContext(c).setCode(requiredInput(input,"code")).setResourceType(requiredInput(input,"resourceType")).setAction(requiredInput(input,"action")).setDescription(optionalInput(input,"description")).build()); return permission(x.getPermission()); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    public Mono<Map<String,Object>> updateAuthorizationPermission(@Argument Map<String,Object> input) { return jwtCall(jwt -> { var c=contexts.create(jwt); var x=admin(jwt,c).updatePermission(UpdatePermissionRequest.newBuilder().setContext(c).setCode(requiredInput(input,"code")).setResourceType(requiredInput(input,"resourceType")).setAction(requiredInput(input,"action")).setDescription(optionalInput(input,"description")).build()); return permission(x.getPermission()); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    public Mono<Boolean> deleteAuthorizationPermission(@Argument String code) { return jwtCall(jwt -> { var c=contexts.create(jwt); return admin(jwt,c).deletePermission(DeletePermissionRequest.newBuilder().setContext(c).setCode(required(code,"code")).build()).getDeleted(); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    public Mono<Map<String,Object>> grantPermissionToAuthorizationRole(@Argument String roleCode,@Argument String permissionCode) { return jwtCall(jwt -> { var c=contexts.create(jwt); return role(admin(jwt,c).grantPermissionToRole(TenantRolePermissionRequest.newBuilder().setContext(c).setRoleCode(required(roleCode,"roleCode")).setPermissionCode(required(permissionCode,"permissionCode")).build()).getRole()); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    public Mono<Map<String,Object>> revokePermissionFromAuthorizationRole(@Argument String roleCode,@Argument String permissionCode) { return jwtCall(jwt -> { var c=contexts.create(jwt); return role(admin(jwt,c).revokePermissionFromRole(TenantRolePermissionRequest.newBuilder().setContext(c).setRoleCode(required(roleCode,"roleCode")).setPermissionCode(required(permissionCode,"permissionCode")).build()).getRole()); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:role:assign')")
+    public Mono<Map<String,Object>> assignAuthorizationRole(@Argument String subjectId,@Argument String roleCode) { return jwtCall(jwt -> { var c=contexts.create(jwt); admin(jwt,c).assignRole(AssignRoleRequest.newBuilder().setContext(c).setSubjectId(required(subjectId,"subjectId")).setRoleCode(required(roleCode,"roleCode")).build()); return authorization(admin(jwt,c).getUserAuthorization(GetUserAuthorizationRequest.newBuilder().setContext(c).setSubjectId(subjectId).build()).getAuthorization()); }); }
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:role:assign')")
+    public Mono<Map<String,Object>> revokeAuthorizationRole(@Argument String subjectId,@Argument String roleCode) { return jwtCall(jwt -> { var c=contexts.create(jwt); admin(jwt,c).revokeRole(RevokeRoleRequest.newBuilder().setContext(c).setSubjectId(required(subjectId,"subjectId")).setRoleCode(required(roleCode,"roleCode")).build()); return authorization(admin(jwt,c).getUserAuthorization(GetUserAuthorizationRequest.newBuilder().setContext(c).setSubjectId(subjectId).build()).getAuthorization()); }); }
+
+    @QueryMapping
+    @PreAuthorize("hasAuthority('SCOPE_identity:user:profile:manage')")
+    public Mono<Map<String,Object>> userPrincipal(@Argument String subjectId) { return jwtCall(jwt -> { var c=contexts.create(jwt); return principal(directory(jwt,c).getPrincipal(GetPrincipalRequest.newBuilder().setContext(c).setSubjectId(required(subjectId,"subjectId")).build()).getPrincipal()); }); }
+
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:user:disable')")
+    public Mono<Map<String,Object>> disableUserMembership(@Argument String subjectId,@Argument String reason){return jwtCall(jwt->{var c=contexts.create(jwt);admin(jwt,c).disableMembership(DisableMembershipRequest.newBuilder().setContext(c).setSubjectId(required(subjectId,"subjectId")).setReason(safe(reason)).build());return authorization(admin(jwt,c).getUserAuthorization(GetUserAuthorizationRequest.newBuilder().setContext(c).setSubjectId(subjectId).build()).getAuthorization());});}
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:user:disable')")
+    public Mono<Map<String,Object>> enableUserMembership(@Argument String subjectId){return jwtCall(jwt->{var c=contexts.create(jwt);admin(jwt,c).enableMembership(EnableMembershipRequest.newBuilder().setContext(c).setSubjectId(required(subjectId,"subjectId")).build());return authorization(admin(jwt,c).getUserAuthorization(GetUserAuthorizationRequest.newBuilder().setContext(c).setSubjectId(subjectId).build()).getAuthorization());});}
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:user:disable')")
+    public Mono<Map<String,Object>> suspendUserMembership(@Argument String subjectId,@Argument String reason){return jwtCall(jwt->{var c=contexts.create(jwt);admin(jwt,c).suspendMembership(SuspendMembershipRequest.newBuilder().setContext(c).setSubjectId(required(subjectId,"subjectId")).setReason(safe(reason)).build());return authorization(admin(jwt,c).getUserAuthorization(GetUserAuthorizationRequest.newBuilder().setContext(c).setSubjectId(subjectId).build()).getAuthorization());});}
+
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:user:account:manage')")
+    public Mono<Map<String,Object>> disableUserAccount(@Argument String subjectId,@Argument String reason){return accountMutation(subjectId,reason,"disable");}
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:user:account:manage')")
+    public Mono<Map<String,Object>> enableUserAccount(@Argument String subjectId){return accountMutation(subjectId,"","enable");}
+    @MutationMapping @PreAuthorize("hasAuthority('SCOPE_identity:user:account:manage')")
+    public Mono<Map<String,Object>> unlockUserAccount(@Argument String subjectId){return accountMutation(subjectId,"","unlock");}
+
+    private Mono<Map<String,Object>> accountMutation(String subjectId,String reason,String action){return jwtCall(jwt->{var c=contexts.create(jwt);var r=AccountAdministrationRequest.newBuilder().setContext(c).setSubjectId(required(subjectId,"subjectId")).setReason(safe(reason)).build();var x=switch(action){case "disable"->admin(jwt,c).disableUserAccount(r);case "enable"->admin(jwt,c).enableUserAccount(r);default->admin(jwt,c).unlockUserAccount(r);};return authorization(x.getAuthorization());});}
+
+    @MutationMapping
+    @PreAuthorize("hasAuthority('SCOPE_identity:user:profile:manage')")
+    public Mono<Map<String,Object>> updateUserProfile(@Argument Map<String,Object> input) { return jwtCall(jwt -> { var c=contexts.create(jwt); var b=AdminUpdateUserProfileRequest.newBuilder().setContext(c).setSubjectId(requiredInput(input,"subjectId")); var profile=PrincipalProfile.newBuilder(); var mask=FieldMask.newBuilder(); addProfileField(input,"displayName","display_name",profile::setDisplayName,mask); addProfileField(input,"firstName","first_name",profile::setFirstName,mask); addProfileField(input,"lastName","last_name",profile::setLastName,mask); addProfileField(input,"phoneNumber","phone_number",profile::setPhoneNumber,mask); addProfileField(input,"avatarUrl","avatar_url",profile::setAvatarUrl,mask); addProfileField(input,"locale","locale",profile::setLocale,mask); addProfileField(input,"timeZone","time_zone",profile::setTimeZone,mask); if(mask.getPathsCount()==0)throw new IllegalArgumentException("At least one profile field is required");b.setProfile(profile).setUpdateMask(mask);if(input.get("expectedVersion") instanceof Number n)b.setExpectedVersion(n.longValue());return principal(admin(jwt,c).updateUserProfileAsAdministrator(b.build()).getPrincipal());});}
+
     @MutationMapping
     @PreAuthorize("hasAuthority('SCOPE_identity:user:create')")
     public Mono<Map<String, Object>> createUser(

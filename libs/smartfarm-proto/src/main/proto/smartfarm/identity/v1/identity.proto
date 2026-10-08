@@ -93,6 +93,19 @@ service IdentityAdministrationService {
   // Tạm ngưng membership trong tenant hiện tại.
   rpc SuspendMembership(SuspendMembershipRequest)
       returns (UpdateMembershipStatusResponse);
+
+  rpc CreateTenantRole(CreateTenantRoleRequest) returns (RoleMutationResponse);
+  rpc UpdateTenantRole(UpdateTenantRoleRequest) returns (RoleMutationResponse);
+  rpc DeleteTenantRole(DeleteTenantRoleRequest) returns (DeleteAuthorizationObjectResponse);
+  rpc CreatePermission(CreatePermissionRequest) returns (PermissionMutationResponse);
+  rpc UpdatePermission(UpdatePermissionRequest) returns (PermissionMutationResponse);
+  rpc DeletePermission(DeletePermissionRequest) returns (DeleteAuthorizationObjectResponse);
+  rpc GrantPermissionToRole(TenantRolePermissionRequest) returns (RoleMutationResponse);
+  rpc UpdateUserProfileAsAdministrator(AdminUpdateUserProfileRequest) returns (AdminUserPrincipalResponse);
+  rpc DisableUserAccount(AccountAdministrationRequest) returns (GetUserAuthorizationResponse);
+  rpc EnableUserAccount(AccountAdministrationRequest) returns (GetUserAuthorizationResponse);
+  rpc UnlockUserAccount(AccountAdministrationRequest) returns (GetUserAuthorizationResponse);
+  rpc RevokePermissionFromRole(TenantRolePermissionRequest) returns (RoleMutationResponse);
 }
 
 // ============================================================
@@ -482,6 +495,37 @@ message UpdateMembershipStatusResponse {
   string tenant_id = 3;
   MembershipStatus status = 4;
   google.protobuf.Timestamp updated_at = 5;
+}
+
+// ============================================================
+// DYNAMIC TENANT AUTHORIZATION ADMINISTRATION
+// ============================================================
+message CreateTenantRoleRequest { smartfarm.common.v1.RequestContext context = 1; string code = 2; string name = 3; }
+message UpdateTenantRoleRequest { smartfarm.common.v1.RequestContext context = 1; string code = 2; string name = 3; }
+message DeleteTenantRoleRequest { smartfarm.common.v1.RequestContext context = 1; string code = 2; }
+message RoleMutationResponse { RoleInfo role = 1; }
+message CreatePermissionRequest { smartfarm.common.v1.RequestContext context = 1; string code = 2; string resource_type = 3; string action = 4; string description = 5; }
+message UpdatePermissionRequest { smartfarm.common.v1.RequestContext context = 1; string code = 2; string resource_type = 3; string action = 4; string description = 5; }
+message DeletePermissionRequest { smartfarm.common.v1.RequestContext context = 1; string code = 2; }
+message PermissionMutationResponse { PermissionInfo permission = 1; }
+message TenantRolePermissionRequest { smartfarm.common.v1.RequestContext context = 1; string role_code = 2; string permission_code = 3; }
+message DeleteAuthorizationObjectResponse { bool deleted = 1; }
+
+// ============================================================
+// SUPERADMIN USER ADMINISTRATION
+// ============================================================
+message AdminUpdateUserProfileRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  PrincipalProfile profile = 3;
+  google.protobuf.FieldMask update_mask = 4;
+  optional int64 expected_version = 5;
+}
+message AdminUserPrincipalResponse { Principal principal = 1; }
+message AccountAdministrationRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  string reason = 3;
 }
 
 // ============================================================

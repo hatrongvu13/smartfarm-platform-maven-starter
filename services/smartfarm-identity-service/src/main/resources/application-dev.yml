@@ -73,6 +73,8 @@ smartfarm:
               - identity:user:disable
               - identity:role:read
               - identity:role:assign
+              - identity:permission:manage
+              - identity:role:manage
               - identity:permission:read
               - identity:security:read
               - identity:mfa:enroll
@@ -80,6 +82,9 @@ smartfarm:
               - identity:mfa:recovery:regenerate
               - identity:user:credential:reset
               - identity:user:mfa:reset
+              - identity:user:profile:manage
+              - identity:user:account:manage
+
             smartfarm-livestock:
               - tasks:write
               - farm:read
