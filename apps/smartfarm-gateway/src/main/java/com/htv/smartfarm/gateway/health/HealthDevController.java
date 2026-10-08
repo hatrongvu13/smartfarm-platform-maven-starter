@@ -31,7 +31,6 @@ import reactor.core.scheduler.Schedulers;
  * {@code ReportingDevController} / {@code LivestockDevController}.
  */
 @RestController
-@Profile("dev & !prod")
 @RequestMapping("/api/v1/health")
 public class HealthDevController {
 

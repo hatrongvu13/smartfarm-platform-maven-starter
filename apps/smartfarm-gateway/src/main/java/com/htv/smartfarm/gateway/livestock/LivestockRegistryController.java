@@ -32,7 +32,6 @@ import reactor.core.scheduler.Schedulers;
  * path; both share the same gRPC stub and per-service-token pattern. {@code @Profile("dev & !prod")}.
  */
 @RestController
-@Profile("dev & !prod")
 @RequestMapping("/api/v1/livestock")
 public class LivestockRegistryController {
 

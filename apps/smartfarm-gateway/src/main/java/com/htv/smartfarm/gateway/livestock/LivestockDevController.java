@@ -34,7 +34,6 @@ import reactor.core.scheduler.Schedulers;
  * off in production — clients still reach these features through the gateway only.
  */
 @RestController
-@Profile("dev & !prod")
 @RequestMapping("/api/v1/livestock/tasks")
 public class LivestockDevController {
 

@@ -30,7 +30,6 @@ import reactor.core.scheduler.Schedulers;
  * carried as actor_id. {@code @Profile("dev & !prod")}.
  */
 @RestController
-@Profile("dev & !prod")
 @RequestMapping("/api/v1/reports")
 public class ReportingDevController {
 

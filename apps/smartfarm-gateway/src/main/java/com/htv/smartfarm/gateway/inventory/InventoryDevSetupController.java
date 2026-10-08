@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -23,7 +22,6 @@ import reactor.core.scheduler.Schedulers;
 
 @RestController
 @Hidden
-@Profile("dev & !prod")
 @RequestMapping("/api/v1/inventory")
 public class InventoryDevSetupController {
     public record CreateItem(String sku, String name, String unit, String reorderThreshold) { }

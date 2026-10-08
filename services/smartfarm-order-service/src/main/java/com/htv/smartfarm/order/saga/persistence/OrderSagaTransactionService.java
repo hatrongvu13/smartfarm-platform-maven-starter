@@ -302,12 +302,29 @@ public class OrderSagaTransactionService {
         return changed;
     }
 
+    /** Worker maintenance operation. Recovers stale claims across all tenants. */
     @Transactional
     public int recoverStaleClaims() {
         Instant now = clock.instant();
-        List<OrderSagaEntity> stale = sagas.lockStale(
+        return recoverLocked(sagas.lockStale(
                 List.of(OrderSagaStatus.RUNNING, OrderSagaStatus.COMPENSATING),
-                now.minus(properties.claimTimeout()), PageRequest.of(0, properties.batchSize()));
+                now.minus(properties.claimTimeout()), PageRequest.of(0, properties.batchSize())), now);
+    }
+
+    /** Operator operation. Tenant-scoped so one tenant cannot recover another tenant's claims. */
+    @Transactional
+    public int recoverStaleClaims(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalArgumentException("tenantId must not be blank");
+        }
+        Instant now = clock.instant();
+        return recoverLocked(sagas.lockStaleByTenantId(
+                tenantId.trim(),
+                List.of(OrderSagaStatus.RUNNING, OrderSagaStatus.COMPENSATING),
+                now.minus(properties.claimTimeout()), PageRequest.of(0, properties.batchSize())), now);
+    }
+
+    private int recoverLocked(List<OrderSagaEntity> stale, Instant now) {
         for (OrderSagaEntity saga : stale) {
             saga.recover(now);
             for (OrderSagaStepEntity step : steps.findBySagaIdForUpdate(saga.getId())) {

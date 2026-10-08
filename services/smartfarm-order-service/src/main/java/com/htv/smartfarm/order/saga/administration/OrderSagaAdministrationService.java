@@ -89,7 +89,7 @@ public class OrderSagaAdministrationService {
     @Transactional
     public int recoverStale(String tenantId, String actorId, String reason) {
         required(tenantId, "tenantId"); required(actorId, "actorId"); required(reason, "reason");
-        int recovered = transactions.recoverStaleClaims();
+        int recovered = transactions.recoverStaleClaims(tenantId);
         audit.save(new OrderSagaRecoveryAuditEntity(
                 UUID.randomUUID().toString(), tenantId, "batch", null, actorId,
                 OrderSagaRecoveryAction.RECOVER_STALE, "CLAIMED", "RECOVERED",

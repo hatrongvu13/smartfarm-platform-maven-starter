@@ -24,6 +24,11 @@ public interface OrderSagaJpaRepository extends JpaRepository<OrderSagaEntity, S
     @Query("select s from OrderSagaEntity s where s.status in :statuses and s.claimedAt < :before order by s.claimedAt, s.id")
     List<OrderSagaEntity> lockStale(@Param("statuses") List<OrderSagaStatus> statuses, @Param("before") Instant before, Pageable pageable);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from OrderSagaEntity s where s.tenantId = :tenantId and s.status in :statuses and s.claimedAt < :before order by s.claimedAt, s.id")
+    List<OrderSagaEntity> lockStaleByTenantId(@Param("tenantId") String tenantId,
+            @Param("statuses") List<OrderSagaStatus> statuses,
+            @Param("before") Instant before, Pageable pageable);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from OrderSagaEntity s where s.status = :status and s.manualReviewUntil <= :now order by s.manualReviewUntil, s.id")
     List<OrderSagaEntity> lockExpiredManualReviews(@Param("status") OrderSagaStatus status, @Param("now") Instant now, Pageable pageable);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
