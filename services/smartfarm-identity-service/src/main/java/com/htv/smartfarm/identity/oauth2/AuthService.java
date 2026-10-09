@@ -16,6 +16,7 @@ import com.htv.smartfarm.identity.authorization.domain.MembershipRoleEntity;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.mfa.application.AuthenticatorService;
 import com.htv.smartfarm.identity.mfa.application.MfaChallengeService;
@@ -164,6 +165,7 @@ public class AuthService {
     private final SecureRandom random = new SecureRandom();
     private final String dummyHash;
     private IdentityIntegrationEventPublisher events;
+    private AuthorizationMutationCoordinator authorizationMutations;
     private com.htv.smartfarm.identity.bootstrap.SuperAdminBootstrapService bootstrap;
 
     public AuthService(
@@ -206,6 +208,13 @@ public class AuthService {
             IdentityIntegrationEventPublisher events
     ) {
         this.events = events;
+    }
+
+    @Autowired
+    void setAuthorizationMutationCoordinator(
+            AuthorizationMutationCoordinator authorizationMutations
+    ) {
+        this.authorizationMutations = authorizationMutations;
     }
 
     @Autowired
@@ -338,6 +347,7 @@ public class AuthService {
                 }
                 if (lockedNow) {
                     publishAccountLocked(tenantId, account, "PASSWORD_FAILURE_THRESHOLD");
+                    accountAuthorizationLocked(tenantId, account.getId());
                 }
             }
             throw unauthorized();
@@ -745,4 +755,19 @@ public class AuthService {
                 message
         );
     }
+
+    // DYNAMIC_AUTH_PHASE2C_ACCOUNT_LOCK: only the transition into locked state invalidates.
+    private void accountAuthorizationLocked(String tenantId, String subjectId) {
+        if (authorizationMutations != null
+                && tenantId != null && !tenantId.isBlank()) {
+            authorizationMutations.subjectChanged(
+                    tenantId,
+                    subjectId,
+                    subjectId,
+                    null,
+                    "ACCOUNT_LOCKED"
+            );
+        }
+    }
+
 }

@@ -40,6 +40,7 @@ public class RoleManagementService {
     private final MembershipRoleRepository membershipRoleRepository;
     private final IdentityIntegrationEventPublisher events;
     private AuthorizationMutationCoordinator authorizationMutations;
+    private AuthorizationMutationCoordinator authorizationMutations;
 
     public RoleManagementService(
             TenantRepository tenantRepository,
@@ -58,6 +59,12 @@ public class RoleManagementService {
         this.membershipRoleRepository = membershipRoleRepository;
         this.events = events;
     }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
+        this.authorizationMutations = value;
+    }
+
 
     @org.springframework.beans.factory.annotation.Autowired
     void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
@@ -233,7 +240,10 @@ public class RoleManagementService {
                         "action", permission.getAction()
                 )
         );
-    }
+    
+        rolePermissionAuthorizationChanged(
+                tenantId, actorId, null, "ROLE_PERMISSION_CHANGED");
+}
 
     @Transactional
     public void revokePermissionFromRole(
@@ -282,7 +292,10 @@ public class RoleManagementService {
                         "permissionCode", normalizedPermissionCode
                 )
         );
-    }
+    
+        rolePermissionAuthorizationChanged(
+                tenantId, actorId, null, "ROLE_PERMISSION_REVOKED");
+}
 
     @Transactional
     public void assignRole(
@@ -486,6 +499,17 @@ public class RoleManagementService {
         if (authorizationMutations != null) {
             authorizationMutations.subjectChanged(
                     tenantId, userId, actorId, correlationId, reasonCode);
+        }
+    }
+
+
+    // DYNAMIC_AUTH_PHASE2C_ROLE_PERMISSION: tenant-wide because a role affects many subjects.
+    private void rolePermissionAuthorizationChanged(
+            String tenantId, String actorId, String correlationId, String reasonCode
+    ) {
+        if (authorizationMutations != null) {
+            authorizationMutations.tenantChanged(
+                    tenantId, actorId, correlationId, reasonCode);
         }
     }
 
