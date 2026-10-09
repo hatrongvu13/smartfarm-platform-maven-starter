@@ -39,7 +39,9 @@ public class LivestockGrpcService extends LivestockTaskServiceGrpc.LivestockTask
         return GrpcSecurityContext.SUBJECT.get();
     }
 
-    /** Common error mapping for lifecycle RPCs. */
+    /**
+     * Common error mapping for lifecycle RPCs.
+     */
     private static <T> void run(StreamObserver<T> observer, java.util.function.Supplier<T> action) {
         try {
             observer.onNext(action.get());

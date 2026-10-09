@@ -96,6 +96,8 @@ smartfarm:
             smartfarm-order:
               - orders:write
               - orders:read
+              - orders:saga:read
+              - orders:saga:admin
             smartfarm-reporting:
               - report:write
               - report:read
@@ -125,4 +127,3 @@ smartfarm:
       maximum-attempts: ${IDENTITY_MFA_MAXIMUM_ATTEMPTS:5}
       recovery-code-count: ${IDENTITY_MFA_RECOVERY_CODE_COUNT:10}
       encryption-key: ${IDENTITY_MFA_ENCRYPTION_KEY:GitxwqL/a1ALNdR0FxUvdaxNAwFi+BRxATfcvyI5P8k=}
-

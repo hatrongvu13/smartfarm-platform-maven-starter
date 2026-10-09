@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TaskCommandService {
-    /** Audit channel: records which human actor (from RequestContext.actor_id) triggered each command. */
+    /**
+     * Audit channel: records which human actor (from RequestContext.actor_id) triggered each command.
+     */
     private static final Logger AUDIT = LoggerFactory.getLogger("smartfarm.audit.task");
 
     private final TaskStore store;
@@ -74,7 +76,9 @@ public class TaskCommandService {
         return store.byId(tenant, id).orElse(null);
     }
 
-    /** Full entity view for GetTask (status + lifecycle timestamps). Null when not found. */
+    /**
+     * Full entity view for GetTask (status + lifecycle timestamps). Null when not found.
+     */
     @Transactional(readOnly = true)
     public TaskEntity entityView(String tenant, String id) {
         return store.entity(tenant, id).orElse(null);
@@ -86,7 +90,9 @@ public class TaskCommandService {
         return store.entity(tenant, id).orElseThrow(() -> new NoSuchTaskException(id));
     }
 
-    /** Assign (or re-assign) a task, arming the accept/report deadlines the monitor watches. */
+    /**
+     * Assign (or re-assign) a task, arming the accept/report deadlines the monitor watches.
+     */
     @Transactional
     public TaskEntity assign(String tenant, String actor, AssignTaskRequest req) {
         String id = req.getTaskId();
@@ -108,7 +114,9 @@ public class TaskCommandService {
         return t;
     }
 
-    /** Worker accepts an assigned task, stopping the accept-overdue clock. */
+    /**
+     * Worker accepts an assigned task, stopping the accept-overdue clock.
+     */
     @Transactional
     public TaskEntity accept(String tenant, String actor, String id, String correlation) {
         if (id.isBlank()) throw new IllegalArgumentException("task_id required");
@@ -124,7 +132,9 @@ public class TaskCommandService {
         return t;
     }
 
-    /** Complete (report) a task, satisfying the report deadline. */
+    /**
+     * Complete (report) a task, satisfying the report deadline.
+     */
     @Transactional
     public TaskEntity complete(String tenant, String actor, String id, String note, String correlation) {
         if (id.isBlank()) throw new IllegalArgumentException("task_id required");
@@ -141,7 +151,9 @@ public class TaskCommandService {
         return t;
     }
 
-    /** Cancel a task. Idempotent; terminal COMPLETED cannot be cancelled. */
+    /**
+     * Cancel a task. Idempotent; terminal COMPLETED cannot be cancelled.
+     */
     @Transactional
     public TaskEntity cancel(String tenant, String actor, String id, String reason, String correlation) {
         if (id.isBlank()) throw new IllegalArgumentException("task_id required");
@@ -167,7 +179,9 @@ public class TaskCommandService {
         return s == null || s.isBlank() ? null : s;
     }
 
-    /** Thrown when a task id is not found in the tenant; mapped to NOT_FOUND at the gRPC edge. */
+    /**
+     * Thrown when a task id is not found in the tenant; mapped to NOT_FOUND at the gRPC edge.
+     */
     public static class NoSuchTaskException extends RuntimeException {
         public NoSuchTaskException(String id) {
             super("task not found: " + id);

@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-/** Spring Data JPA access to {@link ScheduleEntity}. */
+/**
+ * Spring Data JPA access to {@link ScheduleEntity}.
+ */
 public interface ScheduleJpaRepository extends JpaRepository<ScheduleEntity, String> {
 
     Optional<ScheduleEntity> findByTenantIdAndId(String tenantId, String id);
@@ -20,7 +22,9 @@ public interface ScheduleJpaRepository extends JpaRepository<ScheduleEntity, Str
             """)
     List<ScheduleEntity> list(@Param("tenant") String tenant, @Param("farm") String farm, Pageable page);
 
-    /** Enabled schedules whose next run time has arrived — the generator's work queue. */
+    /**
+     * Enabled schedules whose next run time has arrived — the generator's work queue.
+     */
     @Query("""
             select s from ScheduleEntity s
             where s.enabled = true and s.nextRunAt is not null and s.nextRunAt <= :now

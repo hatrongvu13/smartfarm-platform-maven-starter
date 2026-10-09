@@ -33,7 +33,9 @@ public class ScheduleEntity {
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
-    /** TaskType enum name applied to tasks this schedule creates. */
+    /**
+     * TaskType enum name applied to tasks this schedule creates.
+     */
     @Column(name = "task_type", length = 40)
     private String taskType;
 
@@ -74,18 +76,55 @@ public class ScheduleEntity {
         this.createdAt = createdAt;
     }
 
-    public String getId() { return id; }
-    public String getTenantId() { return tenantId; }
-    public String getFarmId() { return farmId; }
-    public String getTitle() { return title; }
-    public String getTaskType() { return taskType; }
-    public String getCronExpression() { return cronExpression; }
-    public String getTimeZone() { return timeZone; }
-    public String getAssigneeId() { return assigneeId; }
-    public boolean isEnabled() { return enabled; }
-    public Long getNextRunAt() { return nextRunAt; }
-    public long getCreatedAt() { return createdAt; }
+    public String getId() {
+        return id;
+    }
 
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
-    public void setNextRunAt(Long nextRunAt) { this.nextRunAt = nextRunAt; }
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public String getFarmId() {
+        return farmId;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getTaskType() {
+        return taskType;
+    }
+
+    public String getCronExpression() {
+        return cronExpression;
+    }
+
+    public String getTimeZone() {
+        return timeZone;
+    }
+
+    public String getAssigneeId() {
+        return assigneeId;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public Long getNextRunAt() {
+        return nextRunAt;
+    }
+
+    public long getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public void setNextRunAt(Long nextRunAt) {
+        this.nextRunAt = nextRunAt;
+    }
 }

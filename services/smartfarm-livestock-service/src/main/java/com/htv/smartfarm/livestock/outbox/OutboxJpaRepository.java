@@ -9,7 +9,9 @@ import org.springframework.data.repository.query.Param;
 
 import com.htv.smartfarm.livestock.task.TaskEntity;
 
-/** Spring Data JPA access to {@link OutboxEntity}. */
+/**
+ * Spring Data JPA access to {@link OutboxEntity}.
+ */
 public interface OutboxJpaRepository extends JpaRepository<OutboxEntity, String> {
 
     /**

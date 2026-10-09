@@ -9,12 +9,14 @@ import static org.mockito.Mockito.when;
 
 import com.htv.smartfarm.order.domain.OrderLineEntity;
 import com.htv.smartfarm.order.domain.OrderLineJpaRepository;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Pageable;
@@ -77,8 +79,8 @@ class OrderSagaTransactionServiceContractTest {
     }
 
     private OrderSagaTransactionService service(OrderSagaJpaRepository sagas,
-            OrderSagaStepJpaRepository steps, OrderLineJpaRepository lines,
-            OrderSagaInsertService inserts) {
+                                                OrderSagaStepJpaRepository steps, OrderLineJpaRepository lines,
+                                                OrderSagaInsertService inserts) {
         return new OrderSagaTransactionService(sagas, steps, lines,
                 new OrderSagaProperties(true, 20, 5, Duration.ofSeconds(5),
                         Duration.ofMinutes(5), Duration.ofMinutes(2), Duration.ofMinutes(30),

@@ -76,7 +76,9 @@ public class TaskStore {
         return tasks.reportOverdue(now, org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 500))));
     }
 
-    /** Write a lifecycle event to the outbox with a specific event type (e.g. task-assigned.v1). */
+    /**
+     * Write a lifecycle event to the outbox with a specific event type (e.g. task-assigned.v1).
+     */
     public void insertLifecycleOutbox(String tenant, String taskId, String eventType, String correlation, long at) {
         outbox.save(new OutboxEntity(UUID.randomUUID().toString(), tenant, taskId,
                 eventType, correlation, at, "NEW"));

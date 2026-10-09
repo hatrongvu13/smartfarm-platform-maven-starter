@@ -14,13 +14,19 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "smartfarm.livestock.deadlines")
 public class TaskDeadlineSettings {
 
-    /** Seconds an assignee has to ACCEPT before accept-overdue fires. Default 10 minutes. */
+    /**
+     * Seconds an assignee has to ACCEPT before accept-overdue fires. Default 10 minutes.
+     */
     private long acceptWindowSeconds = 600;
 
-    /** Default seconds to report/complete after assignment before report-overdue fires. Default 2 hours. */
+    /**
+     * Default seconds to report/complete after assignment before report-overdue fires. Default 2 hours.
+     */
     private long reportWindowSeconds = 7200;
 
-    /** Per-TaskType report window overrides, key = TaskType enum name (e.g. TASK_TYPE_MEDICATION). */
+    /**
+     * Per-TaskType report window overrides, key = TaskType enum name (e.g. TASK_TYPE_MEDICATION).
+     */
     private Map<String, Long> reportWindowSecondsByType = Map.of();
 
     public long getAcceptWindowSeconds() {
@@ -47,7 +53,9 @@ public class TaskDeadlineSettings {
         this.reportWindowSecondsByType = v == null ? Map.of() : v;
     }
 
-    /** Resolve the report window for a task type, falling back to the default. */
+    /**
+     * Resolve the report window for a task type, falling back to the default.
+     */
     public long reportWindowFor(String taskType) {
         if (taskType == null) return reportWindowSeconds;
         return reportWindowSecondsByType.getOrDefault(taskType, reportWindowSeconds);

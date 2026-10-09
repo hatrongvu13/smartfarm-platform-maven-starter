@@ -63,7 +63,9 @@ public class ScheduleTaskGenerator {
         if (created > 0) AUDIT.info("schedule_generated count={} scanned={}", created, due.size());
     }
 
-    /** Create the task for this fire slot; returns false if it already existed (idempotent skip). */
+    /**
+     * Create the task for this fire slot; returns false if it already existed (idempotent skip).
+     */
     private boolean materialise(ScheduleEntity s, long firedSlot) {
         String key = "sched:" + s.getId() + ":" + firedSlot;
         if (tasks.byIdempotency(s.getTenantId(), key).isPresent()) return false;

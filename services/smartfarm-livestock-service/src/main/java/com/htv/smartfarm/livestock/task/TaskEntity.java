@@ -38,7 +38,9 @@ public class TaskEntity {
     @Column(nullable = false, length = 32)
     private String status;
 
-    /** TaskType name from the proto enum, e.g. TASK_TYPE_INSPECTION. Nullable for legacy rows. */
+    /**
+     * TaskType name from the proto enum, e.g. TASK_TYPE_INSPECTION. Nullable for legacy rows.
+     */
     @Column(name = "task_type", length = 40)
     private String taskType;
 
@@ -52,14 +54,18 @@ public class TaskEntity {
     @Column(name = "assigned_at")
     private Long assignedAt;
 
-    /** Deadline by which the assignee must ACCEPT; monitored for accept-overdue. */
+    /**
+     * Deadline by which the assignee must ACCEPT; monitored for accept-overdue.
+     */
     @Column(name = "accept_deadline_at")
     private Long acceptDeadlineAt;
 
     @Column(name = "accepted_at")
     private Long acceptedAt;
 
-    /** Deadline by which the accepted task must be reported/completed; monitored for report-overdue. */
+    /**
+     * Deadline by which the accepted task must be reported/completed; monitored for report-overdue.
+     */
     @Column(name = "report_due_at")
     private Long reportDueAt;
 
@@ -72,7 +78,9 @@ public class TaskEntity {
     @Column(name = "cancel_reason", length = 500)
     private String cancelReason;
 
-    /** Set once when an overdue event has been emitted, so the monitor does not re-emit every cycle. */
+    /**
+     * Set once when an overdue event has been emitted, so the monitor does not re-emit every cycle.
+     */
     @Column(name = "accept_overdue_notified_at")
     private Long acceptOverdueNotifiedAt;
 

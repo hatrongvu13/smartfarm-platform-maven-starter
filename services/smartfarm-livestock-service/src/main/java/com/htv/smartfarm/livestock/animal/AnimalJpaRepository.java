@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-/** Spring Data JPA access to {@link AnimalEntity}. */
+/**
+ * Spring Data JPA access to {@link AnimalEntity}.
+ */
 public interface AnimalJpaRepository extends JpaRepository<AnimalEntity, String> {
 
     Optional<AnimalEntity> findByTenantIdAndId(String tenantId, String id);

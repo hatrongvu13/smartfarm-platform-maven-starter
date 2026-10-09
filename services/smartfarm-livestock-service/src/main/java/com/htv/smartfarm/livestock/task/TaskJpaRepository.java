@@ -8,14 +8,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-/** Spring Data JPA access to {@link TaskEntity}. */
+/**
+ * Spring Data JPA access to {@link TaskEntity}.
+ */
 public interface TaskJpaRepository extends JpaRepository<TaskEntity, String> {
 
     Optional<TaskEntity> findByTenantIdAndIdempotencyKey(String tenantId, String idempotencyKey);
 
     Optional<TaskEntity> findByTenantIdAndId(String tenantId, String id);
 
-    /** List by farm, ordered newest-first. Optional status/assignee filters (null = no filter). */
+    /**
+     * List by farm, ordered newest-first. Optional status/assignee filters (null = no filter).
+     */
     @Query("""
             select t from TaskEntity t
             where t.tenantId = :tenant and t.farmId = :farm
@@ -26,7 +30,9 @@ public interface TaskJpaRepository extends JpaRepository<TaskEntity, String> {
     List<TaskEntity> list(@Param("tenant") String tenant, @Param("farm") String farm,
                           @Param("status") String status, @Param("assignee") String assignee, Pageable page);
 
-    /** Assigned tasks past their accept deadline, not yet accepted, not yet notified. */
+    /**
+     * Assigned tasks past their accept deadline, not yet accepted, not yet notified.
+     */
     @Query("""
             select t from TaskEntity t
             where t.status = 'TASK_STATUS_ASSIGNED'
@@ -36,7 +42,9 @@ public interface TaskJpaRepository extends JpaRepository<TaskEntity, String> {
             """)
     List<TaskEntity> acceptOverdue(@Param("now") long now, Pageable page);
 
-    /** Accepted tasks past their report deadline, not yet reported/completed, not yet notified. */
+    /**
+     * Accepted tasks past their report deadline, not yet reported/completed, not yet notified.
+     */
     @Query("""
             select t from TaskEntity t
             where t.status = 'TASK_STATUS_ACCEPTED'

@@ -1,0 +1,278 @@
+syntax = "proto3";
+
+package smartfarm.authorization.v1;
+
+option java_multiple_files = true;
+option java_package = "com.htv.smartfarm.proto.authorization.v1";
+option java_outer_classname = "AuthorizationDecisionProto";
+
+import "google/protobuf/timestamp.proto";
+import "smartfarm/common/v1/common.proto";
+
+// Dynamic business authorization Policy Decision Point.
+service AuthorizationDecisionService {
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+  rpc BatchCheckPermissions(BatchCheckPermissionsRequest) returns (BatchCheckPermissionsResponse);
+  rpc GetAuthorizationSnapshot(GetAuthorizationSnapshotRequest) returns (GetAuthorizationSnapshotResponse);
+  rpc GetAuthorizationVersion(GetAuthorizationVersionRequest) returns (GetAuthorizationVersionResponse);
+}
+
+// Service-owned permission metadata registry. Registration never grants a role.
+service PermissionRegistrationService {
+  rpc RegisterPermissionDefinitions(RegisterPermissionDefinitionsRequest)
+      returns (RegisterPermissionDefinitionsResponse);
+  rpc GetPermissionRegistration(GetPermissionRegistrationRequest)
+      returns (GetPermissionRegistrationResponse);
+  rpc RetirePermissionDefinition(RetirePermissionDefinitionRequest)
+      returns (RetirePermissionDefinitionResponse);
+}
+
+// Protected operational API.
+service AuthorizationAdministrationService {
+  rpc InvalidateAuthorization(InvalidateAuthorizationRequest)
+      returns (InvalidateAuthorizationResponse);
+  rpc GetAuthorizationCacheStatus(GetAuthorizationCacheStatusRequest)
+      returns (GetAuthorizationCacheStatusResponse);
+}
+
+message AuthorizationResource {
+  string resource_type = 1;
+  string resource_id = 2;
+  string farm_id = 3;
+  map<string, string> attributes = 4;
+}
+
+message AuthorizationVersions {
+  int64 catalog_version = 1;
+  int64 tenant_version = 2;
+  int64 subject_version = 3;
+  int64 policy_version = 4;
+}
+
+message PermissionCheck {
+  string permission_code = 1;
+  AuthorizationResource resource = 2;
+  string client_request_id = 3;
+}
+
+message CheckPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  PermissionCheck check = 3;
+  AuthorizationVersions known_versions = 4;
+}
+
+message CheckPermissionResponse {
+  AuthorizationDecision decision = 1;
+}
+
+message BatchCheckPermissionsRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  repeated PermissionCheck checks = 3;
+  AuthorizationVersions known_versions = 4;
+}
+
+message BatchCheckPermissionsResponse {
+  repeated AuthorizationDecision decisions = 1;
+  AuthorizationVersions versions = 2;
+  google.protobuf.Timestamp evaluated_at = 3;
+}
+
+enum AuthorizationDecisionEffect {
+  AUTHORIZATION_DECISION_EFFECT_UNSPECIFIED = 0;
+  AUTHORIZATION_DECISION_EFFECT_ALLOW = 1;
+  AUTHORIZATION_DECISION_EFFECT_DENY = 2;
+}
+
+enum AuthorizationReasonCode {
+  AUTHORIZATION_REASON_CODE_UNSPECIFIED = 0;
+
+  AUTHORIZATION_REASON_CODE_ALLOWED_BY_PERMISSION = 1;
+  AUTHORIZATION_REASON_CODE_ALLOWED_BY_SUPERADMIN = 2;
+  AUTHORIZATION_REASON_CODE_ALLOWED_BY_SERVICE_CAPABILITY = 3;
+
+  AUTHORIZATION_REASON_CODE_DENIED_ACCOUNT_NOT_FOUND = 100;
+  AUTHORIZATION_REASON_CODE_DENIED_ACCOUNT_DISABLED = 101;
+  AUTHORIZATION_REASON_CODE_DENIED_ACCOUNT_LOCKED = 102;
+  AUTHORIZATION_REASON_CODE_DENIED_TENANT_DISABLED = 103;
+  AUTHORIZATION_REASON_CODE_DENIED_MEMBERSHIP_NOT_FOUND = 104;
+  AUTHORIZATION_REASON_CODE_DENIED_MEMBERSHIP_INACTIVE = 105;
+  AUTHORIZATION_REASON_CODE_DENIED_PERMISSION_NOT_GRANTED = 106;
+  AUTHORIZATION_REASON_CODE_DENIED_RESOURCE_OUT_OF_SCOPE = 107;
+  AUTHORIZATION_REASON_CODE_DENIED_TENANT_MISMATCH = 108;
+  AUTHORIZATION_REASON_CODE_DENIED_ACTOR_MISMATCH = 109;
+  AUTHORIZATION_REASON_CODE_DENIED_NAMESPACE_OWNERSHIP = 110;
+  AUTHORIZATION_REASON_CODE_DENIED_AUTHORIZATION_SERVICE_UNAVAILABLE = 111;
+  AUTHORIZATION_REASON_CODE_DENIED_POLICY_ERROR = 112;
+}
+
+message AuthorizationDecision {
+  string decision_id = 1;
+  string client_request_id = 2;
+  string permission_code = 3;
+  AuthorizationResource resource = 4;
+  AuthorizationDecisionEffect effect = 5;
+  AuthorizationReasonCode reason_code = 6;
+  AuthorizationVersions versions = 7;
+  int64 cache_ttl_seconds = 8;
+  google.protobuf.Timestamp evaluated_at = 9;
+}
+
+message GetAuthorizationSnapshotRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  AuthorizationVersions known_versions = 3;
+  bool include_permissions = 4;
+  bool include_resource_scopes = 5;
+}
+
+message AuthorizationSnapshot {
+  string tenant_id = 1;
+  string subject_id = 2;
+  repeated string role_codes = 3;
+  repeated string permission_codes = 4;
+  repeated string farm_ids = 5;
+  bool super_admin = 6;
+  AuthorizationVersions versions = 7;
+  google.protobuf.Timestamp evaluated_at = 8;
+}
+
+message GetAuthorizationSnapshotResponse {
+  bool not_modified = 1;
+  AuthorizationSnapshot snapshot = 2;
+}
+
+message GetAuthorizationVersionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string subject_id = 2;
+  AuthorizationVersions known_versions = 3;
+}
+
+message GetAuthorizationVersionResponse {
+  bool not_modified = 1;
+  AuthorizationVersions versions = 2;
+}
+
+message PermissionDefinition {
+  string code = 1;
+  string resource_type = 2;
+  string action = 3;
+  string description = 4;
+  int64 definition_version = 5;
+  bool active = 6;
+}
+
+message RegisterPermissionDefinitionsRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string owner_service = 2;
+  string service_version = 3;
+  string namespace = 4;
+  string descriptor_checksum = 5;
+  repeated PermissionDefinition definitions = 6;
+}
+
+message RegisterPermissionDefinitionsResponse {
+  bool changed = 1;
+  int32 created_count = 2;
+  int32 updated_count = 3;
+  int32 unchanged_count = 4;
+  AuthorizationVersions versions = 5;
+  repeated PermissionDefinition definitions = 6;
+}
+
+message GetPermissionRegistrationRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string owner_service = 2;
+  string namespace = 3;
+}
+
+message PermissionRegistration {
+  string owner_service = 1;
+  string service_version = 2;
+  string namespace = 3;
+  string descriptor_checksum = 4;
+  int32 permission_count = 5;
+  google.protobuf.Timestamp registered_at = 6;
+  repeated PermissionDefinition definitions = 7;
+}
+
+message GetPermissionRegistrationResponse {
+  PermissionRegistration registration = 1;
+  AuthorizationVersions versions = 2;
+}
+
+message RetirePermissionDefinitionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string owner_service = 2;
+  string permission_code = 3;
+  string reason = 4;
+  int64 expected_definition_version = 5;
+}
+
+message RetirePermissionDefinitionResponse {
+  PermissionDefinition definition = 1;
+  AuthorizationVersions versions = 2;
+}
+
+enum AuthorizationInvalidationType {
+  AUTHORIZATION_INVALIDATION_TYPE_UNSPECIFIED = 0;
+  AUTHORIZATION_INVALIDATION_TYPE_CATALOG_CHANGED = 1;
+  AUTHORIZATION_INVALIDATION_TYPE_ROLE_PERMISSION_CHANGED = 2;
+  AUTHORIZATION_INVALIDATION_TYPE_MEMBERSHIP_ROLE_CHANGED = 3;
+  AUTHORIZATION_INVALIDATION_TYPE_MEMBERSHIP_STATUS_CHANGED = 4;
+  AUTHORIZATION_INVALIDATION_TYPE_FARM_SCOPE_CHANGED = 5;
+  AUTHORIZATION_INVALIDATION_TYPE_ACCOUNT_STATUS_CHANGED = 6;
+  AUTHORIZATION_INVALIDATION_TYPE_TENANT_STATUS_CHANGED = 7;
+  AUTHORIZATION_INVALIDATION_TYPE_SUBJECT_INVALIDATION = 8;
+  AUTHORIZATION_INVALIDATION_TYPE_TENANT_INVALIDATION = 9;
+  AUTHORIZATION_INVALIDATION_TYPE_GLOBAL_INVALIDATION = 10;
+}
+
+message AuthorizationInvalidatedEvent {
+  smartfarm.common.v1.EventMetadata metadata = 1;
+  string invalidation_id = 2;
+  AuthorizationInvalidationType type = 3;
+  string tenant_id = 4;
+  string subject_id = 5;
+  string role_id = 6;
+  string permission_code = 7;
+  AuthorizationVersions versions = 8;
+  string reason = 9;
+  google.protobuf.Timestamp occurred_at = 10;
+}
+
+message AuthorizationVersionState {
+  string tenant_id = 1;
+  string subject_id = 2;
+  AuthorizationVersions versions = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message InvalidateAuthorizationRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  AuthorizationInvalidationType type = 2;
+  string tenant_id = 3;
+  string subject_id = 4;
+  string reason = 5;
+}
+
+message InvalidateAuthorizationResponse {
+  string invalidation_id = 1;
+  AuthorizationVersions versions = 2;
+  google.protobuf.Timestamp accepted_at = 3;
+}
+
+message GetAuthorizationCacheStatusRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string tenant_id = 2;
+  string subject_id = 3;
+}
+
+message GetAuthorizationCacheStatusResponse {
+  AuthorizationVersions database_versions = 1;
+  AuthorizationVersions redis_versions = 2;
+  bool redis_available = 3;
+  bool versions_consistent = 4;
+  google.protobuf.Timestamp checked_at = 5;
+}

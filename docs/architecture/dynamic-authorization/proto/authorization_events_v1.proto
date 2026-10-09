@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package smartfarm.authorization.events.v1;
+
+option java_multiple_files = true;
+option java_package = "com.htv.smartfarm.proto.authorization.events.v1";
+option java_outer_classname = "AuthorizationEventsProto";
+
+import "google/protobuf/timestamp.proto";
+import "smartfarm/common/v1/common.proto";
+
+// Separate event-only draft for systems that keep domain events outside service contracts.
+message AuthorizationVersions {
+  int64 catalog_version = 1;
+  int64 tenant_version = 2;
+  int64 subject_version = 3;
+  int64 policy_version = 4;
+}
+
+enum AuthorizationInvalidationType {
+  AUTHORIZATION_INVALIDATION_TYPE_UNSPECIFIED = 0;
+  AUTHORIZATION_INVALIDATION_TYPE_CATALOG_CHANGED = 1;
+  AUTHORIZATION_INVALIDATION_TYPE_ROLE_PERMISSION_CHANGED = 2;
+  AUTHORIZATION_INVALIDATION_TYPE_MEMBERSHIP_ROLE_CHANGED = 3;
+  AUTHORIZATION_INVALIDATION_TYPE_MEMBERSHIP_STATUS_CHANGED = 4;
+  AUTHORIZATION_INVALIDATION_TYPE_FARM_SCOPE_CHANGED = 5;
+  AUTHORIZATION_INVALIDATION_TYPE_ACCOUNT_STATUS_CHANGED = 6;
+  AUTHORIZATION_INVALIDATION_TYPE_TENANT_STATUS_CHANGED = 7;
+  AUTHORIZATION_INVALIDATION_TYPE_SUBJECT_INVALIDATION = 8;
+  AUTHORIZATION_INVALIDATION_TYPE_TENANT_INVALIDATION = 9;
+  AUTHORIZATION_INVALIDATION_TYPE_GLOBAL_INVALIDATION = 10;
+}
+
+message AuthorizationInvalidated {
+  smartfarm.common.v1.EventMetadata metadata = 1;
+  string invalidation_id = 2;
+  AuthorizationInvalidationType type = 3;
+  string tenant_id = 4;
+  string subject_id = 5;
+  string role_id = 6;
+  string permission_code = 7;
+  AuthorizationVersions versions = 8;
+  string reason = 9;
+  google.protobuf.Timestamp occurred_at = 10;
+}
+
+message AuthorizationVersionState {
+  string tenant_id = 1;
+  string subject_id = 2;
+  AuthorizationVersions versions = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}

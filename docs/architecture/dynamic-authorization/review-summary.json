@@ -1,0 +1,27 @@
+{
+  "status": "PROPOSED_REVIEW_ONLY",
+  "implementationAllowed": false,
+  "sourceOfTruth": "Identity PostgreSQL",
+  "pdp": "Identity AuthorizationDecisionService gRPC",
+  "pep": [
+    "Gateway",
+    "Business service gRPC interceptor",
+    "Method authorization"
+  ],
+  "cache": {
+    "l1": "local",
+    "l2": "Redis",
+    "correctness": "version tuple"
+  },
+  "invalidation": {
+    "transport": "MQTT QoS 1",
+    "durability": "Identity transactional outbox"
+  },
+  "wildcard": {
+    "database": "*",
+    "userOnly": true,
+    "serviceTokenAllowed": false
+  },
+  "pilot": "Order Saga",
+  "requiredApproval": true
+}

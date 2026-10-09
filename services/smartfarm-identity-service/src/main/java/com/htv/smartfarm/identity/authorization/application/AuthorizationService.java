@@ -234,14 +234,18 @@ public class AuthorizationService {
                 target.action()
         );
 
-        if (!permissionCodes.contains(permissionCode)) {
+        boolean wildcard = permissionCodes.contains("*");
+
+        if (!wildcard && !permissionCodes.contains(permissionCode)) {
             return PermissionDecision.deny(
                     target,
                     "PERMISSION_NOT_GRANTED"
             );
         }
 
-        if (requiresFarmScope(target)
+        // The protected SUPERADMIN wildcard grants every resource inside its authenticated
+        // tenant, including farms not explicitly mapped to the root membership.
+        if (!wildcard && requiresFarmScope(target)
                 && !farmIds.contains(target.resourceId())) {
             return PermissionDecision.deny(
                     target,

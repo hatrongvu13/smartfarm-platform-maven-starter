@@ -18,7 +18,9 @@ public final class TaskEventMapper {
     private TaskEventMapper() {
     }
 
-    /** Maps an outbox event type to its MQTT topic leaf, e.g. task-assigned.v1 -> task-assigned/v1. */
+    /**
+     * Maps an outbox event type to its MQTT topic leaf, e.g. task-assigned.v1 -> task-assigned/v1.
+     */
     private static String leaf(String eventType) {
         return switch (eventType) {
             case "task-created.v1" -> "task-changed/v1";

@@ -54,11 +54,11 @@ public class OrderGrpcPolicyConfiguration {
                         ),
                         Map.entry(
                                 "smartfarm.order.v1.OrderSagaAdministrationService/GetOrderSaga",
-                                "SCOPE_orders:saga:admin"
+                                "SCOPE_orders:saga:read"
                         ),
                         Map.entry(
                                 "smartfarm.order.v1.OrderSagaAdministrationService/GetOrderSagaByOrder",
-                                "SCOPE_orders:saga:admin"
+                                "SCOPE_orders:saga:read"
                         ),
                         Map.entry(
                                 "smartfarm.order.v1.OrderSagaAdministrationService/RetryOrderSagaStep",

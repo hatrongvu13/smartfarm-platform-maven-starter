@@ -37,7 +37,9 @@ public class ScheduleCommandService {
         return v == null || v.isBlank() ? "-" : v;
     }
 
-    /** Validate the cron expression and compute the next fire time after {@code fromEpochMs} in {@code zoneId}. */
+    /**
+     * Validate the cron expression and compute the next fire time after {@code fromEpochMs} in {@code zoneId}.
+     */
     static Long nextRun(String cron, String zone, long fromEpochMs) {
         CronExpression expr;
         try {

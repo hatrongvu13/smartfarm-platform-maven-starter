@@ -43,7 +43,9 @@ public class AnimalEntity {
     @Column(name = "birth_date")
     private Long birthDate; // epoch millis, nullable
 
-    /** AnimalStatus enum name, e.g. ANIMAL_STATUS_ACTIVE. */
+    /**
+     * AnimalStatus enum name, e.g. ANIMAL_STATUS_ACTIVE.
+     */
     @Column(name = "status", nullable = false, length = 40)
     private String status;
 
@@ -67,18 +69,55 @@ public class AnimalEntity {
         this.createdAt = createdAt;
     }
 
-    public String getId() { return id; }
-    public String getTenantId() { return tenantId; }
-    public String getFarmId() { return farmId; }
-    public String getBarnId() { return barnId; }
-    public String getBatchId() { return batchId; }
-    public String getTagCode() { return tagCode; }
-    public String getSpecies() { return species; }
-    public Long getBirthDate() { return birthDate; }
-    public String getStatus() { return status; }
-    public long getCreatedAt() { return createdAt; }
+    public String getId() {
+        return id;
+    }
 
-    public void setStatus(String status) { this.status = status; }
-    public void setBarnId(String barnId) { this.barnId = barnId; }
-    public void setBatchId(String batchId) { this.batchId = batchId; }
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public String getFarmId() {
+        return farmId;
+    }
+
+    public String getBarnId() {
+        return barnId;
+    }
+
+    public String getBatchId() {
+        return batchId;
+    }
+
+    public String getTagCode() {
+        return tagCode;
+    }
+
+    public String getSpecies() {
+        return species;
+    }
+
+    public Long getBirthDate() {
+        return birthDate;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public long getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public void setBarnId(String barnId) {
+        this.barnId = barnId;
+    }
+
+    public void setBatchId(String batchId) {
+        this.batchId = batchId;
+    }
 }
