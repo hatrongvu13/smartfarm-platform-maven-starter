@@ -1,5 +1,6 @@
 package com.htv.smartfarm.identity.account.application;
 
+import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -36,6 +37,7 @@ public class AccountService {
     private final UserAccountRepository userAccountRepository;
     private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
+    private AuthorizationMutationCoordinator authorizationMutations;
     private final Clock clock;
     private final RefreshRepository refreshRepository;
     private IdentityIntegrationEventPublisher events;
@@ -52,6 +54,12 @@ public class AccountService {
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.refreshRepository = refreshRepository;
+    }
+
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
+        this.authorizationMutations = value;
     }
 
     @Autowired
@@ -267,7 +275,9 @@ public class AccountService {
         if (changed) publishAccountStatus(
                 tenantId, actorId, correlationId,
                 "identity.account.enabled", account, "ENABLED");
-    }
+    
+        accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_ENABLED");
+}
 
     @Transactional
     public void disableAccount(String userId) {
@@ -288,7 +298,9 @@ public class AccountService {
         if (changed) publishAccountStatus(
                 tenantId, actorId, correlationId,
                 "identity.account.disabled", account, "DISABLED");
-    }
+    
+        accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_DISABLED");
+}
 
     @Transactional
     public void unlockAccount(String userId) {
@@ -445,4 +457,17 @@ public class AccountService {
 
         return value;
     }
+
+    // DYNAMIC_AUTH_PHASE2D_ACCOUNT_STATE: tenant context is mandatory for invalidation.
+    private void accountAuthorizationChanged(
+            String tenantId, String subjectId, String actorId,
+            String correlationId, String reasonCode
+    ) {
+        if (authorizationMutations != null) {
+            authorizationMutations.subjectChanged(
+                    tenantId, subjectId, actorId, correlationId, reasonCode
+            );
+        }
+    }
+
 }
