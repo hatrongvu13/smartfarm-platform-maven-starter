@@ -1,5 +1,14 @@
 package com.htv.smartfarm.inventory.domain;
 
+import com.htv.smartfarm.inventory.domain.stock.BalanceEntity;
+import com.htv.smartfarm.inventory.domain.stock.BalanceId;
+
+import com.htv.smartfarm.inventory.domain.stock.BalanceEntity;
+import com.htv.smartfarm.inventory.domain.stock.BalanceId;
+
+import com.htv.smartfarm.inventory.domain.stock.BalanceEntity;
+import com.htv.smartfarm.inventory.domain.stock.BalanceId;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
@@ -22,9 +31,9 @@ class BalanceEntityTest {
 
     @Test
     void compositeKeyUsesValueEquality() {
-        BalanceEntity.Key a = new BalanceEntity.Key("tenant-001", "lot-001");
-        BalanceEntity.Key b = new BalanceEntity.Key("tenant-001", "lot-001");
-        BalanceEntity.Key different = new BalanceEntity.Key("tenant-001", "lot-002");
+        BalanceId a = new BalanceId("tenant-001", "lot-001");
+        BalanceId b = new BalanceId("tenant-001", "lot-001");
+        BalanceId different = new BalanceId("tenant-001", "lot-002");
 
         assertThat(a).isEqualTo(b).hasSameHashCodeAs(b);
         assertThat(a).isNotEqualTo(different);
@@ -32,8 +41,8 @@ class BalanceEntityTest {
 
     @Test
     void compositeKeyDistinguishesTenant() {
-        BalanceEntity.Key t1 = new BalanceEntity.Key("tenant-001", "lot-001");
-        BalanceEntity.Key t2 = new BalanceEntity.Key("tenant-002", "lot-001");
+        BalanceId t1 = new BalanceId("tenant-001", "lot-001");
+        BalanceId t2 = new BalanceId("tenant-002", "lot-001");
         assertThat(t1).isNotEqualTo(t2);
     }
 }

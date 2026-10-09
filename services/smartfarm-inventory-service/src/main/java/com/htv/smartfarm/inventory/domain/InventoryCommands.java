@@ -162,7 +162,10 @@ public class InventoryCommands {
         // FIFO: reserve from the first lot with enough available stock in this warehouse.
         String chosenLot = null;
         for (String lotId : repo.lotsWithAvailable(tenant, item.id(), req.getWarehouseId())) {
-            if (repo.reserveOnLot(tenant, lotId, n)) { chosenLot = lotId; break; }
+            if (repo.reserveOnLot(tenant, lotId, n)) {
+                chosenLot = lotId;
+                break;
+            }
         }
         require(chosenLot != null, "insufficient available stock to reserve");
 
@@ -172,7 +175,9 @@ public class InventoryCommands {
         return reservation;
     }
 
-    /** Compensating action: give reserved stock back. Idempotent — releasing a non-active reservation is a no-op. */
+    /**
+     * Compensating action: give reserved stock back. Idempotent — releasing a non-active reservation is a no-op.
+     */
     @Transactional
     public InventoryRepository.Reservation release(String tenant, ReleaseReservationRequest req) {
         require(req.hasContext(), "context required");
@@ -186,7 +191,9 @@ public class InventoryCommands {
         return repo.reservation(tenant, r.id());
     }
 
-    /** Commit a reservation: the held stock is consumed. Idempotent on an already-committed reservation. */
+    /**
+     * Commit a reservation: the held stock is consumed. Idempotent on an already-committed reservation.
+     */
     @Transactional
     public InventoryRepository.Movement commit(String tenant, CommitReservationRequest req) {
         require(req.hasContext(), "context required");

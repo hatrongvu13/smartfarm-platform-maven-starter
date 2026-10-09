@@ -1,0 +1,3 @@
+meta { name: 08 - trace lot type: http seq: 8 }
+get { url: {{gatewayUrl}}/api/v1/inventory/lots/{{lotId}}/trace body: none auth: bearer }
+auth:bearer { token: {{accessToken}} }

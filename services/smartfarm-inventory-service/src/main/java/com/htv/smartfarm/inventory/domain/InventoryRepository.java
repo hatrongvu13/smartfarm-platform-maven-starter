@@ -1,5 +1,19 @@
 package com.htv.smartfarm.inventory.domain;
 
+import com.htv.smartfarm.inventory.domain.item.ItemEntity;
+import com.htv.smartfarm.inventory.domain.item.ItemJpaRepository;
+import com.htv.smartfarm.inventory.domain.lot.LotEntity;
+import com.htv.smartfarm.inventory.domain.lot.LotJpaRepository;
+import com.htv.smartfarm.inventory.domain.stock.BalanceEntity;
+import com.htv.smartfarm.inventory.domain.stock.BalanceId;
+import com.htv.smartfarm.inventory.domain.stock.BalanceJpaRepository;
+import com.htv.smartfarm.inventory.domain.movement.MovementEntity;
+import com.htv.smartfarm.inventory.domain.movement.MovementJpaRepository;
+import com.htv.smartfarm.inventory.domain.reservation.ReservationEntity;
+import com.htv.smartfarm.inventory.domain.reservation.ReservationJpaRepository;
+import com.htv.smartfarm.inventory.domain.inbox.InboxEntity;
+import com.htv.smartfarm.inventory.domain.inbox.InboxJpaRepository;
+
 import java.math.BigDecimal;
 
 import org.springframework.stereotype.Repository;
@@ -15,11 +29,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class InventoryRepository {
 
-    public record Item(String id, String tenant, String sku, String name, String unit, String category, String reorderThreshold) {
+    public record Item(String id, String tenant, String sku, String name, String unit, String category,
+                       String reorderThreshold) {
     }
 
-    /** Row for low-stock listing: aggregated balance for an (item, warehouse) under a farm. */
-    public record LowBalance(String itemId, String warehouseId, String unit, BigDecimal onHand, BigDecimal reserved, BigDecimal reorderThreshold) {
+    /**
+     * Row for low-stock listing: aggregated balance for an (item, warehouse) under a farm.
+     */
+    public record LowBalance(String itemId, String warehouseId, String unit, BigDecimal onHand, BigDecimal reserved,
+                             BigDecimal reorderThreshold) {
     }
 
     public record Lot(String id, String tenant, String itemId, String farmId, String warehouseId) {
@@ -52,7 +70,7 @@ public class InventoryRepository {
     }
 
     private static Item toItem(ItemEntity e) {
-        return new Item(e.getId(), e.getTenantId(), e.getSku(), e.getName(), e.getUnit(), e.getCategory(), e.getReorderThreshold());
+        return new Item(e.getId(), e.getTenantId(), e.getSku(), e.getName(), e.getUnit(), e.getCategory().name(), e.getReorderThreshold());
     }
 
     private static Lot toLot(LotEntity e) {
@@ -60,7 +78,7 @@ public class InventoryRepository {
     }
 
     private static Movement toMovement(MovementEntity e) {
-        return new Movement(e.getId(), e.getTenantId(), e.getLotId(), e.getKind(), e.getQuantity(), e.getReferenceId());
+        return new Movement(e.getId(), e.getTenantId(), e.getLotId(), e.getKind().name(), e.getQuantity(), e.getReferenceId());
     }
 
     public Item item(String tenant, String id) {
@@ -75,7 +93,9 @@ public class InventoryRepository {
         items.save(new ItemEntity(i.id(), i.tenant(), i.sku(), i.name(), i.unit(), i.category(), i.reorderThreshold()));
     }
 
-    /** Low-stock rows for a farm: (item, warehouse) whose available (on_hand - reserved) is below the item's reorder threshold (threshold > 0). */
+    /**
+     * Low-stock rows for a farm: (item, warehouse) whose available (on_hand - reserved) is below the item's reorder threshold (threshold > 0).
+     */
     public java.util.List<LowBalance> lowStock(String tenant, String farmId, int limit) {
         var rows = balances.balancesByFarm(tenant, farmId);
         var out = new java.util.ArrayList<LowBalance>();
@@ -146,7 +166,7 @@ public class InventoryRepository {
 
     private static Reservation toReservation(ReservationEntity e) {
         return new Reservation(e.getId(), e.getTenantId(), e.getOrderId(), e.getItemId(), e.getLotId(),
-                e.getWarehouseId(), e.getQuantity(), e.getStatus());
+                e.getWarehouseId(), e.getQuantity(), e.getStatus().name());
     }
 
     public Reservation reservation(String tenant, String id) {
@@ -161,7 +181,9 @@ public class InventoryRepository {
         return balances.lotsWithAvailable(tenant, item, warehouse);
     }
 
-    /** Atomically hold {@code delta} on a lot; false when available stock is insufficient. */
+    /**
+     * Atomically hold {@code delta} on a lot; false when available stock is insufficient.
+     */
     @Transactional
     public boolean reserveOnLot(String tenant, String lot, BigDecimal delta) {
         return balances.reserve(tenant, lot, delta) == 1;
@@ -184,12 +206,18 @@ public class InventoryRepository {
 
     @Transactional
     public void markReservationReleased(String tenant, String id) {
-        reservations.findByTenantIdAndId(tenant, id).ifPresent(e -> { e.markReleased(); reservations.save(e); });
+        reservations.findByTenantIdAndId(tenant, id).ifPresent(e -> {
+            e.markReleased();
+            reservations.save(e);
+        });
     }
 
     @Transactional
     public void markReservationCommitted(String tenant, String id) {
-        reservations.findByTenantIdAndId(tenant, id).ifPresent(e -> { e.markCommitted(); reservations.save(e); });
+        reservations.findByTenantIdAndId(tenant, id).ifPresent(e -> {
+            e.markCommitted();
+            reservations.save(e);
+        });
     }
 
     public BigDecimal reservedTotal(String tenant, String item, String warehouse) {

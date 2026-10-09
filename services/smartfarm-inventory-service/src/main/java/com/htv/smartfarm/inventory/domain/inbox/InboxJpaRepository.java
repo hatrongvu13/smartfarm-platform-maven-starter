@@ -1,7 +1,9 @@
-package com.htv.smartfarm.inventory.domain;
+package com.htv.smartfarm.inventory.domain.inbox;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-/** Spring Data JPA access to {@link InboxEntity}. */
+/**
+ * Spring Data JPA access to {@link InboxEntity}.
+ */
 public interface InboxJpaRepository extends JpaRepository<InboxEntity, String> {
 }

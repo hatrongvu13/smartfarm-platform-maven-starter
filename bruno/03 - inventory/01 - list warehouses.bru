@@ -1,0 +1,3 @@
+meta { name: 01 - list warehouses type: http seq: 1 }
+get { url: {{gatewayUrl}}/api/v1/inventory/warehouses?farmId={{farmId}} body: none auth: bearer }
+auth:bearer { token: {{accessToken}} }

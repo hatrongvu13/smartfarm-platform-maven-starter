@@ -1,4 +1,4 @@
-package com.htv.smartfarm.inventory.domain;
+package com.htv.smartfarm.inventory.domain.reservation;
 
 import java.math.BigDecimal;
 
@@ -42,9 +42,12 @@ public class ReservationEntity {
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal quantity;
 
-    /** ACTIVE, RELEASED, COMMITTED. */
+    /**
+     * ACTIVE, RELEASED, COMMITTED.
+     */
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
     @Column(nullable = false, length = 16)
-    private String status;
+    private ReservationState status;
 
     @Column(name = "idempotency_key", nullable = false, length = 128)
     private String idempotencyKey;
@@ -61,20 +64,64 @@ public class ReservationEntity {
         this.lotId = lotId;
         this.warehouseId = warehouseId;
         this.quantity = quantity;
-        this.status = status;
+        this.status = ReservationState.parse(status);
         this.idempotencyKey = idempotencyKey;
     }
 
-    public String getId() { return id; }
-    public String getTenantId() { return tenantId; }
-    public String getOrderId() { return orderId; }
-    public String getItemId() { return itemId; }
-    public String getLotId() { return lotId; }
-    public String getWarehouseId() { return warehouseId; }
-    public BigDecimal getQuantity() { return quantity; }
-    public String getStatus() { return status; }
-    public String getIdempotencyKey() { return idempotencyKey; }
+    public String getId() {
+        return id;
+    }
 
-    public void markReleased() { this.status = "RELEASED"; }
-    public void markCommitted() { this.status = "COMMITTED"; }
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public String getItemId() {
+        return itemId;
+    }
+
+    public String getLotId() {
+        return lotId;
+    }
+
+    public String getWarehouseId() {
+        return warehouseId;
+    }
+
+    public BigDecimal getQuantity() {
+        return quantity;
+    }
+
+    public ReservationState getStatus() {
+        return status;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void markReleased() {
+        requireActive("release");
+        this.status = ReservationState.RELEASED;
+    }
+
+    public void markCommitted() {
+        requireActive("commit");
+        this.status = ReservationState.COMMITTED;
+    }
+
+    public void markExpired() {
+        requireActive("expire");
+        this.status = ReservationState.EXPIRED;
+    }
+
+    private void requireActive(String action) {
+        if (status != ReservationState.ACTIVE) {
+            throw new IllegalStateException("cannot " + action + " reservation in status " + status);
+        }
+    }
 }

@@ -1,0 +1,5 @@
+meta { name: 01 - create warehouse type: http seq: 1 }
+post { url: {{gatewayUrl}}/api/v1/inventory/warehouses body: json auth: bearer }
+auth:bearer { token: {{accessToken}} }
+body:json { { "farmId":"{{farmId}}", "code":"WH-01", "name":"Kho chính" } }
+script:post-response { const b=res.getBody()||{}; if(b.warehouseId) bru.setEnvVar("warehouseId",b.warehouseId); }

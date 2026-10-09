@@ -15,16 +15,26 @@ import org.springframework.stereotype.Service;
 public class InventoryGrpcService extends InventoryServiceGrpc.InventoryServiceImplBase {
     private final InventoryCommands commands;
     private final InventoryRepository repo;
+    private final com.htv.smartfarm.inventory.application.warehouse.WarehouseApplicationService warehouses;
 
-    public InventoryGrpcService(InventoryCommands commands, InventoryRepository repo) {
+    private final com.htv.smartfarm.inventory.application.query.InventoryQueryService queries;
+    private final com.htv.smartfarm.inventory.application.stock.StockAdjustmentService adjustments;
+    private final com.htv.smartfarm.inventory.application.catalog.InventoryCatalogService catalog;
+    public InventoryGrpcService(InventoryCommands commands, InventoryRepository repo,
+                                com.htv.smartfarm.inventory.application.warehouse.WarehouseApplicationService warehouses,
+            com.htv.smartfarm.inventory.application.query.InventoryQueryService queries,
+            com.htv.smartfarm.inventory.application.stock.StockAdjustmentService adjustments,
+            com.htv.smartfarm.inventory.application.catalog.InventoryCatalogService catalog) {
         this.commands = commands;
         this.repo = repo;
+        this.warehouses = warehouses;
+        this.queries = queries;
+        this.adjustments = adjustments;
+        this.catalog = catalog;
     }
 
     private String tenant() {
-        String t = GrpcSecurityContext.TENANT.get();
-        if (t == null || t.isBlank()) throw Status.UNAUTHENTICATED.asRuntimeException();
-        return t;
+        return GrpcSecurityContext.requireTenant();
     }
 
     private static <T> void respond(StreamObserver<T> out, Supplier<T> action) {
@@ -136,4 +146,55 @@ public class InventoryGrpcService extends InventoryServiceGrpc.InventoryServiceI
                     .setReferenceId(m.referenceId() == null ? "" : m.referenceId())).build();
         });
     }
+
+    @Override
+    public void createWarehouse(CreateWarehouseRequest req, StreamObserver<WarehouseResponse> out) {
+        respond(out, () -> WarehouseResponse.newBuilder().setWarehouse(WarehouseProtoMapper.proto(warehouses.create(tenant(), req.getContext().getActorId(), req.getWarehouse().getWarehouseId(), req.getWarehouse().getFarmId(), req.getWarehouse().getCode(), req.getWarehouse().getName(), req.getWarehouse().getDescription(), req.getWarehouse().getAddress()))).build());
+    }
+
+    @Override
+    public void getWarehouse(GetWarehouseRequest req, StreamObserver<WarehouseResponse> out) {
+        respond(out, () -> WarehouseResponse.newBuilder().setWarehouse(WarehouseProtoMapper.proto(warehouses.get(tenant(), req.getWarehouseId()))).build());
+    }
+
+    @Override
+    public void listWarehouses(ListWarehousesRequest req, StreamObserver<ListWarehousesResponse> out) {
+        respond(out, () -> {
+            var b = ListWarehousesResponse.newBuilder();
+            var s = req.getStatus() == com.htv.smartfarm.proto.inventory.v1.WarehouseStatus.WAREHOUSE_STATUS_UNSPECIFIED ? null : com.htv.smartfarm.inventory.domain.warehouse.WarehouseStatus.valueOf(req.getStatus().name().replace("WAREHOUSE_STATUS_", ""));
+            warehouses.list(tenant(), req.getFarmId(), s, req.getQuery(), req.hasPage() ? req.getPage().getPageSize() : 50).forEach(v -> b.addWarehouses(WarehouseProtoMapper.proto(v)));
+            return b.build();
+        });
+    }
+
+    @Override
+    public void listWarehouseItems(ListWarehouseItemsRequest req, StreamObserver<ListWarehouseItemsResponse> out) {
+        respond(out, () -> {
+            var b = ListWarehouseItemsResponse.newBuilder().setWarehouse(WarehouseProtoMapper.proto(warehouses.get(tenant(), req.getWarehouseId())));
+            warehouses.items(tenant(), req.getWarehouseId(), req.getQuery(), req.getLowStockOnly(), req.hasPage() ? req.getPage().getPageSize() : 50).forEach(v -> b.addItems(WarehouseProtoMapper.item(v)));
+            return b.build();
+        });
+    }
+
+
+
+    @Override public void getItem(GetItemRequest req, StreamObserver<ItemResponse> out) {
+        respond(out, () -> ItemResponse.newBuilder().setItem(
+                InventoryProtoMapper.item(queries.item(tenant(), req.getItemId()))).build());
+    }
+    @Override public void listItems(ListItemsRequest req, StreamObserver<ListItemsResponse> out) {
+        respond(out, () -> { var b=ListItemsResponse.newBuilder(); String category=req.getCategory()==ItemCategory.ITEM_CATEGORY_UNSPECIFIED?"":req.getCategory().name(); int size=req.hasPage()?req.getPage().getPageSize():50; queries.items(tenant(),req.getQuery(),category,size).forEach(v->b.addItems(InventoryProtoMapper.item(v))); return b.build(); });
+    }
+    @Override public void adjustStock(AdjustStockRequest req, StreamObserver<StockMovementResponse> out) {
+        respond(out, () -> { String t=tenant(); var m=adjustments.adjust(t,req.getLotId(),req.getSignedDelta().getDecimalValue(),req.getSignedDelta().getUnit(),req.getReason(),req.getContext().getIdempotencyKey()); var lot=repo.lot(t,m.getLotId()); return StockMovementResponse.newBuilder().setMovement(InventoryProtoMapper.movement(m,queries.trace(t,m.getLotId(),1).lot(),repo.item(t,lot.itemId()).unit())).build(); });
+    }
+    @Override public void traceLot(TraceLotRequest req, StreamObserver<TraceLotResponse> out) {
+        respond(out, () -> { String t=tenant(); int size=req.hasPage()?req.getPage().getPageSize():50; var trace=queries.trace(t,req.getLotId(),size); var item=queries.item(t,trace.lot().getItemId()); var b=TraceLotResponse.newBuilder().setLot(InventoryProtoMapper.lot(trace.lot())); trace.movements().forEach(v->b.addMovements(InventoryProtoMapper.movement(v,trace.lot(),item.getUnit()))); return b.build(); });
+    }
+
+
+    @Override public void updateItem(UpdateItemRequest req,StreamObserver<ItemResponse> out){respond(out,()->ItemResponse.newBuilder().setItem(InventoryProtoMapper.item(catalog.updateItem(tenant(),req.getItemId(),req.getName(),req.getUnit(),req.getCategory().name(),req.getReorderThreshold().getDecimalValue()))).build());}
+    @Override public void setItemStatus(SetItemStatusRequest req,StreamObserver<ItemResponse> out){respond(out,()->ItemResponse.newBuilder().setItem(InventoryProtoMapper.item(catalog.setItemActive(tenant(),req.getItemId(),req.getStatus()==ItemStatus.ITEM_STATUS_ACTIVE))).build());}
+    @Override public void updateWarehouse(UpdateWarehouseRequest req,StreamObserver<WarehouseResponse> out){respond(out,()->WarehouseResponse.newBuilder().setWarehouse(WarehouseProtoMapper.proto(catalog.updateWarehouse(tenant(),req.getWarehouseId(),req.getName(),req.getDescription(),req.getAddress()))).build());}
+    @Override public void setWarehouseStatus(SetWarehouseStatusRequest req,StreamObserver<WarehouseResponse> out){respond(out,()->WarehouseResponse.newBuilder().setWarehouse(WarehouseProtoMapper.proto(catalog.setWarehouseActive(tenant(),req.getWarehouseId(),req.getStatus()==com.htv.smartfarm.proto.inventory.v1.WarehouseStatus.WAREHOUSE_STATUS_ACTIVE))).build());}
 }

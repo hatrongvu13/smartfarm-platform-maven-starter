@@ -1,4 +1,11 @@
-package com.htv.smartfarm.inventory.domain;
+package com.htv.smartfarm.inventory.domain.stock;
+
+import com.htv.smartfarm.inventory.domain.lot.LotEntity;
+import com.htv.smartfarm.inventory.domain.item.ItemEntity;
+import com.htv.smartfarm.inventory.domain.lot.LotEntity;
+import com.htv.smartfarm.inventory.domain.item.ItemEntity;
+import com.htv.smartfarm.inventory.domain.lot.LotEntity;
+import com.htv.smartfarm.inventory.domain.item.ItemEntity;
 
 import java.math.BigDecimal;
 
@@ -13,7 +20,7 @@ import org.springframework.data.repository.query.Param;
  * {@code on_hand >= delta} guard from the original JDBC decrement so stock never
  * goes negative under concurrent issue.
  */
-public interface BalanceJpaRepository extends JpaRepository<BalanceEntity, BalanceEntity.Key> {
+public interface BalanceJpaRepository extends JpaRepository<BalanceEntity, BalanceId> {
 
     @Modifying
     @Query("update BalanceEntity b set b.onHand = b.onHand + :delta "
@@ -25,19 +32,25 @@ public interface BalanceJpaRepository extends JpaRepository<BalanceEntity, Balan
             + "where b.tenantId = :tenant and b.lotId = :lot and b.onHand >= :delta")
     int decrement(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
 
-    /** Reserve: only succeeds when AVAILABLE (on_hand - reserved) covers the quantity. Atomic guard. */
+    /**
+     * Reserve: only succeeds when AVAILABLE (on_hand - reserved) covers the quantity. Atomic guard.
+     */
     @Modifying
     @Query("update BalanceEntity b set b.reserved = b.reserved + :delta "
             + "where b.tenantId = :tenant and b.lotId = :lot and (b.onHand - b.reserved) >= :delta")
     int reserve(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
 
-    /** Release a reservation (compensating action): give the reserved quantity back to available. */
+    /**
+     * Release a reservation (compensating action): give the reserved quantity back to available.
+     */
     @Modifying
     @Query("update BalanceEntity b set b.reserved = b.reserved - :delta "
             + "where b.tenantId = :tenant and b.lotId = :lot and b.reserved >= :delta")
     int release(@Param("tenant") String tenant, @Param("lot") String lot, @Param("delta") BigDecimal delta);
 
-    /** Commit a reservation: consume the reserved stock (on_hand and reserved both drop). */
+    /**
+     * Commit a reservation: consume the reserved stock (on_hand and reserved both drop).
+     */
     @Modifying
     @Query("update BalanceEntity b set b.onHand = b.onHand - :delta, b.reserved = b.reserved - :delta "
             + "where b.tenantId = :tenant and b.lotId = :lot and b.reserved >= :delta and b.onHand >= :delta")
@@ -55,13 +68,15 @@ public interface BalanceJpaRepository extends JpaRepository<BalanceEntity, Balan
     BigDecimal sumReserved(@Param("tenant") String tenant, @Param("item") String item,
                            @Param("warehouse") String warehouse);
 
-    /** Lots for an item in a warehouse that still have available stock, oldest first (FIFO). */
+    /**
+     * Lots for an item in a warehouse that still have available stock, oldest first (FIFO).
+     */
     @Query("select b.lotId from BalanceEntity b, LotEntity l "
             + "where l.id = b.lotId and l.tenantId = b.tenantId "
             + "and b.tenantId = :tenant and l.itemId = :item and l.warehouseId = :warehouse "
             + "and (b.onHand - b.reserved) > 0 order by b.lotId")
     java.util.List<String> lotsWithAvailable(@Param("tenant") String tenant, @Param("item") String item,
-                                              @Param("warehouse") String warehouse);
+                                             @Param("warehouse") String warehouse);
 
     /**
      * Aggregated balance per (item, warehouse) for a farm, with the item's unit and reorder
