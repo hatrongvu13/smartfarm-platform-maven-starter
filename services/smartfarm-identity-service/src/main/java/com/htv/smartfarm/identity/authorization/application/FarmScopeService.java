@@ -1,5 +1,6 @@
 package com.htv.smartfarm.identity.authorization.application;
 
+import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 import java.util.List;
 
 import com.htv.smartfarm.common.exception.ConflictException;
@@ -20,6 +21,7 @@ public class FarmScopeService {
     private final TenantMembershipRepository membershipRepository;
     private final MembershipFarmRepository membershipFarmRepository;
     private final FarmDirectoryPort farmDirectoryPort;
+    private AuthorizationMutationCoordinator authorizationMutations;
 
     public FarmScopeService(
             TenantMembershipRepository membershipRepository,
@@ -30,6 +32,12 @@ public class FarmScopeService {
         this.membershipFarmRepository = membershipFarmRepository;
         this.farmDirectoryPort = farmDirectoryPort;
     }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
+        this.authorizationMutations = value;
+    }
+
 
     @Transactional
     public void grantFarmAccess(
@@ -60,7 +68,9 @@ public class FarmScopeService {
         membershipFarmRepository.save(
                 new MembershipFarmEntity(membership, farmId)
         );
-    }
+    
+        farmAuthorizationChanged(tenantId, userId, "FARM_SCOPE_GRANTED");
+}
 
     @Transactional
     public void revokeFarmAccess(
@@ -73,10 +83,24 @@ public class FarmScopeService {
         TenantMembershipEntity membership =
                 getMembership(tenantId, userId);
 
+        boolean existed = membershipFarmRepository.existsByIdMembershipIdAndIdFarmId(
+
+                membership.getId(),
+
+                farmId
+
+        );
+
         membershipFarmRepository.deleteByMembershipIdAndFarmId(
                 membership.getId(),
                 farmId
         );
+
+        if (existed) {
+
+            farmAuthorizationChanged(tenantId, userId, "FARM_SCOPE_REVOKED");
+
+        }
     }
 
     @Transactional(readOnly = true)
@@ -141,4 +165,15 @@ public class FarmScopeService {
             );
         }
     }
+
+    // DYNAMIC_AUTH_PHASE2B_FARM: Spring injects this; null only in legacy direct-construction tests.
+    private void farmAuthorizationChanged(
+            String tenantId, String userId, String reasonCode
+    ) {
+        if (authorizationMutations != null) {
+            authorizationMutations.subjectChanged(
+                    tenantId, userId, userId, null, reasonCode);
+        }
+    }
+
 }

@@ -21,6 +21,7 @@ import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ public class RoleManagementService {
     private final RolePermissionRepository rolePermissionRepository;
     private final MembershipRoleRepository membershipRoleRepository;
     private final IdentityIntegrationEventPublisher events;
+    private AuthorizationMutationCoordinator authorizationMutations;
 
     public RoleManagementService(
             TenantRepository tenantRepository,
@@ -56,6 +58,12 @@ public class RoleManagementService {
         this.membershipRoleRepository = membershipRoleRepository;
         this.events = events;
     }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
+        this.authorizationMutations = value;
+    }
+
 
     @Transactional
     public String createRole(
@@ -337,7 +345,10 @@ public class RoleManagementService {
                         "roleCode", role.getCode()
                 )
         );
-    }
+    
+        roleAuthorizationChanged(
+                tenantId, userId, actorId, null, "ROLE_ASSIGNED");
+}
 
     @Transactional
     public void revokeRole(
@@ -384,7 +395,10 @@ public class RoleManagementService {
                         "roleCode", role.getCode()
                 )
         );
-    }
+    
+        roleAuthorizationChanged(
+                tenantId, userId, userId, null, "ROLE_REVOKED");
+}
 
     @Transactional(readOnly = true)
     public List<String> getRolePermissions(
@@ -463,4 +477,16 @@ public class RoleManagementService {
             );
         }
     }
+
+    // DYNAMIC_AUTH_PHASE2B_ROLE: Spring injects this; null only in legacy direct-construction tests.
+    private void roleAuthorizationChanged(
+            String tenantId, String userId, String actorId,
+            String correlationId, String reasonCode
+    ) {
+        if (authorizationMutations != null) {
+            authorizationMutations.subjectChanged(
+                    tenantId, userId, actorId, correlationId, reasonCode);
+        }
+    }
+
 }
