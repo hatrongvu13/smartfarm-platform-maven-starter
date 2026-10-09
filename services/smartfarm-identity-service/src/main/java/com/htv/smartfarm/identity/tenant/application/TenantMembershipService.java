@@ -8,6 +8,7 @@ import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
 import com.htv.smartfarm.identity.authorization.repository.MembershipFarmRepository;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
 import com.htv.smartfarm.identity.tenant.application.model.TenantMembershipData;
 import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
@@ -29,6 +30,7 @@ public class TenantMembershipService {
     private final MembershipRoleRepository membershipRoleRepository;
     private final MembershipFarmRepository membershipFarmRepository;
     private final IdentityIntegrationEventPublisher events;
+    private AuthorizationMutationCoordinator authorizationMutations;
 
     public TenantMembershipService(
             TenantRepository tenantRepository,
@@ -44,6 +46,11 @@ public class TenantMembershipService {
         this.membershipRoleRepository = membershipRoleRepository;
         this.membershipFarmRepository = membershipFarmRepository;
         this.events = events;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
+        this.authorizationMutations = value;
     }
 
     @Transactional
@@ -97,6 +104,7 @@ public class TenantMembershipService {
                         "status", membership.getStatus().name()
                 )
         );
+        authorizationChanged(tenantId, userId, actorId, correlationId, "MEMBERSHIP_CREATED");
         return membership.getId();
     }
 
@@ -182,6 +190,19 @@ public class TenantMembershipService {
                 0,
                 data
         );
+        authorizationChanged(
+                tenantId, userId, actorId, correlationId, "MEMBERSHIP_STATUS_CHANGED");
+    }
+
+    // DYNAMIC_AUTH_PHASE2A: null only in legacy unit tests using the old constructor directly.
+    private void authorizationChanged(
+            String tenantId, String subjectId, String actorId,
+            String correlationId, String reasonCode
+    ) {
+        if (authorizationMutations != null) {
+            authorizationMutations.subjectChanged(
+                    tenantId, subjectId, actorId, correlationId, reasonCode);
+        }
     }
 
     private String limit(String value, int maximum) {
