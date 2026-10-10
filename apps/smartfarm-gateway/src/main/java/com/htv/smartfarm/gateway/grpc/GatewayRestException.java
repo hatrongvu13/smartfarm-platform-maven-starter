@@ -12,6 +12,11 @@ public final class GatewayRestException extends RuntimeException {
         this.code = code;
     }
 
-    public HttpStatus status() { return status; }
-    public String code() { return code; }
+    public HttpStatus status() {
+        return status;
+    }
+
+    public String code() {
+        return code;
+    }
 }

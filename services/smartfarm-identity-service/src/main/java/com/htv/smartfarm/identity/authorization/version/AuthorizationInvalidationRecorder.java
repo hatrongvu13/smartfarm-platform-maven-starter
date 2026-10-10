@@ -18,52 +18,19 @@ public class AuthorizationInvalidationRecorder {
      * version increment. IdentityIntegrationEventPublisher records into sf_identity_outbox.
      */
     public String recordSubjectInvalidation(
-            String tenantId,
-            String subjectId,
-            String actorId,
-            String correlationId,
-            AuthorizationVersionTuple versions,
-            String reasonCode
-    ) {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("subjectId", required(subjectId, "subjectId"));
-        data.put("tenantVersion", versions.tenantVersion());
-        data.put("subjectVersion", versions.subjectVersion());
-        data.put("reasonCode", required(reasonCode, "reasonCode"));
-        return events.publish(
-                required(tenantId, "tenantId"),
-                actorId,
-                correlationId,
-                null,
-                "identity.authorization.invalidated",
-                "authorization-subject",
-                subjectId,
-                versions.subjectVersion(),
-                data
-        );
+            String tenantId, String subjectId, String actorId,
+            String correlationId, AuthorizationVersionTuple versions,
+            String reasonCode) {
+        return events.publishAuthorizationInvalidated(required(tenantId,"tenantId"),
+                required(subjectId,"subjectId"), actorId, correlationId,
+                versions.tenantVersion(), versions.subjectVersion(), required(reasonCode,"reasonCode"));
     }
 
     public String recordTenantInvalidation(
-            String tenantId,
-            String actorId,
-            String correlationId,
-            long tenantVersion,
-            String reasonCode
-    ) {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("tenantVersion", tenantVersion);
-        data.put("reasonCode", required(reasonCode, "reasonCode"));
-        return events.publish(
-                required(tenantId, "tenantId"),
-                actorId,
-                correlationId,
-                null,
-                "identity.authorization.invalidated",
-                "authorization-tenant",
-                tenantId,
-                tenantVersion,
-                data
-        );
+            String tenantId, String actorId, String correlationId,
+            long tenantVersion, String reasonCode) {
+        return events.publishAuthorizationInvalidated(required(tenantId,"tenantId"),
+                "", actorId, correlationId, tenantVersion, 0L, required(reasonCode,"reasonCode"));
     }
 
     private static String required(String value, String field) {

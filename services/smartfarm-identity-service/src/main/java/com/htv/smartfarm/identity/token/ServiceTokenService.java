@@ -19,15 +19,18 @@ public class ServiceTokenService {
     private final ServiceTokenSettings settings;
     private final TokenService tokens;
     private final PasswordEncoder encoder;
+    private final DelegatedActorVerificationService delegatedActors;
 
     public ServiceTokenService(
             ServiceTokenSettings settings,
             TokenService tokens,
-            PasswordEncoder encoder
+            PasswordEncoder encoder,
+            DelegatedActorVerificationService delegatedActors
     ) {
         this.settings = settings;
         this.tokens = tokens;
         this.encoder = encoder;
+        this.delegatedActors = delegatedActors;
     }
 
     public record Grant(
@@ -65,13 +68,30 @@ public class ServiceTokenService {
             throw new SecurityException("service audience is not allowed");
         }
         List<String> scopes = client.scopesFor(audience);
-        String token = tokens.issueServiceToken(
-                clientId,
-                tenantId,
-                audience,
-                scopes,
-                settings.ttl()
-        );
+        String normalizedActor = actorId == null || actorId.isBlank()
+                ? null
+                : actorId.trim();
+        String token;
+        if (normalizedActor != null && client.delegationEnabled()) {
+            var versions = delegatedActors.verify(tenantId, normalizedActor);
+            token = tokens.issueDelegatedServiceToken(
+                    clientId,
+                    tenantId,
+                    audience,
+                    scopes,
+                    normalizedActor,
+                    versions,
+                    settings.ttl()
+            );
+        } else {
+            token = tokens.issueServiceToken(
+                    clientId,
+                    tenantId,
+                    audience,
+                    scopes,
+                    settings.ttl()
+            );
+        }
         AUDIT.info(
                 "service_token_granted client_id={} audience={} tenant={} actor_id={} scopes={} ttl_s={}",
                 clientId, audience, tenantId, safe(actorId), scopes,

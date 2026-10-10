@@ -33,10 +33,11 @@ public class ServiceTokenClient {
         this.secret = secret;
     }
 
-    private record Key(String audience, String tenantId) {
+    private record Key(String audience, String tenantId, String actorId) {
         private Key {
             audience = required(audience, "audience");
             tenantId = required(tenantId, "tenantId");
+            actorId = actorId == null || actorId.isBlank() ? "" : actorId.trim();
         }
     }
 
@@ -50,7 +51,7 @@ public class ServiceTokenClient {
     }
 
     public String tokenFor(String audience, String tenantId, String actorId) {
-        Key key = new Key(audience, tenantId);
+        Key key = new Key(audience, tenantId, actorId);
         Cached c = cache.get(key);
         if (c != null && Instant.now().isBefore(c.refreshAfter())) return c.token();
         return fetch(key, actorId);

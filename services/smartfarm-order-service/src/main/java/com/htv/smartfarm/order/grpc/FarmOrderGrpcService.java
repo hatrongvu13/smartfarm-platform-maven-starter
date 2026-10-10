@@ -71,7 +71,7 @@ public class FarmOrderGrpcService extends FarmOrderServiceGrpc.FarmOrderServiceI
     }
 
     private static String actor() {
-        return GrpcSecurityContext.requireSubject();
+        return GrpcSecurityContext.requireEffectiveActor();
     }
 
     private static void requireContext(boolean present) {

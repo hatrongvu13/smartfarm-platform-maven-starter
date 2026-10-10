@@ -53,8 +53,17 @@ public final class GrpcSecurityContext {
         return identity;
     }
 
+    /** Machine/user subject authenticated by the JWT itself. */
     public static String requireSubject() {
         return requireIdentity().subject();
+    }
+
+    public static String requireMachineSubject() {
+        return requireIdentity().machineSubject();
+    }
+
+    public static String requireEffectiveActor() {
+        return requireIdentity().effectiveActorSubject();
     }
 
     public static String requireTenant() {

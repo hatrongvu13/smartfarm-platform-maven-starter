@@ -13,28 +13,81 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DynamicAuthorizationAdministrationService {
-    private final RoleManagementService management; private final PermissionRepository permissions;
-    private final RoleRepository roles; private final RolePermissionRepository grants; private final MembershipRoleRepository assignments;
-    public DynamicAuthorizationAdministrationService(RoleManagementService management, PermissionRepository permissions,
-            RoleRepository roles, RolePermissionRepository grants, MembershipRoleRepository assignments) {
-        this.management=management;this.permissions=permissions;this.roles=roles;this.grants=grants;this.assignments=assignments;
+    private final RoleManagementService management;
+    private final PermissionRepository permissions;
+    private final RoleRepository roles;
+    private final RolePermissionRepository grants;
+    private final MembershipRoleRepository assignments;
+    private final PermissionCatalogMutationService catalog;
+
+    public DynamicAuthorizationAdministrationService(
+            RoleManagementService management,
+            PermissionRepository permissions,
+            RoleRepository roles,
+            RolePermissionRepository grants,
+            MembershipRoleRepository assignments,
+            PermissionCatalogMutationService catalog
+    ) {
+        this.management = management;
+        this.permissions = permissions;
+        this.roles = roles;
+        this.grants = grants;
+        this.assignments = assignments;
+        this.catalog = catalog;
     }
-    @Transactional public PermissionEntity createPermission(String code,String resource,String action,String description){
-        String c=normalizePermission(code); String r=normalizePart(resource); String a=normalizePart(action);
-        if(permissions.existsById(c)) throw new ConflictException("PERMISSION_CODE_ALREADY_EXISTS","Permission code already exists");
-        if(permissions.existsByResourceTypeAndAction(r,a)) throw new ConflictException("PERMISSION_ALREADY_EXISTS","Permission already exists for resource and action");
-        return permissions.save(new PermissionEntity(c,r,a,description==null||description.isBlank()?null:description.trim()));
+    @Transactional
+    public PermissionEntity createPermission(
+            String tenantId, String code, String resource, String action,
+            String description, String actorId, String correlationId
+    ) {
+        return catalog.create(
+                tenantId, code, resource, action, description,
+                actorId, correlationId
+        );
     }
-    @Transactional public PermissionEntity updatePermission(String code,String resource,String action,String description){
-        String c=normalizePermission(code); guardPermission(c); var p=permissions.findById(c).orElseThrow(() -> NotFoundException.entity("Permission",c));
-        permissions.findByResourceTypeAndAction(normalizePart(resource),normalizePart(action)).filter(x -> !x.getCode().equals(c)).ifPresent(x -> {throw new ConflictException("PERMISSION_ALREADY_EXISTS","Permission already exists for resource and action");});
-        p.updateMetadata(normalizePart(resource),normalizePart(action),description); return p;
+
+    @Transactional
+    public PermissionEntity updatePermission(
+            String tenantId, String code, String resource, String action,
+            String description, String actorId, String correlationId
+    ) {
+        return catalog.update(
+                tenantId, code, resource, action, description,
+                actorId, correlationId
+        );
     }
-    @Transactional public boolean deletePermission(String code){
-        String c=normalizePermission(code); guardPermission(c);
-        if(!permissions.existsById(c)) return false;
-        if(grants.countByIdPermissionCode(c)>0) throw new ConflictException("PERMISSION_IN_USE","Revoke permission from all roles before deleting it");
-        permissions.deleteById(c); return true;
+
+    @Transactional
+    public boolean deletePermission(
+            String tenantId, String code, String actorId, String correlationId
+    ) {
+        return catalog.delete(tenantId, code, actorId, correlationId);
+    }
+
+    @Deprecated(forRemoval = true)
+    @Transactional
+    public PermissionEntity createPermission(
+            String code, String resource, String action, String description
+    ) {
+        throw new IllegalStateException(
+                "tenantId, actorId and correlationId are required for runtime permission creation"
+        );
+    }
+    @Deprecated(forRemoval = true)
+    @Transactional
+    public PermissionEntity updatePermission(
+            String code, String resource, String action, String description
+    ) {
+        throw new IllegalStateException(
+                "tenantId, actorId and correlationId are required for runtime permission update"
+        );
+    }
+    @Deprecated(forRemoval = true)
+    @Transactional
+    public boolean deletePermission(String code) {
+        throw new IllegalStateException(
+                "tenantId, actorId and correlationId are required for runtime permission deletion"
+        );
     }
     @Transactional public String createRole(String tenant,String code,String name,String actor,String correlation){
         String c=normalizeRole(code); guardPlatform(c); return management.createRole(tenant,c,name,false,actor,correlation);

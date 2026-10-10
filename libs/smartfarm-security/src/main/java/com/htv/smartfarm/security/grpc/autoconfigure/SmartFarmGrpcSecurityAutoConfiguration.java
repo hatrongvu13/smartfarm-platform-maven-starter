@@ -8,6 +8,9 @@ import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
 import com.htv.smartfarm.security.grpc.JwtServerInterceptor;
+import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationMode;
+import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationShadowObserver;
+import com.htv.smartfarm.security.grpc.dynamic.GrpcDynamicAuthorizationEvaluator;
 import com.htv.smartfarm.security.jwt.JwtSecurityFactory;
 import com.htv.smartfarm.security.jwt.JwtTokenVerifier;
 
@@ -29,6 +32,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.grpc.server.GlobalServerInterceptor;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -140,14 +145,38 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
+    GrpcAuthorizationShadowObserver smartFarmGrpcAuthorizationShadowObserver() {
+        return new GrpcAuthorizationShadowObserver();
+    }
+
+    @Bean
+    GrpcAuthorizationMode smartFarmGrpcAuthorizationMode(
+            @Value("${smartfarm.security.grpc.authorization-mode:OFF}") String value
+    ) {
+        return GrpcAuthorizationMode.parse(value);
+    }
+
+    @Bean
     @Order(20)
     @GlobalServerInterceptor
     @ConditionalOnMissingBean(JwtServerInterceptor.class)
     JwtServerInterceptor smartFarmJwtServerInterceptor(
             TokenVerifier verifier,
-            GrpcMethodPolicy policy
+            GrpcMethodPolicy policy,
+            GrpcAuthorizationMode authorizationMode,
+            GrpcAuthorizationShadowObserver shadowObserver,
+            ObjectProvider<GrpcDynamicAuthorizationEvaluator> evaluator
     ) {
-        return new JwtServerInterceptor(verifier, policy);
+        return new JwtServerInterceptor(
+                verifier,
+                policy,
+                authorizationMode,
+                evaluator.getIfAvailable(
+                        GrpcDynamicAuthorizationEvaluator::unavailable
+                ),
+                shadowObserver
+        );
     }
 
     @Bean

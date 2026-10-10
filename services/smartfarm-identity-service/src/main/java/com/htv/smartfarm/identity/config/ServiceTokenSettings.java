@@ -56,7 +56,18 @@ public record ServiceTokenSettings(Duration ttl, Map<String, Client> clients) {
     }
 
     /** Whitelisted caller: its shared secret, the audiences it may target, and the scopes it may receive per audience. */
-    public record Client(String secret, List<String> audiences, Map<String, List<String>> scopesByAudience) {
+    public record Client(
+            String secret,
+            List<String> audiences,
+            Map<String, List<String>> scopesByAudience,
+            boolean delegationEnabled
+    ) {
+        /** Compatibility constructor: delegation remains disabled unless explicitly configured. */
+        public Client(String secret, List<String> audiences,
+                Map<String, List<String>> scopesByAudience) {
+            this(secret, audiences, scopesByAudience, false);
+        }
+
         public Client {
             audiences = audiences == null ? List.of() : List.copyOf(audiences);
             scopesByAudience = scopesByAudience == null ? Map.of() : Map.copyOf(scopesByAudience);

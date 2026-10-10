@@ -40,7 +40,6 @@ public class RoleManagementService {
     private final MembershipRoleRepository membershipRoleRepository;
     private final IdentityIntegrationEventPublisher events;
     private AuthorizationMutationCoordinator authorizationMutations;
-    private AuthorizationMutationCoordinator authorizationMutations;
 
     public RoleManagementService(
             TenantRepository tenantRepository,
@@ -60,10 +59,6 @@ public class RoleManagementService {
         this.events = events;
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
-        this.authorizationMutations = value;
-    }
 
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -240,9 +235,9 @@ public class RoleManagementService {
                         "action", permission.getAction()
                 )
         );
-    
+
         rolePermissionAuthorizationChanged(
-                tenantId, actorId, null, "ROLE_PERMISSION_CHANGED");
+                tenantId, actorId, correlationId, "ROLE_PERMISSION_GRANTED");
 }
 
     @Transactional
@@ -292,9 +287,9 @@ public class RoleManagementService {
                         "permissionCode", normalizedPermissionCode
                 )
         );
-    
+
         rolePermissionAuthorizationChanged(
-                tenantId, actorId, null, "ROLE_PERMISSION_REVOKED");
+                tenantId, actorId, correlationId, "ROLE_PERMISSION_REVOKED");
 }
 
     @Transactional
@@ -358,9 +353,9 @@ public class RoleManagementService {
                         "roleCode", role.getCode()
                 )
         );
-    
+
         roleAuthorizationChanged(
-                tenantId, userId, actorId, null, "ROLE_ASSIGNED");
+                tenantId, userId, grantedBy, null, "ROLE_ASSIGNED");
 }
 
     @Transactional
@@ -408,7 +403,7 @@ public class RoleManagementService {
                         "roleCode", role.getCode()
                 )
         );
-    
+
         roleAuthorizationChanged(
                 tenantId, userId, userId, null, "ROLE_REVOKED");
 }

@@ -47,7 +47,7 @@ public class OrderSagaAdministrationGrpcService extends
     }
 
     private String tenant() { return GrpcSecurityContext.requireTenant(); }
-    private String actor() { return GrpcSecurityContext.requireSubject(); }
+    private String actor() { return GrpcSecurityContext.requireEffectiveActor(); }
     private void execute(StreamObserver<OrderSagaResponse> out, Action action) {
         try {
             out.onNext(OrderSagaResponse.newBuilder().setSaga(map(action.run())).build());

@@ -51,6 +51,7 @@ smartfarm:
       ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
       clients:
         gateway:
+          delegation-enabled: true
           secret: ${IDENTITY_GATEWAY_CLIENT_SECRET_HASH:$2a$12$YGIvX6qteWbknC9owzIGueP9fk7sgtyuOo9phPNEChG2TQ3UUuv1q}
           audiences:
             - smartfarm-identity

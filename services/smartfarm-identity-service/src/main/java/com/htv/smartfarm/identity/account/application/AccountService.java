@@ -272,11 +272,12 @@ public class AccountService {
         UserAccountEntity account = getAccountForUpdate(userId);
         boolean changed = !account.isEnabled();
         account.enable();
-        if (changed) publishAccountStatus(
+        if (changed) {
+            publishAccountStatus(
                 tenantId, actorId, correlationId,
                 "identity.account.enabled", account, "ENABLED");
-    
-        accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_ENABLED");
+            accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_ENABLED");
+        }
 }
 
     @Transactional
@@ -295,11 +296,12 @@ public class AccountService {
         boolean changed = account.isEnabled();
         account.disable();
         refreshRepository.revokeUser(userId);
-        if (changed) publishAccountStatus(
+        if (changed) {
+            publishAccountStatus(
                 tenantId, actorId, correlationId,
                 "identity.account.disabled", account, "DISABLED");
-    
-        accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_DISABLED");
+            accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_DISABLED");
+        }
 }
 
     @Transactional

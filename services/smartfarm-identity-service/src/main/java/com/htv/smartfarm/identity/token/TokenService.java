@@ -13,12 +13,16 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import com.htv.smartfarm.identity.config.IdentitySettings;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionService;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionTuple;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -51,14 +55,17 @@ public class TokenService {
     private final JwtEncoder encoder;
     private final JwtDecoder decoder;
     private final Clock clock;
+    private final AuthorizationVersionService authorizationVersions;
 
     public TokenService(
             IdentitySettings settings,
             ResourceLoader resourceLoader,
-            Clock clock
+            Clock clock,
+            AuthorizationVersionService authorizationVersions
     ) throws Exception {
         this.settings = settings;
         this.clock = clock;
+        this.authorizationVersions = authorizationVersions;
         KeyFactory factory = KeyFactory.getInstance("RSA");
         RSAPrivateKey privateKey = (RSAPrivateKey) factory.generatePrivate(
                 new PKCS8EncodedKeySpec(pem(
@@ -132,15 +139,23 @@ public class TokenService {
             Collection<String> roles,
             Duration ttl
     ) {
+        String normalizedSubject = requireText(subjectId, "subjectId");
+        String normalizedTenant = requireText(tenantId, "tenantId");
+        AuthorizationVersionTuple versions = authorizationVersions.current(
+                normalizedTenant,
+                normalizedSubject
+        );
         return issue(
-                subjectId,
+                normalizedSubject,
                 null,
-                tenantId,
+                normalizedTenant,
                 settings.gatewayAudience(),
                 scopes,
                 roles,
                 "user",
-                ttl
+                ttl,
+                versions,
+                null
         );
     }
 
@@ -161,7 +176,46 @@ public class TokenService {
                 scopes,
                 List.of(),
                 "service",
-                ttl
+                ttl,
+                null,
+                null
+        );
+    }
+
+    /**
+     * DYNAMIC_AUTH_PHASE3A: emits a signed delegated actor only after the caller has
+     * independently verified the actor and authorization versions.
+     */
+    public String issueDelegatedServiceToken(
+            String clientId,
+            String tenantId,
+            String audience,
+            Collection<String> scopes,
+            String actorSubjectId,
+            AuthorizationVersionTuple actorVersions,
+            Duration ttl
+    ) {
+        String normalizedClientId = requireText(clientId, "clientId");
+        validateServiceScopes(scopes);
+        String normalizedActor = requireText(actorSubjectId, "actorSubjectId");
+        if (actorVersions == null) {
+            throw new IllegalArgumentException("actorVersions must not be null");
+        }
+        Map<String, Object> actor = new LinkedHashMap<>();
+        actor.put("sub", normalizedActor);
+        actor.put("authorization_version", actorVersions.subjectVersion());
+        actor.put("tenant_authorization_version", actorVersions.tenantVersion());
+        return issue(
+                "svc:" + normalizedClientId,
+                normalizedClientId,
+                tenantId,
+                audience,
+                scopes,
+                List.of(),
+                "service",
+                ttl,
+                null,
+                Map.copyOf(actor)
         );
     }
 
@@ -173,7 +227,9 @@ public class TokenService {
             Collection<String> scopes,
             Collection<String> roles,
             String tokenType,
-            Duration ttl
+            Duration ttl,
+            AuthorizationVersionTuple authorizationVersion,
+            Map<String, Object> delegatedActor
     ) {
         validateTtl(ttl);
         Instant now = clock.instant();
@@ -189,6 +245,17 @@ public class TokenService {
                 .claim("scope", String.join(" ", normalize(scopes)))
                 .claim("roles", normalize(roles))
                 .claim("token_type", tokenType);
+        if (authorizationVersion != null) {
+            claims.claim(
+                    "authorization_version",
+                    authorizationVersion.subjectVersion()
+            );
+            claims.claim(
+                    "tenant_authorization_version",
+                    authorizationVersion.tenantVersion()
+            );
+        }
+        if (delegatedActor != null) claims.claim("act", delegatedActor);
         if (clientId != null) claims.claim("client_id", clientId);
         return encoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(SignatureAlgorithm.RS256)

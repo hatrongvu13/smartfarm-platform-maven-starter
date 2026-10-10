@@ -104,6 +104,39 @@ public class IdentityIntegrationEventPublisher {
         return eventId;
     }
 
+    public String publishAuthorizationInvalidated(
+            String tenantId, String subjectId, String actorId,
+            String correlationId, long tenantVersion,
+            long subjectVersion, String reasonCode) {
+        if (tenantVersion < 0 || subjectVersion < 0) throw new IllegalArgumentException("negative authorization version");
+        String tenant = java.util.Objects.requireNonNull(tenantId).trim();
+        String subject = subjectId == null ? "" : subjectId.trim();
+        String reason = java.util.Objects.requireNonNull(reasonCode).trim();
+        if (tenant.isEmpty() || reason.isEmpty()) throw new IllegalArgumentException("tenantId and reasonCode are required");
+        String eventId = UUID.randomUUID().toString();
+        Instant occurredAt = clock.instant();
+        EventMetadata metadata = EventMetadata.newBuilder()
+                .setEventId(eventId).setTenantId(tenant).setFarmId("_global")
+                .setAggregateId(subject.isEmpty() ? tenant : subject)
+                .setCorrelationId(nullToEmpty(correlationId)).setProducer(SOURCE)
+                .setOccurredAt(toTimestamp(occurredAt))
+                .setAggregateVersion(subject.isEmpty() ? tenantVersion : subjectVersion).build();
+        var invalidation = com.htv.smartfarm.proto.events.v1.AuthorizationInvalidated.newBuilder()
+                .setTenantId(tenant).setSubjectId(subject)
+                .setTenantAuthorizationVersion(tenantVersion)
+                .setSubjectAuthorizationVersion(subjectVersion).setReasonCode(reason).build();
+        byte[] payload = DomainEvent.newBuilder().setMetadata(metadata)
+                .setAuthorizationInvalidated(invalidation).build().toByteArray();
+        String topic = IdentityEventTopics.domain(tenant, "authorization-invalidated", 1);
+        recorder.recordWithId(eventId, tenant, actorId, correlationId, null,
+                "identity.authorization.invalidated", 1,
+                subject.isEmpty() ? "authorization-tenant" : "authorization-subject",
+                subject.isEmpty() ? tenant : subject,
+                subject.isEmpty() ? tenantVersion : subjectVersion,
+                topic, payload, occurredAt);
+        return eventId;
+    }
+
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }

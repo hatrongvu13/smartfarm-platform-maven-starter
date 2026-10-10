@@ -278,9 +278,88 @@ public class IdentityAdministrationGrpcService
     @Override public void createTenantRole(CreateTenantRoleRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.ROLE_MANAGE); dynamicAuthorization.createRole(s.tenantId(),r.getCode(),r.getName(),s.actorId(),r.getContext().getCorrelationId()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getCode()))).build(); }); }
     @Override public void updateTenantRole(UpdateTenantRoleRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.ROLE_MANAGE); dynamicAuthorization.updateRole(s.tenantId(),r.getCode(),r.getName()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getCode()))).build(); }); }
     @Override public void deleteTenantRole(DeleteTenantRoleRequest r, StreamObserver<DeleteAuthorizationObjectResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.ROLE_MANAGE); return DeleteAuthorizationObjectResponse.newBuilder().setDeleted(dynamicAuthorization.deleteRole(s.tenantId(),r.getCode())).build(); }); }
-    @Override public void createPermission(CreatePermissionRequest r, StreamObserver<PermissionMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); return PermissionMutationResponse.newBuilder().setPermission(protoMapper.toProto(new com.htv.smartfarm.identity.authorization.application.model.PermissionData(dynamicAuthorization.createPermission(r.getCode(),r.getResourceType(),r.getAction(),r.getDescription()).getCode(),r.getResourceType(),r.getAction(),r.getDescription()))).build(); }); }
-    @Override public void updatePermission(UpdatePermissionRequest r, StreamObserver<PermissionMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); var p=dynamicAuthorization.updatePermission(r.getCode(),r.getResourceType(),r.getAction(),r.getDescription()); return PermissionMutationResponse.newBuilder().setPermission(PermissionInfo.newBuilder().setCode(p.getCode()).setResourceType(p.getResourceType()).setAction(p.getAction()).setDescription(p.getDescription()==null?"":p.getDescription())).build(); }); }
-    @Override public void deletePermission(DeletePermissionRequest r, StreamObserver<DeleteAuthorizationObjectResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); return DeleteAuthorizationObjectResponse.newBuilder().setDeleted(dynamicAuthorization.deletePermission(r.getCode())).build(); }); }
+    @Override
+    public void createPermission(
+            CreatePermissionRequest request,
+            StreamObserver<PermissionMutationResponse> observer
+    ) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            var secured = requestSecurity.authorizeTenantAdministration(
+                    request.getContext(),
+                    IdentityGrpcAuthorities.PERMISSION_MANAGE
+            );
+            var permission = dynamicAuthorization.createPermission(
+                    secured.tenantId(),
+                    request.getCode(),
+                    request.getResourceType(),
+                    request.getAction(),
+                    request.getDescription(),
+                    secured.actorId(),
+                    request.getContext().getCorrelationId()
+            );
+            return PermissionMutationResponse.newBuilder()
+                    .setPermission(PermissionInfo.newBuilder()
+                            .setCode(permission.getCode())
+                            .setResourceType(permission.getResourceType())
+                            .setAction(permission.getAction())
+                            .setDescription(permission.getDescription() == null
+                                    ? "" : permission.getDescription()))
+                    .build();
+        });
+    }
+    @Override
+    public void updatePermission(
+            UpdatePermissionRequest request,
+            StreamObserver<PermissionMutationResponse> observer
+    ) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            var secured = requestSecurity.authorizeTenantAdministration(
+                    request.getContext(),
+                    IdentityGrpcAuthorities.PERMISSION_MANAGE
+            );
+            var permission = dynamicAuthorization.updatePermission(
+                    secured.tenantId(),
+                    request.getCode(),
+                    request.getResourceType(),
+                    request.getAction(),
+                    request.getDescription(),
+                    secured.actorId(),
+                    request.getContext().getCorrelationId()
+            );
+            return PermissionMutationResponse.newBuilder()
+                    .setPermission(PermissionInfo.newBuilder()
+                            .setCode(permission.getCode())
+                            .setResourceType(permission.getResourceType())
+                            .setAction(permission.getAction())
+                            .setDescription(permission.getDescription() == null
+                                    ? "" : permission.getDescription()))
+                    .build();
+        });
+    }
+    @Override
+    public void deletePermission(
+            DeletePermissionRequest request,
+            StreamObserver<DeleteAuthorizationObjectResponse> observer
+    ) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            var secured = requestSecurity.authorizeTenantAdministration(
+                    request.getContext(),
+                    IdentityGrpcAuthorities.PERMISSION_MANAGE
+            );
+            boolean deleted = dynamicAuthorization.deletePermission(
+                    secured.tenantId(),
+                    request.getCode(),
+                    secured.actorId(),
+                    request.getContext().getCorrelationId()
+            );
+            return DeleteAuthorizationObjectResponse.newBuilder()
+                    .setDeleted(deleted)
+                    .build();
+        });
+    }
     @Override public void grantPermissionToRole(TenantRolePermissionRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); dynamicAuthorization.grant(s.tenantId(),r.getRoleCode(),r.getPermissionCode(),s.actorId(),r.getContext().getCorrelationId()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getRoleCode()))).build(); }); }
     @Override public void revokePermissionFromRole(TenantRolePermissionRequest r, StreamObserver<RoleMutationResponse> o) { exceptionMapper.executeUnary(o, () -> { requireContext(r.hasContext()); var s=requestSecurity.authorizeTenantAdministration(r.getContext(),IdentityGrpcAuthorities.PERMISSION_MANAGE); dynamicAuthorization.revoke(s.tenantId(),r.getRoleCode(),r.getPermissionCode(),s.actorId(),r.getContext().getCorrelationId()); return RoleMutationResponse.newBuilder().setRole(protoMapper.toProto(administrationService.getRole(s.tenantId(),null,r.getRoleCode()))).build(); }); }
 

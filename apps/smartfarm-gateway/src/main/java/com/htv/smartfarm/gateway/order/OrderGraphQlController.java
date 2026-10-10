@@ -13,6 +13,7 @@ import com.htv.smartfarm.proto.common.v1.Quantity;
 import com.htv.smartfarm.proto.order.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 import io.grpc.StatusRuntimeException;
+
 import java.time.Instant;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -41,9 +43,9 @@ public class OrderGraphQlController {
     private final long deadlineMillis;
 
     public OrderGraphQlController(FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orders,
-            ServiceTokenClient tokens, GatewayRequestContextFactory contexts,
-            GatewayGrpcExceptionMapper errors,
-            @Value("${smartfarm.gateway.grpc.order-deadline:5s}") Duration deadline) {
+                                  ServiceTokenClient tokens, GatewayRequestContextFactory contexts,
+                                  GatewayGrpcExceptionMapper errors,
+                                  @Value("${smartfarm.gateway.grpc.order-deadline:5s}") Duration deadline) {
         this.orders = orders;
         this.tokens = tokens;
         this.contexts = contexts;
@@ -66,7 +68,7 @@ public class OrderGraphQlController {
     @QueryMapping("ordersV2")
     @PreAuthorize("hasAuthority('SCOPE_orders:read')")
     public Mono<Map<String, Object>> orders(@Argument Map<String, Object> filter,
-            @Argument Map<String, Object> page) {
+                                            @Argument Map<String, Object> page) {
         return call("ListOrders", (jwt, correlationId) -> {
             var context = contexts.create(jwt, correlationId, null);
             ListOrdersRequest.Builder request = ListOrdersRequest.newBuilder()
@@ -182,22 +184,25 @@ public class OrderGraphQlController {
 
     private <T> Mono<T> call(String operation, CorrelatedAction<T> action) {
         return Mono.deferContextual(reactorContext ->
-                ReactiveSecurityContextHolder.getContext()
-                        .map(context -> (Jwt) context.getAuthentication().getPrincipal())
-                        .map(jwt -> {
-                            try { return action.apply(jwt, GatewayCorrelationContext.get(reactorContext)); }
-                            catch (StatusRuntimeException exception) {
-                                if (exception.getStatus().getCode() == io.grpc.Status.Code.UNAUTHENTICATED) {
-                                    tokens.invalidate(AUDIENCE, jwt.getClaimAsString("tenant_id"));
-                                }
-                                throw errors.graphQl(operation, exception);
-                            }
-                        }))
+                        ReactiveSecurityContextHolder.getContext()
+                                .map(context -> (Jwt) context.getAuthentication().getPrincipal())
+                                .map(jwt -> {
+                                    try {
+                                        return action.apply(jwt, GatewayCorrelationContext.get(reactorContext));
+                                    } catch (StatusRuntimeException exception) {
+                                        if (exception.getStatus().getCode() == io.grpc.Status.Code.UNAUTHENTICATED) {
+                                            tokens.invalidate(AUDIENCE, jwt.getClaimAsString("tenant_id"));
+                                        }
+                                        throw errors.graphQl(operation, exception);
+                                    }
+                                }))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
     @FunctionalInterface
-    private interface CorrelatedAction<T> { T apply(Jwt jwt, String correlationId); }
+    private interface CorrelatedAction<T> {
+        T apply(Jwt jwt, String correlationId);
+    }
 
     @SuppressWarnings("unchecked")
     private static List<OrderLine> lines(Map<String, Object> input) {
@@ -230,8 +235,10 @@ public class OrderGraphQlController {
 
     private static Map<String, Object> view(FarmOrder order) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("orderId", order.getOrderId()); result.put("farmId", order.getFarmId());
-        result.put("batchId", blank(order.getBatchId())); result.put("status", order.getStatus().name());
+        result.put("orderId", order.getOrderId());
+        result.put("farmId", order.getFarmId());
+        result.put("batchId", blank(order.getBatchId()));
+        result.put("status", order.getStatus().name());
         result.put("totalMinor", (double) order.getTotal().getMinorUnits());
         result.put("currency", order.getTotal().getCurrencyCode());
         result.put("version", (double) order.getVersion());
@@ -244,9 +251,12 @@ public class OrderGraphQlController {
 
     private static Map<String, Object> lineView(OrderLine line) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("lineId", line.getLineId()); result.put("lineNo", line.getLineNo());
-        result.put("itemId", line.getItemId()); result.put("warehouseId", blank(line.getWarehouseId()));
-        result.put("quantity", line.getQuantity().getDecimalValue()); result.put("unit", line.getQuantity().getUnit());
+        result.put("lineId", line.getLineId());
+        result.put("lineNo", line.getLineNo());
+        result.put("itemId", line.getItemId());
+        result.put("warehouseId", blank(line.getWarehouseId()));
+        result.put("quantity", line.getQuantity().getDecimalValue());
+        result.put("unit", line.getQuantity().getUnit());
         result.put("unitPriceMinor", (double) line.getUnitPrice().getMinorUnits());
         result.put("currency", line.getUnitPrice().getCurrencyCode());
         result.put("lineTotalMinor", (double) line.getLineTotalMinor());
@@ -254,14 +264,50 @@ public class OrderGraphQlController {
         return result;
     }
 
-    private static long positive(Duration value, String field) { if (value == null || value.isZero() || value.isNegative()) throw new IllegalArgumentException(field + " must be positive"); return value.toMillis(); }
-    private static String instant(Timestamp value) { return Instant.ofEpochSecond(value.getSeconds(), value.getNanos()).toString(); }
-    private static Timestamp timestamp(long millis) { return Timestamp.newBuilder().setSeconds(Math.floorDiv(millis, 1000)).setNanos((int)Math.floorMod(millis, 1000) * 1_000_000).build(); }
-    private static OrderStatus status(String value) { String normalized = value.startsWith("ORDER_STATUS_") ? value : "ORDER_STATUS_" + value; return OrderStatus.valueOf(normalized.toUpperCase()); }
-    private static Long longValue(Object value) { return value instanceof Number number ? number.longValue() : null; }
-    private static long requiredLong(Map<String, Object> input, String key) { Long value = input == null ? null : longValue(input.get(key)); if (value == null) throw new IllegalArgumentException(key + " is required"); return value; }
-    private static String required(Map<String, Object> input, String key) { return required(input == null ? null : input.get(key) == null ? null : String.valueOf(input.get(key)), key); }
-    private static String required(String value, String key) { if (value == null || value.isBlank()) throw new IllegalArgumentException(key + " is required"); return value.trim(); }
-    private static String blank(String value) { return value == null || value.isBlank() ? null : value; }
-    private static void put(Map<String, Object> source, String key, java.util.function.Consumer<String> setter) { if (source != null && source.get(key) != null && !String.valueOf(source.get(key)).isBlank()) setter.accept(String.valueOf(source.get(key))); }
+    private static long positive(Duration value, String field) {
+        if (value == null || value.isZero() || value.isNegative())
+            throw new IllegalArgumentException(field + " must be positive");
+        return value.toMillis();
+    }
+
+    private static String instant(Timestamp value) {
+        return Instant.ofEpochSecond(value.getSeconds(), value.getNanos()).toString();
+    }
+
+    private static Timestamp timestamp(long millis) {
+        return Timestamp.newBuilder().setSeconds(Math.floorDiv(millis, 1000)).setNanos((int) Math.floorMod(millis, 1000) * 1_000_000).build();
+    }
+
+    private static OrderStatus status(String value) {
+        String normalized = value.startsWith("ORDER_STATUS_") ? value : "ORDER_STATUS_" + value;
+        return OrderStatus.valueOf(normalized.toUpperCase());
+    }
+
+    private static Long longValue(Object value) {
+        return value instanceof Number number ? number.longValue() : null;
+    }
+
+    private static long requiredLong(Map<String, Object> input, String key) {
+        Long value = input == null ? null : longValue(input.get(key));
+        if (value == null) throw new IllegalArgumentException(key + " is required");
+        return value;
+    }
+
+    private static String required(Map<String, Object> input, String key) {
+        return required(input == null ? null : input.get(key) == null ? null : String.valueOf(input.get(key)), key);
+    }
+
+    private static String required(String value, String key) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(key + " is required");
+        return value.trim();
+    }
+
+    private static String blank(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private static void put(Map<String, Object> source, String key, java.util.function.Consumer<String> setter) {
+        if (source != null && source.get(key) != null && !String.valueOf(source.get(key)).isBlank())
+            setter.accept(String.valueOf(source.get(key)));
+    }
 }

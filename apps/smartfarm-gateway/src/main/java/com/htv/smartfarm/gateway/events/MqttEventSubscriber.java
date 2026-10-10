@@ -1,5 +1,7 @@
 package com.htv.smartfarm.gateway.events;
 
+import com.htv.smartfarm.gateway.authorization.AuthorizationInvalidationConsumer;
+
 import com.google.protobuf.util.JsonFormat;
 import com.htv.smartfarm.proto.events.v1.DomainEvent;
 import com.htv.smartfarm.security.mqtt.MqttSecurityVerifier;
@@ -29,6 +31,12 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(prefix = "smartfarm.events.mqtt", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class MqttEventSubscriber {
+    private AuthorizationInvalidationConsumer authorizationInvalidations;
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAuthorizationInvalidationConsumer(AuthorizationInvalidationConsumer value) {
+        this.authorizationInvalidations = value;
+    }
+
 
     private static final Logger log = LoggerFactory.getLogger(MqttEventSubscriber.class);
 
@@ -110,6 +118,7 @@ public class MqttEventSubscriber {
                 return;
             }
             DomainEvent evt = DomainEvent.parseFrom(verification.payload());
+        if (authorizationInvalidations != null && authorizationInvalidations.accept(evt)) return;
             String json = JsonFormat.printer().omittingInsignificantWhitespace().print(evt);
             String tenant = evt.getMetadata().getTenantId();
             String farm = evt.getMetadata().getFarmId();

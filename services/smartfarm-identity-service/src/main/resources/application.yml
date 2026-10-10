@@ -20,6 +20,11 @@ server:
 # getSecurityProfile calls fail with UNAVAILABLE (Connection refused /127.0.0.1:9092).
 spring.grpc.server.port: 9092
 smartfarm:
+  security:
+    grpc:
+      # Phase 3C: compare static JWT scopes with live Identity authorization.
+      # SHADOW records divergence but preserves the existing static decision.
+      authorization-mode: ${SMARTFARM_GRPC_AUTHORIZATION_MODE:SHADOW}
   grpc:
     tls:
       enabled: false

@@ -4,6 +4,10 @@ import java.util.UUID;
 
 import com.htv.smartfarm.security.TokenVerifier;
 import com.htv.smartfarm.security.core.SecurityIdentity;
+import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationDecision;
+import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationMode;
+import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationShadowObserver;
+import com.htv.smartfarm.security.grpc.dynamic.GrpcDynamicAuthorizationEvaluator;
 
 import io.grpc.Context;
 import io.grpc.Contexts;
@@ -41,20 +45,45 @@ public final class JwtServerInterceptor implements ServerInterceptor {
 
     private final TokenVerifier verifier;
     private final GrpcMethodPolicy policy;
+    private final GrpcAuthorizationMode authorizationMode;
+    private final GrpcDynamicAuthorizationEvaluator dynamicEvaluator;
+    private final GrpcAuthorizationShadowObserver shadowObserver;
 
     public JwtServerInterceptor(
             TokenVerifier verifier,
             GrpcMethodPolicy policy
     ) {
-        this.verifier = verifier;
-        this.policy = policy;
+        this(
+                verifier,
+                policy,
+                GrpcAuthorizationMode.OFF,
+                GrpcDynamicAuthorizationEvaluator.unavailable(),
+                new GrpcAuthorizationShadowObserver()
+        );
+    }
+
+    public JwtServerInterceptor(
+            TokenVerifier verifier,
+            GrpcMethodPolicy policy,
+            GrpcAuthorizationMode authorizationMode,
+            GrpcDynamicAuthorizationEvaluator dynamicEvaluator,
+            GrpcAuthorizationShadowObserver shadowObserver
+    ) {
+        this.verifier = java.util.Objects.requireNonNull(verifier, "verifier");
+        this.policy = java.util.Objects.requireNonNull(policy, "policy");
+        this.authorizationMode = authorizationMode == null
+                ? GrpcAuthorizationMode.OFF
+                : authorizationMode;
+        this.dynamicEvaluator = dynamicEvaluator == null
+                ? GrpcDynamicAuthorizationEvaluator.unavailable()
+                : dynamicEvaluator;
+        this.shadowObserver = shadowObserver == null
+                ? new GrpcAuthorizationShadowObserver()
+                : shadowObserver;
     }
 
     public JwtServerInterceptor(TokenVerifier verifier) {
-        this(
-                verifier,
-                GrpcMethodPolicy.authenticatedByDefault()
-        );
+        this(verifier, GrpcMethodPolicy.authenticatedByDefault());
     }
 
     @Override
@@ -122,8 +151,52 @@ public final class JwtServerInterceptor implements ServerInterceptor {
 
         String requiredAuthority =
                 policy.requiredAuthority(fullMethodName);
+        boolean staticAllowed = hasRequiredAuthority(
+                identity,
+                requiredAuthority
+        );
 
-        if (!hasRequiredAuthority(identity, requiredAuthority)) {
+        if (authorizationMode != GrpcAuthorizationMode.OFF
+                && requiredAuthority != null
+                && !requiredAuthority.isBlank()) {
+            GrpcAuthorizationDecision dynamicDecision;
+            try {
+                dynamicDecision = dynamicEvaluator.evaluate(
+                        fullMethodName,
+                        requiredAuthority,
+                        identity
+                );
+                if (dynamicDecision == null) {
+                    dynamicDecision = GrpcAuthorizationDecision.unavailable(
+                            "DYNAMIC_EVALUATOR_RETURNED_NULL"
+                    );
+                }
+            } catch (RuntimeException exception) {
+                dynamicDecision = GrpcAuthorizationDecision.unavailable(
+                        "DYNAMIC_EVALUATOR_FAILED"
+                );
+            }
+
+            shadowObserver.observe(
+                    fullMethodName,
+                    identity,
+                    staticAllowed,
+                    dynamicDecision
+            );
+
+            if (authorizationMode == GrpcAuthorizationMode.ENFORCE
+                    && !dynamicDecision.allowed()) {
+                return deny(
+                        call,
+                        Status.PERMISSION_DENIED.withDescription(
+                                "Dynamic authorization denied: "
+                                        + dynamicDecision.reasonCode()
+                        )
+                );
+            }
+        }
+
+        if (!staticAllowed) {
             return deny(
                     call,
                     Status.PERMISSION_DENIED.withDescription(
