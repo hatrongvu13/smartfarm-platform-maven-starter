@@ -95,7 +95,7 @@ public class LivestockRegistryController {
     // ---- animals ----
 
     @PostMapping("/animals")
-    @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> registerAnimal(@AuthenticationPrincipal Jwt jwt, @RequestBody RegisterAnimal body) {
         return call("RegisterAnimal", () -> {
             if (body == null || body.farmId() == null || body.tagCode() == null)
@@ -115,7 +115,7 @@ public class LivestockRegistryController {
     }
 
     @GetMapping("/animals/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> getAnimal(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetAnimal", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
@@ -126,7 +126,7 @@ public class LivestockRegistryController {
     }
 
     @GetMapping("/animals")
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> listAnimals(@AuthenticationPrincipal Jwt jwt,
                                                  @RequestParam String farmId,
                                                  @RequestParam(required = false) String batchId,
@@ -147,7 +147,7 @@ public class LivestockRegistryController {
     // ---- schedules ----
 
     @PostMapping("/schedules")
-    @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createSchedule(@AuthenticationPrincipal Jwt jwt, @RequestBody CreateSchedule body) {
         return call("CreateSchedule", () -> {
             if (body == null || body.farmId() == null || body.title() == null || body.cronExpression() == null)
@@ -165,7 +165,7 @@ public class LivestockRegistryController {
     }
 
     @GetMapping("/schedules")
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> listSchedules(@AuthenticationPrincipal Jwt jwt,
                                                    @RequestParam String farmId,
                                                    @RequestParam(required = false, defaultValue = "50") int limit) {

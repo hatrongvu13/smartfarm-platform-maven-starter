@@ -18,6 +18,16 @@ management:
 spring.grpc.server.port: 9096
 smartfarm:
   security:
+
+    authorization-invalidation:
+      mqtt:
+        enabled: ${AUTHORIZATION_INVALIDATION_MQTT_ENABLED:true}
+        broker-url: ${SMARTFARM_MQTT_URL:tcp://localhost:1883}
+        topic-filter: ${AUTHORIZATION_INVALIDATION_TOPIC_FILTER:smartfarm/+/_global/domain/authorization-invalidated/v1}
+        client-id: ${AUTHORIZATION_INVALIDATION_CLIENT_ID:${spring.application.name}-authorization-watermark-${HOSTNAME:local}}
+        qos: ${AUTHORIZATION_INVALIDATION_QOS:1}
+        username: ${SMARTFARM_MQTT_USERNAME:}
+        password: ${SMARTFARM_MQTT_PASSWORD:}
     jwt:
       issuer: ${SMARTFARM_JWT_ISSUER:}
       jwk-set-uri: ${SMARTFARM_JWKS_URI:}

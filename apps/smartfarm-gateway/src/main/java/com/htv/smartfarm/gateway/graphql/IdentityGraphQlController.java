@@ -58,7 +58,7 @@ public class IdentityGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:principal:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:principal:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> me() {
         return jwtCall(jwt -> {
             RequestContext context = contexts.create(jwt);
@@ -76,7 +76,7 @@ public class IdentityGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:security:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:security:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> mySecurityProfile() {
         return jwtCall(jwt -> {
             RequestContext context = contexts.create(jwt);
@@ -95,7 +95,7 @@ public class IdentityGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> users(
             @Argument Map<String, Object> filter,
             @Argument Map<String, Object> page
@@ -125,7 +125,7 @@ public class IdentityGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> userAuthorization(
             @Argument String subjectId
     ) {
@@ -148,7 +148,7 @@ public class IdentityGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:role:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:role:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> roles(
             @Argument Map<String, Object> page
     ) {
@@ -174,7 +174,7 @@ public class IdentityGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:permission:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> permissions(
             @Argument Map<String, Object> page
     ) {
@@ -199,7 +199,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:role:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:role:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createAuthorizationRole(@Argument Map<String, Object> input) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -209,7 +209,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:role:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:role:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateAuthorizationRole(@Argument Map<String, Object> input) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -219,7 +219,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:role:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:role:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Boolean> deleteAuthorizationRole(@Argument String code) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -228,7 +228,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createAuthorizationPermission(@Argument Map<String, Object> input) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -238,7 +238,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateAuthorizationPermission(@Argument Map<String, Object> input) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -248,7 +248,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Boolean> deleteAuthorizationPermission(@Argument String code) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -257,7 +257,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> grantPermissionToAuthorizationRole(@Argument String roleCode, @Argument String permissionCode) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -266,7 +266,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:permission:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> revokePermissionFromAuthorizationRole(@Argument String roleCode, @Argument String permissionCode) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -275,7 +275,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:role:assign')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:role:assign') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> assignAuthorizationRole(@Argument String subjectId, @Argument String roleCode) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -285,7 +285,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:role:assign')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:role:assign') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> revokeAuthorizationRole(@Argument String subjectId, @Argument String roleCode) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -295,7 +295,7 @@ public class IdentityGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:profile:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:profile:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> userPrincipal(@Argument String subjectId) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -304,7 +304,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:disable')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:disable') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> disableUserMembership(@Argument String subjectId, @Argument String reason) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -314,7 +314,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:disable')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:disable') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> enableUserMembership(@Argument String subjectId) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -324,7 +324,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:disable')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:disable') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> suspendUserMembership(@Argument String subjectId, @Argument String reason) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -334,19 +334,19 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:account:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:account:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> disableUserAccount(@Argument String subjectId, @Argument String reason) {
         return accountMutation(subjectId, reason, "disable");
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:account:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:account:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> enableUserAccount(@Argument String subjectId) {
         return accountMutation(subjectId, "", "enable");
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:account:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:account:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> unlockUserAccount(@Argument String subjectId) {
         return accountMutation(subjectId, "", "unlock");
     }
@@ -365,7 +365,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:profile:manage')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:profile:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateUserProfile(@Argument Map<String, Object> input) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
@@ -387,7 +387,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:create')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:create') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createUser(
             @Argument Map<String, Object> input
     ) {
@@ -428,7 +428,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:principal:update')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:principal:update') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateMyProfile(
             @Argument Map<String, Object> input
     ) {
@@ -513,7 +513,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:mfa:enroll')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:mfa:enroll') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> beginTotpEnrollment(
             @Argument String displayName
     ) {
@@ -539,7 +539,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:mfa:enroll')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:mfa:enroll') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> confirmTotpEnrollment(
             @Argument String authenticatorId,
             @Argument String code
@@ -573,7 +573,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:mfa:disable')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:mfa:disable') or hasAuthority('SCOPE_*'))")
     public Mono<Boolean> disableMyMfa(@Argument String authenticatorId) {
         return jwtCall(jwt -> {
             RequestContext context = contexts.create(jwt);
@@ -596,7 +596,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:mfa:recovery:regenerate')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:mfa:recovery:regenerate') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> regenerateRecoveryCodes(
             @Argument String authenticatorId
     ) {
@@ -626,7 +626,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:credential:reset')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:credential:reset') or hasAuthority('SCOPE_*'))")
     public Mono<Boolean> changeMyPassword(
             @Argument String currentPassword,
             @Argument String newPassword
@@ -658,7 +658,7 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_identity:user:mfa:reset')")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:user:mfa:reset') or hasAuthority('SCOPE_*'))")
     public Mono<Boolean> resetUserMfa(@Argument String subjectId) {
         return jwtCall(jwt -> {
             RequestContext context = contexts.create(jwt);
@@ -698,11 +698,7 @@ public class IdentityGraphQlController {
         );
 
         return new BearerCallCredentials(
-                () -> tokens.tokenFor(
-                        audience,
-                        tenantId,
-                        jwt.getSubject()
-                ),
+                () -> tokens.tokenFor(audience, jwt),
                 () -> tenantId,
                 () -> correlationId
         );

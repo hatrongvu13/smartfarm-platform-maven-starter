@@ -109,7 +109,7 @@ public class HealthDevController {
     }
 
     @GetMapping("/observations")
-    @PreAuthorize("hasAuthority('SCOPE_health:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_health:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> observations(@AuthenticationPrincipal Jwt jwt,
                                                   @RequestParam String animalId,
                                                   @RequestParam(required = false, defaultValue = "50") int limit) {
@@ -126,7 +126,7 @@ public class HealthDevController {
     }
 
     @GetMapping("/vaccinations")
-    @PreAuthorize("hasAuthority('SCOPE_health:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_health:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> vaccinations(@AuthenticationPrincipal Jwt jwt,
                                                   @RequestParam String animalId,
                                                   @RequestParam(required = false, defaultValue = "50") int limit) {
@@ -143,7 +143,7 @@ public class HealthDevController {
     }
 
     @GetMapping("/alerts")
-    @PreAuthorize("hasAuthority('SCOPE_health:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_health:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> alerts(@AuthenticationPrincipal Jwt jwt,
                                             @RequestParam String farmId,
                                             @RequestParam(required = false, defaultValue = "50") int limit) {

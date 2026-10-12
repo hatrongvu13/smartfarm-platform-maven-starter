@@ -54,7 +54,7 @@ public class OrderGraphQlController {
     }
 
     @QueryMapping("orderV2")
-    @PreAuthorize("hasAuthority('SCOPE_orders:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> order(@Argument String id) {
         return call("GetOrder", (jwt, correlationId) -> {
             var context = contexts.create(jwt, correlationId, null);
@@ -66,7 +66,7 @@ public class OrderGraphQlController {
     }
 
     @QueryMapping("ordersV2")
-    @PreAuthorize("hasAuthority('SCOPE_orders:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> orders(@Argument Map<String, Object> filter,
                                             @Argument Map<String, Object> page) {
         return call("ListOrders", (jwt, correlationId) -> {
@@ -96,7 +96,7 @@ public class OrderGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> placeOrder(@Argument Map<String, Object> input) {
         return call("PlaceOrder", (jwt, correlationId) -> {
             String key = required(input, "idempotencyKey");
@@ -110,7 +110,7 @@ public class OrderGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createDraftOrder(@Argument Map<String, Object> input) {
         return call("CreateDraftOrder", (jwt, correlationId) -> {
             var context = contexts.create(jwt, correlationId, required(input, "idempotencyKey"));
@@ -123,7 +123,7 @@ public class OrderGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateDraftOrder(@Argument Map<String, Object> input) {
         return call("UpdateDraftOrder", (jwt, correlationId) -> {
             var context = contexts.create(jwt, correlationId, null);
@@ -138,7 +138,7 @@ public class OrderGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> submitDraftOrder(@Argument Map<String, Object> input) {
         return call("SubmitDraftOrder", (jwt, correlationId) -> {
             var context = contexts.create(jwt, correlationId, null);
@@ -150,7 +150,7 @@ public class OrderGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Boolean> deleteDraftOrder(@Argument Map<String, Object> input) {
         return call("DeleteDraftOrder", (jwt, correlationId) -> {
             var context = contexts.create(jwt, correlationId, null);
@@ -163,7 +163,7 @@ public class OrderGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> cancelOrder(@Argument Map<String, Object> input) {
         return call("CancelOrder", (jwt, correlationId) -> {
             var context = contexts.create(jwt, correlationId, null);
@@ -176,7 +176,7 @@ public class OrderGraphQlController {
 
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub stub(Jwt jwt, String correlationId) {
         String tenant = required(jwt.getClaimAsString("tenant_id"), "tenantId");
-        String token = tokens.tokenFor(AUDIENCE, tenant, jwt.getSubject());
+        String token = tokens.tokenFor(AUDIENCE, jwt);
         return orders.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(
                         () -> token, () -> tenant, () -> correlationId));

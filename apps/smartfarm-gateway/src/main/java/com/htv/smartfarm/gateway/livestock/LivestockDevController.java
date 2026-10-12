@@ -127,7 +127,7 @@ public class LivestockDevController {
     // ---- endpoints ----
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, String>> create(@AuthenticationPrincipal Jwt jwt,
                                             @RequestHeader("Idempotency-Key") String key,
                                             @RequestBody Create body) {
@@ -149,7 +149,7 @@ public class LivestockDevController {
     }
 
     @PostMapping("/{id}/assign")
-    @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> assign(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Assign body) {
         return call("AssignTask", () -> {
             if (body == null || body.assigneeId() == null || body.assigneeId().isBlank())
@@ -165,7 +165,7 @@ public class LivestockDevController {
     }
 
     @PostMapping("/{id}/accept")
-    @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> accept(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("AcceptTask", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
@@ -176,7 +176,7 @@ public class LivestockDevController {
     }
 
     @PostMapping("/{id}/complete")
-    @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> complete(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody(required = false) Complete body) {
         return call("CompleteTask", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
@@ -188,7 +188,7 @@ public class LivestockDevController {
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAuthority('SCOPE_tasks:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody(required = false) Cancel body) {
         return call("CancelTask", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
@@ -200,7 +200,7 @@ public class LivestockDevController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> list(@AuthenticationPrincipal Jwt jwt,
                                           @RequestParam String farmId,
                                           @RequestParam(required = false) String status,
@@ -227,7 +227,7 @@ public class LivestockDevController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> get(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetTask", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");

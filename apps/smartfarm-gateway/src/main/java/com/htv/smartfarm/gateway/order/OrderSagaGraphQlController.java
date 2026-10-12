@@ -20,49 +20,49 @@ public class OrderSagaGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> orderSaga(@Argument String sagaId) {
         return call((jwt, correlationId) -> gateway.inspect(jwt, correlationId, required(sagaId, "sagaId")));
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> orderSagaByOrder(@Argument String orderId) {
         return call((jwt, correlationId) -> gateway.inspectByOrder(jwt, correlationId, required(orderId, "orderId")));
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> retryOrderSagaStep(@Argument Map<String, Object> input) {
         return call((jwt, correlationId) -> gateway.retry(jwt, correlationId, required(input, "sagaId"), required(input, "stepKey"), required(input, "reason")));
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> resumeOrderSaga(@Argument Map<String, Object> input) {
         return action("ResumeOrderSaga", input);
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> forceCompensateOrder(@Argument Map<String, Object> input) {
         return action("ForceCompensateOrder", input);
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> forceCancelOrder(@Argument Map<String, Object> input) {
         return action("ForceCancelOrder", input);
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> forceCompleteOrder(@Argument Map<String, Object> input) {
         return action("ForceCompleteOrder", input);
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> markOrderSagaResolved(@Argument Map<String, Object> input) {
         return action("MarkOrderSagaResolved", input);
     }

@@ -65,7 +65,7 @@ public class InventoryController {
     }
 
     @GetMapping("/items")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> items(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "") String query, @RequestParam(required = false) String category, @RequestParam(defaultValue = "50") int size) {
         return call("ListItems", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -81,7 +81,7 @@ public class InventoryController {
     }
 
     @GetMapping("/items/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> item(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetItem", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -90,7 +90,7 @@ public class InventoryController {
     }
 
     @PostMapping("/items")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createItem(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String key, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @RequestBody CreateItemBody x) {
         return call("CreateItem", jwt, correlation, () -> {
             var c = contexts.create(jwt, GatewayCorrelationContext.normalize(correlation), key);
@@ -102,7 +102,7 @@ public class InventoryController {
     }
 
     @PutMapping("/items/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateItem(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody UpdateItemBody x) {
         return call("UpdateItem", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -111,7 +111,7 @@ public class InventoryController {
     }
 
     @DeleteMapping("/items/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> disableItem(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("SetItemStatus", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -120,7 +120,7 @@ public class InventoryController {
     }
 
     @PostMapping("/warehouses")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createWarehouse(@AuthenticationPrincipal Jwt jwt, @RequestBody CreateWarehouseBody x) {
         return call("CreateWarehouse", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -130,7 +130,7 @@ public class InventoryController {
     }
 
     @GetMapping("/warehouses")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> warehouses(@AuthenticationPrincipal Jwt jwt, @RequestParam String farmId, @RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "50") int size) {
         return call("ListWarehouses", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -143,7 +143,7 @@ public class InventoryController {
     }
 
     @PutMapping("/warehouses/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateWarehouse(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody UpdateWarehouseBody x) {
         return call("UpdateWarehouse", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -152,7 +152,7 @@ public class InventoryController {
     }
 
     @DeleteMapping("/warehouses/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> disableWarehouse(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("SetWarehouseStatus", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -161,7 +161,7 @@ public class InventoryController {
     }
 
     @GetMapping("/warehouses/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> warehouse(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetWarehouse", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -170,7 +170,7 @@ public class InventoryController {
     }
 
     @GetMapping("/warehouses/{id}/items")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> warehouseItems(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "false") boolean lowStockOnly, @RequestParam(defaultValue = "50") int size) {
         return call("ListWarehouseItems", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -183,7 +183,7 @@ public class InventoryController {
     }
 
     @PostMapping("/receipts")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> receive(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String key, @RequestBody ReceiveBody x) {
         return call("ReceiveStock", jwt, null, () -> {
             var c = contexts.create(jwt, null, key);
@@ -193,7 +193,7 @@ public class InventoryController {
     }
 
     @PostMapping("/issues")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> issue(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String key, @RequestBody IssueBody x) {
         return call("IssueStock", jwt, null, () -> {
             var c = contexts.create(jwt, null, key);
@@ -202,7 +202,7 @@ public class InventoryController {
     }
 
     @PostMapping("/lots/{id}/adjustments")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> adjust(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String key, @PathVariable String id, @RequestBody AdjustBody x) {
         return call("AdjustStock", jwt, null, () -> {
             var c = contexts.create(jwt, null, key);
@@ -211,7 +211,7 @@ public class InventoryController {
     }
 
     @GetMapping("/lots/{id}/trace")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> trace(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestParam(defaultValue = "50") int size) {
         return call("TraceLot", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -224,7 +224,7 @@ public class InventoryController {
     }
 
     @GetMapping("/balances")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> balance(@AuthenticationPrincipal Jwt jwt, @RequestParam String itemId, @RequestParam String warehouseId) {
         return call("GetStockBalance", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -233,7 +233,7 @@ public class InventoryController {
     }
 
     @GetMapping("/low-stock")
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> low(@AuthenticationPrincipal Jwt jwt, @RequestParam String farmId, @RequestParam(defaultValue = "50") int size) {
         return call("ListLowStock", jwt, null, () -> {
             var c = contexts.create(jwt, null, null);
@@ -244,7 +244,7 @@ public class InventoryController {
 
     private InventoryServiceGrpc.InventoryServiceBlockingStub stub(Jwt jwt, String correlation) {
         String tenant = jwt.getClaimAsString("tenant_id");
-        String token = tokens.tokenFor(AUDIENCE, tenant, jwt.getSubject());
+        String token = tokens.tokenFor(AUDIENCE, jwt);
         return base.withDeadlineAfter(deadline, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> token, () -> tenant, () -> correlation));
     }
 

@@ -77,29 +77,29 @@ public class FarmGraphQlController {
     }
 
     private LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub liveStub(Jwt jwt) {
-        String t = tokens.tokenFor(LIVESTOCK_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
+        String t = tokens.tokenFor(LIVESTOCK_AUDIENCE, jwt);
         return livestock.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub orderStub(Jwt jwt) {
-        String t = tokens.tokenFor(ORDER_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
+        String t = tokens.tokenFor(ORDER_AUDIENCE, jwt);
         return order.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     private InventoryServiceGrpc.InventoryServiceBlockingStub invStub(Jwt jwt) {
-        String t = tokens.tokenFor(INVENTORY_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
+        String t = tokens.tokenFor(INVENTORY_AUDIENCE, jwt);
         return inventory.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     private FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finStub(Jwt jwt) {
-        String t = tokens.tokenFor(FINANCE_AUDIENCE, jwt.getClaimAsString("tenant_id"), jwt.getSubject());
+        String t = tokens.tokenFor(FINANCE_AUDIENCE, jwt);
         return finance.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> t));
     }
 
     // ---- tasks ----
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<List<Map<String, Object>>> tasks(@Argument String farmId, @Argument String status,
                                                  @Argument String assigneeId, @Argument Integer limit) {
         return jwt().map(jwt -> {
@@ -120,7 +120,7 @@ public class FarmGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> task(@Argument String id) {
         return jwt().map(jwt -> {
             var t = liveStub(jwt).getTask(GetTaskRequest.newBuilder().setContext(ctx(jwt)).setTaskId(id).build()).getTask();
@@ -131,7 +131,7 @@ public class FarmGraphQlController {
     // ---- orders ----
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:read') or hasAuthority('SCOPE_*'))")
     public Mono<List<Map<String, Object>>> orders(@Argument String farmId, @Argument String status, @Argument Integer limit) {
         return jwt().map(jwt -> {
             var b = ListOrdersRequest.newBuilder().setContext(ctx(jwt)).setFarmId(farmId)
@@ -150,7 +150,7 @@ public class FarmGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> order(@Argument String id) {
         return jwt().map(jwt -> {
             var o = orderStub(jwt).getOrder(GetOrderRequest.newBuilder().setContext(ctx(jwt)).setOrderId(id).build()).getOrder();
@@ -167,7 +167,7 @@ public class FarmGraphQlController {
      * Needs both farm:read (tasks) and orders:read (orders).
      */
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_farm:read') and hasAuthority('SCOPE_orders:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*')) and (hasAuthority('SCOPE_orders:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> dashboard(@Argument String farmId, @Argument Integer recentLimit) {
         return jwt().map(jwt -> {
             long now = System.currentTimeMillis();
@@ -262,7 +262,7 @@ public class FarmGraphQlController {
      * Tồn kho tại (item, warehouse). Read-only qua InventoryService.GetStockBalance.
      */
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> warehouseInventory(@Argument String itemId, @Argument String warehouseId) {
         return jwt().map(jwt -> {
             var b = invStub(jwt).getStockBalance(GetStockBalanceRequest.newBuilder()
@@ -281,7 +281,7 @@ public class FarmGraphQlController {
      * Chi phí theo lô. Read-only qua FarmFinanceService.GetBatchCost (service token mang finance:read).
      */
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_report:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_report:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> batchCost(@Argument String farmId, @Argument String batchId) {
         return jwt().map(jwt -> {
             var c = finStub(jwt).getBatchCost(GetBatchCostRequest.newBuilder()
@@ -303,7 +303,7 @@ public class FarmGraphQlController {
      * Dòng tiền theo khoảng thời gian. Read-only qua FarmFinanceService.GetCashFlow.
      */
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_report:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_report:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> cashFlow(@Argument String farmId, @Argument Double fromEpochMs, @Argument Double toEpochMs) {
         return jwt().map(jwt -> {
             var req = GetCashFlowRequest.newBuilder().setContext(ctx(jwt)).setFarmId(farmId);
@@ -329,7 +329,7 @@ public class FarmGraphQlController {
      * Tồn kho dưới ngưỡng đặt lại theo farm. Read-only qua InventoryService.ListLowStock.
      */
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_inventory:read') or hasAuthority('SCOPE_*'))")
     public Mono<List<Map<String, Object>>> lowStock(@Argument String farmId, @Argument Integer limit) {
         return jwt().map(jwt -> {
             var resp = invStub(jwt).listLowStock(ListLowStockRequest.newBuilder().setContext(ctx(jwt))

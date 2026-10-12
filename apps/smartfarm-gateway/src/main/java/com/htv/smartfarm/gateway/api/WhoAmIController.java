@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api/v1")
 public class WhoAmIController {
     @GetMapping(value = "/me", produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, String>> me(@AuthenticationPrincipal Jwt jwt) {
         return Mono.just(Map.of("subject", jwt.getSubject(), "tenantId", jwt.getClaimAsString("tenant_id")));
     }

@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono;
 @Controller
 public class PlatformQuery {
     @QueryMapping
-    @PreAuthorize("hasAuthority('SCOPE_farm:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, String>> platformStatus() {
         return ReactiveSecurityContextHolder.getContext().map(context -> {
             Jwt jwt = (Jwt) context.getAuthentication().getPrincipal();

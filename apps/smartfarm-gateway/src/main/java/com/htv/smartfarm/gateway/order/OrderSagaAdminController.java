@@ -25,49 +25,49 @@ public class OrderSagaAdminController {
     }
 
     @GetMapping("/by-order/{orderId}")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> getByOrder(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String orderId) {
         return call(() -> gateway.restInspectByOrder(jwt, corr(correlation), orderId));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> get(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id) {
         return call(() -> gateway.restInspect(jwt, corr(correlation), id));
     }
 
     @PostMapping("/{id}/steps/{step}/retry")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> retry(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @PathVariable String step, @RequestBody Reason body) {
         return call(() -> gateway.restRetry(jwt, corr(correlation), id, step, reason(body)));
     }
 
     @PostMapping("/{id}/resume")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> resume(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody Reason body) {
         return action(jwt, correlation, "ResumeOrderSaga", id, body);
     }
 
     @PostMapping("/{id}/force-compensate")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> compensate(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody Reason body) {
         return action(jwt, correlation, "ForceCompensateOrder", id, body);
     }
 
     @PostMapping("/{id}/force-cancel")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> cancel(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody Reason body) {
         return action(jwt, correlation, "ForceCancelOrder", id, body);
     }
 
     @PostMapping("/{id}/force-complete")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> complete(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody Reason body) {
         return action(jwt, correlation, "ForceCompleteOrder", id, body);
     }
 
     @PostMapping("/{id}/mark-resolved")
-    @PreAuthorize("hasAuthority('SCOPE_orders:saga:admin')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:saga:admin') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> resolved(@AuthenticationPrincipal Jwt jwt, @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody Reason body) {
         return action(jwt, correlation, "MarkOrderSagaResolved", id, body);
     }

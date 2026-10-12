@@ -61,7 +61,7 @@ public class OrderRestController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> place(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Required idempotency key", required = true) @RequestHeader("Idempotency-Key") String key, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @RequestBody Create body) {
         return call("PlaceOrder", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), required(key, "Idempotency-Key"));
@@ -73,7 +73,7 @@ public class OrderRestController {
     }
 
     @PostMapping("/drafts")
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createDraft(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Required idempotency key", required = true) @RequestHeader("Idempotency-Key") String key, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @RequestBody Create body) {
         return call("CreateDraftOrder", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), required(key, "Idempotency-Key"));
@@ -85,7 +85,7 @@ public class OrderRestController {
     }
 
     @PutMapping("/drafts/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateDraft(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody Update body) {
         return call("UpdateDraftOrder", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), null);
@@ -97,7 +97,7 @@ public class OrderRestController {
     }
 
     @PostMapping("/drafts/{id}/submit")
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> submit(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody Version body) {
         return call("SubmitDraftOrder", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), null);
@@ -106,7 +106,7 @@ public class OrderRestController {
     }
 
     @DeleteMapping("/drafts/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Void> delete(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestParam long expectedVersion) {
         return call("DeleteDraftOrder", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), null);
@@ -116,7 +116,7 @@ public class OrderRestController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_orders:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> get(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id) {
         return call("GetOrder", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), null);
@@ -125,7 +125,7 @@ public class OrderRestController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SCOPE_orders:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> list(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @RequestParam(required = false) String farmId, @RequestParam(required = false) String status, @RequestParam(required = false) String warehouseId, @RequestParam(defaultValue = "20") int size, @RequestParam(defaultValue = "") String pageToken) {
         return call("ListOrders", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), null);
@@ -139,7 +139,7 @@ public class OrderRestController {
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAuthority('SCOPE_orders:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_orders:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> cancel(@AuthenticationPrincipal Jwt jwt, @Parameter(description = "Optional correlation ID, echoed in the response") @RequestHeader(value = "X-Correlation-Id", required = false) String correlation, @PathVariable String id, @RequestBody(required = false) Cancel body) {
         return call("CancelOrder", jwt, () -> {
             var c = contexts.create(jwt, corr(correlation), null);
@@ -151,7 +151,7 @@ public class OrderRestController {
 
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub stub(Jwt jwt, String correlation) {
         String tenant = required(jwt.getClaimAsString("tenant_id"), "tenantId");
-        String token = tokens.tokenFor(AUDIENCE, tenant, jwt.getSubject());
+        String token = tokens.tokenFor(AUDIENCE, jwt);
         return base.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> token, () -> tenant, () -> correlation));
     }
 

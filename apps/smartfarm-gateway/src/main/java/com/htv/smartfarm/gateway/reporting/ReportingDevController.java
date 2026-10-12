@@ -105,7 +105,7 @@ public class ReportingDevController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_report:write')")
+    @PreAuthorize("(hasAuthority('SCOPE_report:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> request(@AuthenticationPrincipal Jwt jwt,
                                              @RequestHeader("Idempotency-Key") String key,
                                              @RequestBody RequestExport body) {
@@ -130,7 +130,7 @@ public class ReportingDevController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_report:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_report:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> get(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetExportJob", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");
@@ -141,7 +141,7 @@ public class ReportingDevController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SCOPE_report:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_report:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> list(@AuthenticationPrincipal Jwt jwt,
                                           @RequestParam String farmId,
                                           @RequestParam(required = false, defaultValue = "50") int limit) {
@@ -158,7 +158,7 @@ public class ReportingDevController {
     }
 
     @GetMapping("/{id}/download")
-    @PreAuthorize("hasAuthority('SCOPE_report:read')")
+    @PreAuthorize("(hasAuthority('SCOPE_report:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> download(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetDownloadLocation", () -> {
             String tenant = jwt.getClaimAsString("tenant_id");

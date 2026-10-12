@@ -139,7 +139,7 @@ public class OrderSagaGateway {
 
     private OrderSagaAdministrationServiceGrpc.OrderSagaAdministrationServiceBlockingStub stub(Jwt jwt, String correlation) {
         String tenant = jwt.getClaimAsString("tenant_id");
-        String token = tokens.tokenFor(AUDIENCE, tenant, jwt.getSubject());
+        String token = tokens.tokenFor(AUDIENCE, jwt);
         return base.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> token, () -> tenant, () -> correlation));
     }
 
