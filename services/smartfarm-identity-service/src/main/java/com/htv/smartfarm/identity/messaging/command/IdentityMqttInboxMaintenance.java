@@ -2,29 +2,20 @@ package com.htv.smartfarm.identity.messaging.command;
 
 import java.time.Clock;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class IdentityMqttInboxMaintenance {
 
-    private static final Logger log = LoggerFactory.getLogger(IdentityMqttInboxMaintenance.class);
     private final IdentityMqttInboxRepository inbox;
     private final IdentityMqttCommandProperties properties;
     private final Clock clock;
-
-    public IdentityMqttInboxMaintenance(
-            IdentityMqttInboxRepository inbox,
-            IdentityMqttCommandProperties properties,
-            Clock clock
-    ) {
-        this.inbox = inbox;
-        this.properties = properties;
-        this.clock = clock;
-    }
 
     @Scheduled(fixedDelayString = "${smartfarm.identity.mqtt.commands.cleanup-interval:1h}")
     @Transactional

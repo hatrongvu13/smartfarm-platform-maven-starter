@@ -5,6 +5,7 @@ import java.util.function.Supplier;
 
 import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,15 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
  * use this service because it has no authenticated tenant or actor context.
  */
 @Service
+@RequiredArgsConstructor
 public class TenantPermissionCatalogAdministrationService {
 
     private final AuthorizationMutationCoordinator authorizationMutations;
-
-    public TenantPermissionCatalogAdministrationService(
-            AuthorizationMutationCoordinator authorizationMutations
-    ) {
-        this.authorizationMutations = authorizationMutations;
-    }
 
     @Transactional
     public <T> T apply(

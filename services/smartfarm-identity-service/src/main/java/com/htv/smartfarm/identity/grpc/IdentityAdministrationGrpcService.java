@@ -15,9 +15,11 @@ import io.grpc.stub.StreamObserver;
 
 import java.util.List;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class IdentityAdministrationGrpcService
         extends IdentityAdministrationServiceGrpc
         .IdentityAdministrationServiceImplBase {
@@ -31,24 +33,6 @@ public class IdentityAdministrationGrpcService
     private final IdentityAdministrationProtoMapper protoMapper;
     private final GrpcRequestSecurity requestSecurity;
     private final GrpcExceptionMapper exceptionMapper;
-
-    public IdentityAdministrationGrpcService(
-            TenantIdentityAdministrationService administrationService,
-            AuthorizationCatalogService catalogService,
-            DynamicAuthorizationAdministrationService dynamicAuthorization,
-            PrincipalProfileService principalProfileService,
-            IdentityAdministrationProtoMapper protoMapper,
-            GrpcRequestSecurity requestSecurity,
-            GrpcExceptionMapper exceptionMapper
-    ) {
-        this.administrationService = administrationService;
-        this.catalogService = catalogService;
-        this.dynamicAuthorization = dynamicAuthorization;
-        this.principalProfileService = principalProfileService;
-        this.protoMapper = protoMapper;
-        this.requestSecurity = requestSecurity;
-        this.exceptionMapper = exceptionMapper;
-    }
 
     @Override
     public void listRoles(

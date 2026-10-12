@@ -1,12 +1,10 @@
 package com.htv.smartfarm.identity.administration.application;
 
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 import com.htv.smartfarm.common.exception.ConflictException;
 import com.htv.smartfarm.common.exception.NotFoundException;
@@ -42,11 +40,13 @@ import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.token.RefreshRepository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class DefaultTenantIdentityAdministrationService
         implements TenantIdentityAdministrationService {
 
@@ -62,34 +62,6 @@ public class DefaultTenantIdentityAdministrationService
     private final MembershipFarmRepository membershipFarmRepository;
     private final RefreshRepository refreshRepository;
     private final Clock clock;
-
-    public DefaultTenantIdentityAdministrationService(
-            AccountService accountService,
-            TenantMembershipService tenantMembershipService,
-            RoleManagementService roleManagementService,
-            UserAccountRepository accountRepository,
-            UserProfileRepository profileRepository,
-            TenantMembershipRepository membershipRepository,
-            RoleRepository roleRepository,
-            MembershipRoleRepository membershipRoleRepository,
-            RolePermissionRepository rolePermissionRepository,
-            MembershipFarmRepository membershipFarmRepository,
-            RefreshRepository refreshRepository,
-            Clock clock
-    ) {
-        this.accountService = accountService;
-        this.tenantMembershipService = tenantMembershipService;
-        this.roleManagementService = roleManagementService;
-        this.accountRepository = accountRepository;
-        this.profileRepository = profileRepository;
-        this.membershipRepository = membershipRepository;
-        this.roleRepository = roleRepository;
-        this.membershipRoleRepository = membershipRoleRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.membershipFarmRepository = membershipFarmRepository;
-        this.refreshRepository = refreshRepository;
-        this.clock = clock;
-    }
 
     @Override
     public PageResult<RoleData> listRoles(String tenantId, int pageSize, String pageToken, boolean includePermissions) {

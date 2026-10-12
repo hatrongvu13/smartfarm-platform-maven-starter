@@ -14,6 +14,7 @@ import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -21,10 +22,8 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public final class GrpcExceptionMapper {
-
-    private static final Logger log =
-            LoggerFactory.getLogger(GrpcExceptionMapper.class);
 
     public <T> void executeUnary(
             StreamObserver<T> responseObserver,

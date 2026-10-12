@@ -13,30 +13,22 @@ import com.htv.smartfarm.identity.authorization.repository.RolePermissionReposit
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
 import com.htv.smartfarm.identity.config.IdentityAuthorizationProperties;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@Slf4j
+@RequiredArgsConstructor
 public class IdentityAuthorizationSynchronizer implements ApplicationRunner {
-    private static final Logger log = LoggerFactory.getLogger(IdentityAuthorizationSynchronizer.class);
     private final IdentityAuthorizationProperties properties;
     private final PermissionRepository permissions;
     private final TenantRepository tenants;
     private final RoleRepository roles;
     private final RolePermissionRepository grants;
-
-    public IdentityAuthorizationSynchronizer(IdentityAuthorizationProperties properties, PermissionRepository permissions,
-                                             TenantRepository tenants, RoleRepository roles, RolePermissionRepository grants) {
-        this.properties = properties;
-        this.permissions = permissions;
-        this.tenants = tenants;
-        this.roles = roles;
-        this.grants = grants;
-    }
 
     @Override
     @Transactional

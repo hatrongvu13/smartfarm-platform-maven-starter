@@ -2,8 +2,6 @@ package com.htv.smartfarm.identity.messaging.command;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.htv.smartfarm.identity.administration.application.command.AssignRoleCommand;
-import com.htv.smartfarm.identity.administration.application.command.RevokeRoleCommand;
 import com.htv.smartfarm.identity.authorization.application.RoleManagementService;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 import com.htv.smartfarm.identity.tenant.application.TenantMembershipService;
@@ -12,6 +10,7 @@ import com.htv.smartfarm.messaging.dispatch.DispatchErrorCodes;
 import com.htv.smartfarm.messaging.dispatch.DispatchFailureClassifier;
 import com.htv.smartfarm.messaging.dispatch.DispatchFailureDecision;
 
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -21,6 +20,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(prefix = "smartfarm.identity.mqtt.commands",
         name = "enabled", havingValue = "true")
+@RequiredArgsConstructor
 public class IdentityMqttCommandDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(IdentityMqttCommandDispatcher.class);
@@ -29,25 +29,7 @@ public class IdentityMqttCommandDispatcher {
     private final RoleManagementService roles;
     private final IdentityIntegrationEventPublisher events;
     private final ObjectMapper objectMapper;
-    // Same shared semantics as the order relay: a bad command payload (IllegalArgumentException) is
-    // PERMANENT_DATA -> fail + continue; broker/MqttException is infrastructure -> break; any other
-    // runtime error is UNKNOWN -> fail + continue (bounded by the inbox's own max-attempts), instead
-    // of the previous unconditional break that stalled the whole batch (ISSUE-09).
     private final DispatchFailureClassifier classifier = new DefaultDispatchFailureClassifier();
-
-    public IdentityMqttCommandDispatcher(
-            IdentityMqttInboxTransactionService transactions,
-            TenantMembershipService memberships,
-            RoleManagementService roles,
-            IdentityIntegrationEventPublisher events,
-            ObjectMapper objectMapper
-    ) {
-        this.transactions = transactions;
-        this.memberships = memberships;
-        this.roles = roles;
-        this.events = events;
-        this.objectMapper = objectMapper;
-    }
 
     @Scheduled(fixedDelayString = "${smartfarm.identity.mqtt.commands.dispatch-interval:1s}")
     public void dispatch() {

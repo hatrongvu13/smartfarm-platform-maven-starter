@@ -8,21 +8,17 @@ import com.htv.smartfarm.identity.authorization.application.model.PermissionData
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
 import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class DefaultAuthorizationCatalogService
         implements AuthorizationCatalogService {
 
     private final PermissionRepository permissionRepository;
-
-    public DefaultAuthorizationCatalogService(
-            PermissionRepository permissionRepository
-    ) {
-        this.permissionRepository = permissionRepository;
-    }
 
     @Override
     public PageResult<PermissionData> listPermissions(
@@ -34,8 +30,8 @@ public class DefaultAuthorizationCatalogService
                 || resourceType.isBlank()
                 ? permissionRepository.findAll()
                 : permissionRepository.findAllByResourceTypeOrderByActionAsc(
-                        resourceType.trim().toUpperCase()
-                );
+                resourceType.trim().toUpperCase()
+        );
 
         List<PermissionData> data = permissions.stream()
                 .sorted(Comparator.comparing(PermissionEntity::getCode))

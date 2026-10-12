@@ -20,11 +20,6 @@ public interface UserAccountRepository
 
     boolean existsByNormalizedEmail(String normalizedEmail);
 
-    boolean existsByNormalizedEmailAndIdNot(
-            String normalizedEmail,
-            String excludedUserId
-    );
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select u

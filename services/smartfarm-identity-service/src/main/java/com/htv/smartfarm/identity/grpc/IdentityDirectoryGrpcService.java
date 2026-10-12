@@ -18,10 +18,11 @@ import com.htv.smartfarm.proto.identity.v1.UpdatePrincipalProfileResponse;
 
 import io.grpc.stub.StreamObserver;
 
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class IdentityDirectoryGrpcService
         extends IdentityDirectoryServiceGrpc
         .IdentityDirectoryServiceImplBase {
@@ -36,24 +37,6 @@ public class IdentityDirectoryGrpcService
     private final IdentityProtoMapper protoMapper;
     private final GrpcRequestSecurity requestSecurity;
     private final GrpcExceptionMapper exceptionMapper;
-    private final String serviceVersion;
-
-    public IdentityDirectoryGrpcService(
-            PrincipalProfileService principalProfileService,
-            AuthorizationService authorizationService,
-            IdentityProtoMapper protoMapper,
-            GrpcRequestSecurity requestSecurity,
-            GrpcExceptionMapper exceptionMapper,
-            @Value("${spring.application.version:unknown}")
-            String serviceVersion
-    ) {
-        this.principalProfileService = principalProfileService;
-        this.authorizationService = authorizationService;
-        this.protoMapper = protoMapper;
-        this.requestSecurity = requestSecurity;
-        this.exceptionMapper = exceptionMapper;
-        this.serviceVersion = serviceVersion;
-    }
 
     @Override
     public void getPrincipal(
@@ -220,7 +203,6 @@ public class IdentityDirectoryGrpcService
                     return PingResponse.newBuilder()
                             .setService(SERVICE_NAME)
                             .setStatus("UP")
-                            .setVersion(serviceVersion)
                             .build();
                 }
         );

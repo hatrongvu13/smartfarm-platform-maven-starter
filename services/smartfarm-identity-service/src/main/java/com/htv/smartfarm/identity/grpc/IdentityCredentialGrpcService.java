@@ -29,9 +29,11 @@ import com.htv.smartfarm.proto.identity.v1.SecurityProfileInfo;
 
 import io.grpc.stub.StreamObserver;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class IdentityCredentialGrpcService
         extends IdentityCredentialServiceGrpc
         .IdentityCredentialServiceImplBase {
@@ -41,20 +43,6 @@ public class IdentityCredentialGrpcService
     private final AccountService accountService;
     private final GrpcRequestSecurity requestSecurity;
     private final GrpcExceptionMapper exceptionMapper;
-
-    public IdentityCredentialGrpcService(
-            AuthenticatorService authenticatorService,
-            CredentialAdministrationService administrationService,
-            AccountService accountService,
-            GrpcRequestSecurity requestSecurity,
-            GrpcExceptionMapper exceptionMapper
-    ) {
-        this.authenticatorService = authenticatorService;
-        this.administrationService = administrationService;
-        this.accountService = accountService;
-        this.requestSecurity = requestSecurity;
-        this.exceptionMapper = exceptionMapper;
-    }
 
     @Override
     public void getSecurityProfile(

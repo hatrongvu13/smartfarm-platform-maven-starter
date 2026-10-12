@@ -5,26 +5,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class IdentityMqttInboxTransactionService {
 
     private final IdentityMqttInboxRepository inbox;
     private final IdentityMqttCommandProperties properties;
     private final Clock clock;
-
-    public IdentityMqttInboxTransactionService(
-            IdentityMqttInboxRepository inbox,
-            IdentityMqttCommandProperties properties,
-            Clock clock
-    ) {
-        this.inbox = inbox;
-        this.properties = properties;
-        this.clock = clock;
-    }
 
     @Transactional
     public List<IdentityMqttDispatchMessage> claimBatch() {

@@ -7,21 +7,17 @@ import com.htv.smartfarm.security.core.SecurityIdentity;
 import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationDecision;
 import com.htv.smartfarm.security.grpc.dynamic.GrpcDynamicAuthorizationEvaluator;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /** Identity-side live evaluator used in Phase 3C SHADOW mode. */
 @Component
+@RequiredArgsConstructor
 public class IdentityGrpcDynamicAuthorizationEvaluator
         implements GrpcDynamicAuthorizationEvaluator {
 
     private static final String SCOPE_PREFIX = "SCOPE_";
     private final AuthorizationService authorization;
-
-    public IdentityGrpcDynamicAuthorizationEvaluator(
-            AuthorizationService authorization
-    ) {
-        this.authorization = authorization;
-    }
 
     @Override
     public GrpcAuthorizationDecision evaluate(

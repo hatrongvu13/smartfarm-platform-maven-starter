@@ -8,8 +8,8 @@ import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -26,24 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
  * manual DB edit is needed. Runs on every boot but only writes when a grant is missing.</p>
  */
 @Component
+@Slf4j
+@RequiredArgsConstructor
 public class SuperAdminWildcardGrantRunner implements ApplicationRunner {
-
-    private static final Logger log =
-            LoggerFactory.getLogger(SuperAdminWildcardGrantRunner.class);
-
     private final RoleRepository roles;
     private final PermissionRepository permissions;
     private final RolePermissionRepository rolePermissions;
-
-    public SuperAdminWildcardGrantRunner(
-            RoleRepository roles,
-            PermissionRepository permissions,
-            RolePermissionRepository rolePermissions
-    ) {
-        this.roles = roles;
-        this.permissions = permissions;
-        this.rolePermissions = rolePermissions;
-    }
 
     @Override
     @Transactional

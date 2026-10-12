@@ -23,10 +23,12 @@ import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class RoleManagementService {
 
     private static final String PLATFORM_ADMIN = "PLATFORM_ADMIN";
@@ -39,33 +41,7 @@ public class RoleManagementService {
     private final RolePermissionRepository rolePermissionRepository;
     private final MembershipRoleRepository membershipRoleRepository;
     private final IdentityIntegrationEventPublisher events;
-    private AuthorizationMutationCoordinator authorizationMutations;
-
-    public RoleManagementService(
-            TenantRepository tenantRepository,
-            TenantMembershipRepository membershipRepository,
-            RoleRepository roleRepository,
-            PermissionRepository permissionRepository,
-            RolePermissionRepository rolePermissionRepository,
-            MembershipRoleRepository membershipRoleRepository,
-            IdentityIntegrationEventPublisher events
-    ) {
-        this.tenantRepository = tenantRepository;
-        this.membershipRepository = membershipRepository;
-        this.roleRepository = roleRepository;
-        this.permissionRepository = permissionRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.membershipRoleRepository = membershipRoleRepository;
-        this.events = events;
-    }
-
-
-
-    @org.springframework.beans.factory.annotation.Autowired
-    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
-        this.authorizationMutations = value;
-    }
-
+    private final AuthorizationMutationCoordinator authorizationMutations;
 
     @Transactional
     public String createRole(
@@ -238,7 +214,7 @@ public class RoleManagementService {
 
         rolePermissionAuthorizationChanged(
                 tenantId, actorId, correlationId, "ROLE_PERMISSION_GRANTED");
-}
+    }
 
     @Transactional
     public void revokePermissionFromRole(
@@ -290,7 +266,7 @@ public class RoleManagementService {
 
         rolePermissionAuthorizationChanged(
                 tenantId, actorId, correlationId, "ROLE_PERMISSION_REVOKED");
-}
+    }
 
     @Transactional
     public void assignRole(
@@ -356,7 +332,7 @@ public class RoleManagementService {
 
         roleAuthorizationChanged(
                 tenantId, userId, grantedBy, null, "ROLE_ASSIGNED");
-}
+    }
 
     @Transactional
     public void revokeRole(
@@ -406,7 +382,7 @@ public class RoleManagementService {
 
         roleAuthorizationChanged(
                 tenantId, userId, userId, null, "ROLE_REVOKED");
-}
+    }
 
     @Transactional(readOnly = true)
     public List<String> getRolePermissions(
@@ -453,12 +429,16 @@ public class RoleManagementService {
         }
     }
 
-    /** Role codes are canonical upper-case identifiers. */
+    /**
+     * Role codes are canonical upper-case identifiers.
+     */
     private String normalizeCode(String value) {
         return value.trim().toUpperCase(Locale.ROOT);
     }
 
-    /** Permission codes are OAuth scope identifiers and are canonical lower-case. */
+    /**
+     * Permission codes are OAuth scope identifiers and are canonical lower-case.
+     */
     private String normalizePermissionCode(String value) {
         requireText(value, "permissionCode");
         return value.trim().toLowerCase(Locale.ROOT);

@@ -12,6 +12,4 @@ public interface UserProfileRepository
 
     @EntityGraph(attributePaths = "account")
     Optional<UserProfileEntity> findWithAccountByUserId(String userId);
-
-    boolean existsByUserId(String userId);
 }

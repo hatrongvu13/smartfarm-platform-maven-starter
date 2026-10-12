@@ -4,31 +4,19 @@ import java.time.Clock;
 import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AuthorizationVersionService {
     private final TenantAuthorizationVersionRepository tenants;
     private final SubjectAuthorizationVersionRepository subjects;
     private final TenantRepository tenantRepository;
     private final TenantMembershipRepository membershipRepository;
     private final Clock clock;
-
-    public AuthorizationVersionService(
-            TenantAuthorizationVersionRepository tenants,
-            SubjectAuthorizationVersionRepository subjects,
-            TenantRepository tenantRepository,
-            TenantMembershipRepository membershipRepository,
-            Clock clock
-    ) {
-        this.tenants = tenants;
-        this.subjects = subjects;
-        this.tenantRepository = tenantRepository;
-        this.membershipRepository = membershipRepository;
-        this.clock = clock;
-    }
 
     @Transactional(readOnly = true)
     public AuthorizationVersionTuple current(String tenantId, String subjectId) {

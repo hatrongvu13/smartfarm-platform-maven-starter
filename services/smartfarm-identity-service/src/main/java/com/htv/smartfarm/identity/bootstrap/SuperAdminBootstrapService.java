@@ -23,6 +23,8 @@ import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -48,11 +50,9 @@ import org.springframework.web.server.ResponseStatusException;
  * TOTP later from an authenticator. Nothing MFA-related gates the first token.</p>
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class SuperAdminBootstrapService {
-
-    private static final Logger log =
-            LoggerFactory.getLogger(SuperAdminBootstrapService.class);
-
     public static final String SUPERADMIN = "SUPERADMIN";
     public static final String WILDCARD_PERMISSION = "*";
     private static final String SYSTEM_TENANT_CODE = "system";
@@ -67,28 +67,6 @@ public class SuperAdminBootstrapService {
     private final PermissionRepository permissions;
     private final RolePermissionRepository rolePermissions;
     private final AuthenticatorService authenticatorService;
-
-    public SuperAdminBootstrapService(
-            AccountService accountService,
-            UserAccountRepository accounts,
-            TenantRepository tenants,
-            TenantMembershipRepository memberships,
-            RoleRepository roles,
-            MembershipRoleRepository membershipRoles,
-            PermissionRepository permissions,
-            RolePermissionRepository rolePermissions,
-            AuthenticatorService authenticatorService
-    ) {
-        this.accountService = accountService;
-        this.accounts = accounts;
-        this.tenants = tenants;
-        this.memberships = memberships;
-        this.roles = roles;
-        this.membershipRoles = membershipRoles;
-        this.permissions = permissions;
-        this.rolePermissions = rolePermissions;
-        this.authenticatorService = authenticatorService;
-    }
 
     /** @return true when the system already has at least one super-admin. */
     @Transactional(readOnly = true)

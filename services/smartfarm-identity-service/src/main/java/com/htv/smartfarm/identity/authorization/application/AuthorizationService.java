@@ -17,10 +17,12 @@ import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AuthorizationService {
 
     private static final int MAX_BATCH_TARGETS = 100;
@@ -32,22 +34,6 @@ public class AuthorizationService {
     private final RolePermissionRepository rolePermissionRepository;
     private final MembershipFarmRepository membershipFarmRepository;
     private final Clock clock;
-
-    public AuthorizationService(
-            UserAccountRepository userAccountRepository,
-            TenantMembershipRepository membershipRepository,
-            MembershipRoleRepository membershipRoleRepository,
-            RolePermissionRepository rolePermissionRepository,
-            MembershipFarmRepository membershipFarmRepository,
-            Clock clock
-    ) {
-        this.userAccountRepository = userAccountRepository;
-        this.membershipRepository = membershipRepository;
-        this.membershipRoleRepository = membershipRoleRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.membershipFarmRepository = membershipFarmRepository;
-        this.clock = clock;
-    }
 
     @Transactional(readOnly = true)
     public PermissionDecision checkPermission(

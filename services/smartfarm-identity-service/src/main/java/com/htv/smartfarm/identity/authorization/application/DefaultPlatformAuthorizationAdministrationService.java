@@ -11,6 +11,7 @@ import com.htv.smartfarm.identity.administration.application.model.RoleTypeData;
 import com.htv.smartfarm.identity.authorization.application.model.PermissionData;
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
 import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
+import com.htv.smartfarm.identity.authorization.domain.RolePermissionEntity;
 import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
@@ -18,36 +19,21 @@ import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class DefaultPlatformAuthorizationAdministrationService
         implements PlatformAuthorizationAdministrationService {
 
     private final IdentitySettings settings;
     private final TenantRepository tenantRepository;
     private final RoleRepository roleRepository;
-    private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final RoleManagementService roleManagementService;
-
-    public DefaultPlatformAuthorizationAdministrationService(
-            IdentitySettings settings,
-            TenantRepository tenantRepository,
-            RoleRepository roleRepository,
-            PermissionRepository permissionRepository,
-            RolePermissionRepository rolePermissionRepository,
-            RoleManagementService roleManagementService
-    ) {
-        this.settings = settings;
-        this.tenantRepository = tenantRepository;
-        this.roleRepository = roleRepository;
-        this.permissionRepository = permissionRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.roleManagementService = roleManagementService;
-    }
 
     @Override
     public PageResult<RoleData> listPlatformRoles(int pageSize, String pageToken, boolean includePermissions) {
@@ -62,7 +48,7 @@ public class DefaultPlatformAuthorizationAdministrationService
     @Override
     @Transactional
     public RoleData createPlatformRole(String roleCode, String roleName, String description,
-            List<String> permissionCodes, String actorId) {
+                                       List<String> permissionCodes, String actorId) {
         TenantEntity tenant = platformTenant();
         String code = normalize(roleCode);
         String id = roleManagementService.createRole(
@@ -103,8 +89,8 @@ public class DefaultPlatformAuthorizationAdministrationService
     private RoleData toData(RoleEntity role, boolean includePermissions) {
         List<PermissionData> permissions = includePermissions
                 ? rolePermissionRepository.findAllByIdRoleId(role.getId()).stream()
-                        .map(value -> value.getPermission())
-                        .map(this::permissionData).toList()
+                .map(RolePermissionEntity::getPermission)
+                .map(this::permissionData).toList()
                 : List.of();
         return new RoleData(role.getId(), role.getTenant().getId(), role.getCode(), role.getName(),
                 RoleTypeData.PLATFORM, permissions, role.getCreatedAt(), role.getUpdatedAt(), role.getVersion());

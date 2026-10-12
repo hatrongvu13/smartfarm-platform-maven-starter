@@ -8,10 +8,12 @@ import com.htv.smartfarm.identity.authorization.repository.MembershipRoleReposit
 import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class DynamicAuthorizationAdministrationService {
     private final RoleManagementService management;
     private final PermissionRepository permissions;
@@ -20,21 +22,6 @@ public class DynamicAuthorizationAdministrationService {
     private final MembershipRoleRepository assignments;
     private final PermissionCatalogMutationService catalog;
 
-    public DynamicAuthorizationAdministrationService(
-            RoleManagementService management,
-            PermissionRepository permissions,
-            RoleRepository roles,
-            RolePermissionRepository grants,
-            MembershipRoleRepository assignments,
-            PermissionCatalogMutationService catalog
-    ) {
-        this.management = management;
-        this.permissions = permissions;
-        this.roles = roles;
-        this.grants = grants;
-        this.assignments = assignments;
-        this.catalog = catalog;
-    }
     @Transactional
     public PermissionEntity createPermission(
             String tenantId, String code, String resource, String action,

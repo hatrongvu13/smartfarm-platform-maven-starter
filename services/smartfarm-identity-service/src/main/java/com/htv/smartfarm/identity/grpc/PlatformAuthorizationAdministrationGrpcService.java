@@ -25,9 +25,11 @@ import com.htv.smartfarm.proto.identity.v1
 
 import io.grpc.stub.StreamObserver;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class PlatformAuthorizationAdministrationGrpcService
         extends PlatformAuthorizationAdministrationServiceGrpc
         .PlatformAuthorizationAdministrationServiceImplBase {
@@ -44,19 +46,6 @@ public class PlatformAuthorizationAdministrationGrpcService
     private final IdentityAdministrationProtoMapper protoMapper;
     private final GrpcRequestSecurity requestSecurity;
     private final GrpcExceptionMapper exceptionMapper;
-
-    public PlatformAuthorizationAdministrationGrpcService(
-            PlatformAuthorizationAdministrationService
-                    administrationService,
-            IdentityAdministrationProtoMapper protoMapper,
-            GrpcRequestSecurity requestSecurity,
-            GrpcExceptionMapper exceptionMapper
-    ) {
-        this.administrationService = administrationService;
-        this.protoMapper = protoMapper;
-        this.requestSecurity = requestSecurity;
-        this.exceptionMapper = exceptionMapper;
-    }
 
     @Override
     public void listPlatformRoles(

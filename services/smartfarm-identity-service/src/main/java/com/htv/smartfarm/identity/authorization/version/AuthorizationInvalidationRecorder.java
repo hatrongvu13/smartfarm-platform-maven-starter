@@ -1,17 +1,13 @@
 package com.htv.smartfarm.identity.authorization.version;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class AuthorizationInvalidationRecorder {
     private final IdentityIntegrationEventPublisher events;
-
-    public AuthorizationInvalidationRecorder(IdentityIntegrationEventPublisher events) {
-        this.events = events;
-    }
 
     /**
      * Must be called inside the same transaction as the authorization mutation and

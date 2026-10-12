@@ -7,6 +7,7 @@ import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
 import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,20 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
  * Runtime mutations always identify the tenant whose effective policy changes.
  */
 @Service
+@RequiredArgsConstructor
 public class PermissionCatalogMutationService {
     private final PermissionRepository permissions;
     private final RolePermissionRepository grants;
     private final TenantPermissionCatalogAdministrationService tenantMutations;
-
-    public PermissionCatalogMutationService(
-            PermissionRepository permissions,
-            RolePermissionRepository grants,
-            TenantPermissionCatalogAdministrationService tenantMutations
-    ) {
-        this.permissions = permissions;
-        this.grants = grants;
-        this.tenantMutations = tenantMutations;
-    }
 
     @Transactional
     public PermissionEntity create(

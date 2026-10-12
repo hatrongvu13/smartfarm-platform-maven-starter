@@ -1,6 +1,7 @@
 package com.htv.smartfarm.identity.authorization.application;
 
 import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
+
 import java.util.List;
 
 import com.htv.smartfarm.common.exception.ConflictException;
@@ -12,32 +13,18 @@ import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class FarmScopeService {
 
     private final TenantMembershipRepository membershipRepository;
     private final MembershipFarmRepository membershipFarmRepository;
     private final FarmDirectoryPort farmDirectoryPort;
-    private AuthorizationMutationCoordinator authorizationMutations;
-
-    public FarmScopeService(
-            TenantMembershipRepository membershipRepository,
-            MembershipFarmRepository membershipFarmRepository,
-            FarmDirectoryPort farmDirectoryPort
-    ) {
-        this.membershipRepository = membershipRepository;
-        this.membershipFarmRepository = membershipFarmRepository;
-        this.farmDirectoryPort = farmDirectoryPort;
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired
-    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
-        this.authorizationMutations = value;
-    }
-
+    private final AuthorizationMutationCoordinator authorizationMutations;
 
     @Transactional
     public void grantFarmAccess(
@@ -68,9 +55,9 @@ public class FarmScopeService {
         membershipFarmRepository.save(
                 new MembershipFarmEntity(membership, farmId)
         );
-    
+
         farmAuthorizationChanged(tenantId, userId, "FARM_SCOPE_GRANTED");
-}
+    }
 
     @Transactional
     public void revokeFarmAccess(
