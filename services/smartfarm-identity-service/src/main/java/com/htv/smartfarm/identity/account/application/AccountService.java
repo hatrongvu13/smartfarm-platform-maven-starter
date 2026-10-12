@@ -1,6 +1,7 @@
 package com.htv.smartfarm.identity.account.application;
 
 import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,13 +19,14 @@ import com.htv.smartfarm.identity.account.repository.UserProfileRepository;
 import com.htv.smartfarm.identity.token.RefreshRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AccountService {
 
     private static final int DEFAULT_LOCK_THRESHOLD = 5;
@@ -37,37 +39,10 @@ public class AccountService {
     private final UserAccountRepository userAccountRepository;
     private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
-    private AuthorizationMutationCoordinator authorizationMutations;
+    private final AuthorizationMutationCoordinator authorizationMutations;
     private final Clock clock;
     private final RefreshRepository refreshRepository;
-    private IdentityIntegrationEventPublisher events;
-
-    public AccountService(
-            UserAccountRepository userAccountRepository,
-            UserProfileRepository userProfileRepository,
-            PasswordEncoder passwordEncoder,
-            Clock clock,
-            RefreshRepository refreshRepository
-    ) {
-        this.userAccountRepository = userAccountRepository;
-        this.userProfileRepository = userProfileRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.clock = clock;
-        this.refreshRepository = refreshRepository;
-    }
-
-
-    @org.springframework.beans.factory.annotation.Autowired
-    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
-        this.authorizationMutations = value;
-    }
-
-    @Autowired
-    void setIdentityIntegrationEventPublisher(
-            IdentityIntegrationEventPublisher events
-    ) {
-        this.events = events;
-    }
+    private final IdentityIntegrationEventPublisher events;
 
     @Transactional
     public String createAccount(CreateAccountCommand command) {
@@ -274,11 +249,11 @@ public class AccountService {
         account.enable();
         if (changed) {
             publishAccountStatus(
-                tenantId, actorId, correlationId,
-                "identity.account.enabled", account, "ENABLED");
+                    tenantId, actorId, correlationId,
+                    "identity.account.enabled", account, "ENABLED");
             accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_ENABLED");
         }
-}
+    }
 
     @Transactional
     public void disableAccount(String userId) {
@@ -298,11 +273,11 @@ public class AccountService {
         refreshRepository.revokeUser(userId);
         if (changed) {
             publishAccountStatus(
-                tenantId, actorId, correlationId,
-                "identity.account.disabled", account, "DISABLED");
+                    tenantId, actorId, correlationId,
+                    "identity.account.disabled", account, "DISABLED");
             accountAuthorizationChanged(tenantId, userId, actorId, correlationId, "ACCOUNT_DISABLED");
         }
-}
+    }
 
     @Transactional
     public void unlockAccount(String userId) {

@@ -17,12 +17,14 @@ import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class PrincipalProfileService {
 
     private static final Set<String> ALLOWED_PROFILE_FIELDS = Set.of(
@@ -34,24 +36,7 @@ public class PrincipalProfileService {
     private final TenantMembershipRepository membershipRepository;
     private final MembershipRoleRepository membershipRoleRepository;
     private final MembershipFarmRepository membershipFarmRepository;
-    private IdentityIntegrationEventPublisher events;
-
-    public PrincipalProfileService(UserProfileRepository userProfileRepository,
-            TenantMembershipRepository membershipRepository,
-            MembershipRoleRepository membershipRoleRepository,
-            MembershipFarmRepository membershipFarmRepository) {
-        this.userProfileRepository = userProfileRepository;
-        this.membershipRepository = membershipRepository;
-        this.membershipRoleRepository = membershipRoleRepository;
-        this.membershipFarmRepository = membershipFarmRepository;
-    }
-
-    @Autowired
-    void setIdentityIntegrationEventPublisher(
-            IdentityIntegrationEventPublisher events
-    ) {
-        this.events = events;
-    }
+    private final IdentityIntegrationEventPublisher events;
 
     @Transactional(readOnly = true)
     public PrincipalData getPrincipal(String tenantId, String subjectId) {
