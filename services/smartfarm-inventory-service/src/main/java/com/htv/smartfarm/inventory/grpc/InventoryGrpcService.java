@@ -36,6 +36,9 @@ public class InventoryGrpcService extends InventoryServiceGrpc.InventoryServiceI
     private String tenant() {
         return GrpcSecurityContext.requireTenant();
     }
+    private String actor() {
+        return GrpcSecurityContext.requireEffectiveActor();
+    }
 
     private static <T> void respond(StreamObserver<T> out, Supplier<T> action) {
         try {
@@ -149,7 +152,7 @@ public class InventoryGrpcService extends InventoryServiceGrpc.InventoryServiceI
 
     @Override
     public void createWarehouse(CreateWarehouseRequest req, StreamObserver<WarehouseResponse> out) {
-        respond(out, () -> WarehouseResponse.newBuilder().setWarehouse(WarehouseProtoMapper.proto(warehouses.create(tenant(), req.getContext().getActorId(), req.getWarehouse().getWarehouseId(), req.getWarehouse().getFarmId(), req.getWarehouse().getCode(), req.getWarehouse().getName(), req.getWarehouse().getDescription(), req.getWarehouse().getAddress()))).build());
+        respond(out, () -> WarehouseResponse.newBuilder().setWarehouse(WarehouseProtoMapper.proto(warehouses.create(tenant(), actor(), req.getWarehouse().getWarehouseId(), req.getWarehouse().getFarmId(), req.getWarehouse().getCode(), req.getWarehouse().getName(), req.getWarehouse().getDescription(), req.getWarehouse().getAddress()))).build());
     }
 
     @Override

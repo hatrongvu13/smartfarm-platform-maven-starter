@@ -59,6 +59,10 @@ public class ServiceTokenClient {
         return fetch(key, actorId);
     }
 
+    public String tokenForMachine(String audience, String tenantId) {
+        return tokenFor(audience, tenantId, null);
+    }
+
     private synchronized String fetch(Key key, String actorId) {
         Cached c = cache.get(key);
         if (c != null && Instant.now().isBefore(c.refreshAfter())) return c.token();

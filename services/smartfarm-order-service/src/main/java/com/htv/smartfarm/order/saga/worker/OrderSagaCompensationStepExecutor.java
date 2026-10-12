@@ -99,13 +99,13 @@ public class OrderSagaCompensationStepExecutor {
     }
 
     private InventoryServiceGrpc.InventoryServiceBlockingStub inventory(OrderEntity order, String actor) {
-        String token = tokens.tokenFor(INVENTORY_AUDIENCE, order.getTenantId(), actor);
+        String token = tokens.tokenForMachine(INVENTORY_AUDIENCE, order.getTenantId());
         return inventory.withDeadlineAfter(inventoryDeadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> token));
     }
 
     private FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub finance(OrderEntity order, String actor) {
-        String token = tokens.tokenFor(FINANCE_AUDIENCE, order.getTenantId(), actor);
+        String token = tokens.tokenForMachine(FINANCE_AUDIENCE, order.getTenantId());
         return finance.withDeadlineAfter(financeDeadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> token));
     }

@@ -33,13 +33,11 @@ public class ReportingGrpcService extends ReportingServiceGrpc.ReportingServiceI
     }
 
     private static String tenant() {
-        String t = GrpcSecurityContext.TENANT.get();
-        if (t == null || t.isBlank()) throw Status.UNAUTHENTICATED.asRuntimeException();
-        return t;
+        return GrpcSecurityContext.requireTenant();
     }
 
     private static String actor() {
-        return GrpcSecurityContext.SUBJECT.get();
+        return GrpcSecurityContext.requireEffectiveActor();
     }
 
     private static <T> void respond(StreamObserver<T> out, Supplier<T> action) {

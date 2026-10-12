@@ -30,13 +30,11 @@ public class LivestockGrpcService extends LivestockTaskServiceGrpc.LivestockTask
     }
 
     private static String tenant() {
-        String t = GrpcSecurityContext.TENANT.get();
-        if (t == null || t.isBlank()) throw Status.UNAUTHENTICATED.asRuntimeException();
-        return t;
+        return GrpcSecurityContext.requireTenant();
     }
 
     private static String actor() {
-        return GrpcSecurityContext.SUBJECT.get();
+        return GrpcSecurityContext.requireEffectiveActor();
     }
 
     /**
@@ -64,7 +62,7 @@ public class LivestockGrpcService extends LivestockTaskServiceGrpc.LivestockTask
     @Override
     public void createTask(CreateTaskRequest req, StreamObserver<CreateTaskResponse> observer) {
         try {
-            TaskStore.Task task = commands.create(GrpcSecurityContext.TENANT.get(), GrpcSecurityContext.SUBJECT.get(), req);
+            TaskStore.Task task = commands.create(tenant(), actor(), req);
             observer.onNext(CreateTaskResponse.newBuilder().setTaskId(task.id()).setStatus(task.status()).build());
             observer.onCompleted();
         } catch (SecurityException ex) {
@@ -80,7 +78,7 @@ public class LivestockGrpcService extends LivestockTaskServiceGrpc.LivestockTask
 
     @Override
     public void getTask(GetTaskRequest request, StreamObserver<TaskResponse> observer) {
-        String tenantId = GrpcSecurityContext.TENANT.get();
+        String tenantId = tenant();
         if (tenantId == null || tenantId.isBlank()) {
             observer.onError(Status.UNAUTHENTICATED.asRuntimeException());
             return;
