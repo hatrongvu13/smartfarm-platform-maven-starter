@@ -3,6 +3,9 @@ package com.htv.smartfarm.security.grpc;
 import java.util.UUID;
 
 import com.htv.smartfarm.security.TokenVerifier;
+import com.htv.smartfarm.security.authorization.AuthorizationFreshnessGuard;
+import com.htv.smartfarm.security.authorization.AuthorizationVersionWatermarkStore;
+import com.htv.smartfarm.security.authorization.InMemoryAuthorizationVersionWatermarkStore;
 import com.htv.smartfarm.security.core.SecurityIdentity;
 import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationDecision;
 import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationMode;
@@ -46,6 +49,7 @@ public final class JwtServerInterceptor implements ServerInterceptor {
     private final TokenVerifier verifier;
     private final GrpcMethodPolicy policy;
     private final GrpcAuthorizationMode authorizationMode;
+    private final AuthorizationFreshnessGuard freshnessGuard;
     private final GrpcDynamicAuthorizationEvaluator dynamicEvaluator;
     private final GrpcAuthorizationShadowObserver shadowObserver;
 
@@ -58,7 +62,8 @@ public final class JwtServerInterceptor implements ServerInterceptor {
                 policy,
                 GrpcAuthorizationMode.OFF,
                 GrpcDynamicAuthorizationEvaluator.unavailable(),
-                new GrpcAuthorizationShadowObserver()
+                new GrpcAuthorizationShadowObserver(),
+                new InMemoryAuthorizationVersionWatermarkStore()
         );
     }
 
@@ -67,7 +72,8 @@ public final class JwtServerInterceptor implements ServerInterceptor {
             GrpcMethodPolicy policy,
             GrpcAuthorizationMode authorizationMode,
             GrpcDynamicAuthorizationEvaluator dynamicEvaluator,
-            GrpcAuthorizationShadowObserver shadowObserver
+            GrpcAuthorizationShadowObserver shadowObserver,
+            AuthorizationVersionWatermarkStore watermarks
     ) {
         this.verifier = java.util.Objects.requireNonNull(verifier, "verifier");
         this.policy = java.util.Objects.requireNonNull(policy, "policy");
@@ -80,6 +86,15 @@ public final class JwtServerInterceptor implements ServerInterceptor {
         this.shadowObserver = shadowObserver == null
                 ? new GrpcAuthorizationShadowObserver()
                 : shadowObserver;
+        this.freshnessGuard = new AuthorizationFreshnessGuard(watermarks);
+    }
+
+    /** Compatibility constructor retained for current callers/tests. */
+    public JwtServerInterceptor(TokenVerifier verifier, GrpcMethodPolicy policy,
+            GrpcAuthorizationMode mode, GrpcDynamicAuthorizationEvaluator evaluator,
+            GrpcAuthorizationShadowObserver observer) {
+        this(verifier, policy, mode, evaluator, observer,
+                new InMemoryAuthorizationVersionWatermarkStore());
     }
 
     public JwtServerInterceptor(TokenVerifier verifier) {
@@ -135,6 +150,12 @@ public final class JwtServerInterceptor implements ServerInterceptor {
                             "Verified identity is missing"
                     )
             );
+        }
+
+        AuthorizationFreshnessGuard.Decision freshness = freshnessGuard.evaluate(identity);
+        if (!freshness.allowed()) {
+            return deny(call, Status.UNAUTHENTICATED.withDescription(
+                    "Authorization is stale: " + freshness.reasonCode()));
         }
 
         String tenantHeader = normalize(headers.get(TENANT_HEADER));

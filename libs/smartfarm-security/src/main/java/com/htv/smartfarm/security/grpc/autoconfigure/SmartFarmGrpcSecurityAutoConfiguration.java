@@ -4,6 +4,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import com.htv.smartfarm.security.TokenVerifier;
+import com.htv.smartfarm.security.authorization.AuthorizationVersionWatermarkStore;
 import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
@@ -166,7 +167,8 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
             GrpcMethodPolicy policy,
             GrpcAuthorizationMode authorizationMode,
             GrpcAuthorizationShadowObserver shadowObserver,
-            ObjectProvider<GrpcDynamicAuthorizationEvaluator> evaluator
+            ObjectProvider<GrpcDynamicAuthorizationEvaluator> evaluator,
+            AuthorizationVersionWatermarkStore watermarks
     ) {
         return new JwtServerInterceptor(
                 verifier,
@@ -175,7 +177,8 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
                 evaluator.getIfAvailable(
                         GrpcDynamicAuthorizationEvaluator::unavailable
                 ),
-                shadowObserver
+                shadowObserver,
+                watermarks
         );
     }
 
