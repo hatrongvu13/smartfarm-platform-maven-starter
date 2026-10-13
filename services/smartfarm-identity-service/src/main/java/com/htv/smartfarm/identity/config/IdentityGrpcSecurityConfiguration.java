@@ -438,6 +438,31 @@ public class IdentityGrpcSecurityConfiguration {
                         .getRevokePlatformPermissionMethod(),
                 IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
         );
+
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getGetGlobalPermissionMethod(),
+                IdentityGrpcAuthorities.PLATFORM_PERMISSION_READ
+        );
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getCreateGlobalPermissionMethod(),
+                IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+        );
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getUpdateGlobalPermissionMethod(),
+                IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+        );
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getDeleteGlobalPermissionMethod(),
+                IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+        );
     }
 
     /**

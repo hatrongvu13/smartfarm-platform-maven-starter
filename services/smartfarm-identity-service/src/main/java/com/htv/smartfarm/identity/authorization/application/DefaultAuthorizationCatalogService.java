@@ -21,6 +21,16 @@ public class DefaultAuthorizationCatalogService
     private final PermissionRepository permissionRepository;
 
     @Override
+    public PermissionData getPermission(String code) {
+        String normalized = com.htv.smartfarm.identity.authorization.domain.PermissionCode
+                .normalize(code);
+        return permissionRepository.findById(normalized)
+                .map(this::toData)
+                .orElseThrow(() -> com.htv.smartfarm.common.exception.NotFoundException
+                        .entity("Permission", normalized));
+    }
+
+    @Override
     public PageResult<PermissionData> listPermissions(
             int pageSize,
             String pageToken,

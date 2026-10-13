@@ -528,72 +528,13 @@ public class IdentityAdministrationGrpcService
             CreatePermissionRequest request,
             StreamObserver<PermissionMutationResponse> observer
     ) {
-        responseObserver.onError(
+        observer.onError(
                 io.grpc.Status.FAILED_PRECONDITION
                         .withDescription(
                                 "PERMISSION_CATALOG_PLATFORM_OWNED: use "
                                         + "PlatformAuthorizationAdministrationService"
                         )
                         .asRuntimeException()
-        );
-        return;
-        log.info(
-                "Received create permission request: "
-                        + "permissionCode={}, resourceType={}, action={}",
-                request.getCode(),
-                request.getResourceType(),
-                request.getAction()
-        );
-
-        exceptionMapper.executeUnary(
-                observer,
-                () -> {
-                    requireContext(request.hasContext());
-
-                    var secured =
-                            requestSecurity.authorizeTenantAdministration(
-                                    request.getContext(),
-                                    IdentityGrpcAuthorities.PERMISSION_MANAGE
-                            );
-
-                    var permission = dynamicAuthorization.createPermission(
-                            secured.tenantId(),
-                            request.getCode(),
-                            request.getResourceType(),
-                            request.getAction(),
-                            request.getDescription(),
-                            secured.actorId(),
-                            request.getContext().getCorrelationId()
-                    );
-
-                    log.info(
-                            "Permission created successfully: "
-                                    + "tenantId={}, actorId={}, permissionCode={}, "
-                                    + "resourceType={}, action={}, correlationId={}",
-                            secured.tenantId(),
-                            secured.actorId(),
-                            request.getCode(),
-                            request.getResourceType(),
-                            request.getAction(),
-                            request.getContext().getCorrelationId()
-                    );
-
-                    return PermissionMutationResponse.newBuilder()
-                            .setPermission(
-                                    PermissionInfo.newBuilder()
-                                            .setCode(permission.getCode())
-                                            .setResourceType(
-                                                    permission.getResourceType()
-                                            )
-                                            .setAction(permission.getAction())
-                                            .setDescription(
-                                                    permission.getDescription() == null
-                                                            ? ""
-                                                            : permission.getDescription()
-                                            )
-                            )
-                            .build();
-                }
         );
     }
 
@@ -602,72 +543,13 @@ public class IdentityAdministrationGrpcService
             UpdatePermissionRequest request,
             StreamObserver<PermissionMutationResponse> observer
     ) {
-        responseObserver.onError(
+        observer.onError(
                 io.grpc.Status.FAILED_PRECONDITION
                         .withDescription(
                                 "PERMISSION_CATALOG_PLATFORM_OWNED: use "
                                         + "PlatformAuthorizationAdministrationService"
                         )
                         .asRuntimeException()
-        );
-        return;
-        log.info(
-                "Received update permission request: "
-                        + "permissionCode={}, resourceType={}, action={}",
-                request.getCode(),
-                request.getResourceType(),
-                request.getAction()
-        );
-
-        exceptionMapper.executeUnary(
-                observer,
-                () -> {
-                    requireContext(request.hasContext());
-
-                    var secured =
-                            requestSecurity.authorizeTenantAdministration(
-                                    request.getContext(),
-                                    IdentityGrpcAuthorities.PERMISSION_MANAGE
-                            );
-
-                    var permission = dynamicAuthorization.updatePermission(
-                            secured.tenantId(),
-                            request.getCode(),
-                            request.getResourceType(),
-                            request.getAction(),
-                            request.getDescription(),
-                            secured.actorId(),
-                            request.getContext().getCorrelationId()
-                    );
-
-                    log.info(
-                            "Permission updated successfully: "
-                                    + "tenantId={}, actorId={}, permissionCode={}, "
-                                    + "resourceType={}, action={}, correlationId={}",
-                            secured.tenantId(),
-                            secured.actorId(),
-                            request.getCode(),
-                            request.getResourceType(),
-                            request.getAction(),
-                            request.getContext().getCorrelationId()
-                    );
-
-                    return PermissionMutationResponse.newBuilder()
-                            .setPermission(
-                                    PermissionInfo.newBuilder()
-                                            .setCode(permission.getCode())
-                                            .setResourceType(
-                                                    permission.getResourceType()
-                                            )
-                                            .setAction(permission.getAction())
-                                            .setDescription(
-                                                    permission.getDescription() == null
-                                                            ? ""
-                                                            : permission.getDescription()
-                                            )
-                            )
-                            .build();
-                }
         );
     }
 
@@ -676,53 +558,13 @@ public class IdentityAdministrationGrpcService
             DeletePermissionRequest request,
             StreamObserver<DeleteAuthorizationObjectResponse> observer
     ) {
-        responseObserver.onError(
+        observer.onError(
                 io.grpc.Status.FAILED_PRECONDITION
                         .withDescription(
                                 "PERMISSION_CATALOG_PLATFORM_OWNED: use "
                                         + "PlatformAuthorizationAdministrationService"
                         )
                         .asRuntimeException()
-        );
-        return;
-        log.info(
-                "Received delete permission request: permissionCode={}",
-                request.getCode()
-        );
-
-        exceptionMapper.executeUnary(
-                observer,
-                () -> {
-                    requireContext(request.hasContext());
-
-                    var secured =
-                            requestSecurity.authorizeTenantAdministration(
-                                    request.getContext(),
-                                    IdentityGrpcAuthorities.PERMISSION_MANAGE
-                            );
-
-                    boolean deleted = dynamicAuthorization.deletePermission(
-                            secured.tenantId(),
-                            request.getCode(),
-                            secured.actorId(),
-                            request.getContext().getCorrelationId()
-                    );
-
-                    log.info(
-                            "Permission deletion completed: "
-                                    + "tenantId={}, actorId={}, permissionCode={}, "
-                                    + "deleted={}, correlationId={}",
-                            secured.tenantId(),
-                            secured.actorId(),
-                            request.getCode(),
-                            deleted,
-                            request.getContext().getCorrelationId()
-                    );
-
-                    return DeleteAuthorizationObjectResponse.newBuilder()
-                            .setDeleted(deleted)
-                            .build();
-                }
         );
     }
 

@@ -106,6 +106,9 @@ public final class IdentityGrpcAuthorities {
      * Kept as a separate constant for semantic clarity and backward
      * compatibility. It currently maps to the same platform management scope.
      */
+    public static final String PLATFORM_PERMISSION_READ =
+            SCOPE_PREFIX + "platform:permission:read";
+
     public static final String PLATFORM_PERMISSION_MANAGE =
-            SCOPE_PREFIX + "platform:manage";
+            SCOPE_PREFIX + "platform:permission:manage";
 }

@@ -5,6 +5,8 @@ import com.htv.smartfarm.common.paging.PageResult;
 
 public interface AuthorizationCatalogService {
 
+    PermissionData getPermission(String code);
+
     PageResult<PermissionData> listPermissions(
             int pageSize,
             String pageToken,

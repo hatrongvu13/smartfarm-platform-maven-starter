@@ -48,6 +48,18 @@ public interface RolePermissionRepository
 
     long countByIdPermissionCode(String permissionCode);
 
+    @Query(value = """
+            select distinct r.tenant_id
+            from sf_role_permission rp
+            join sf_role r on r.id = rp.role_id
+            where rp.permission_code = :permissionCode
+              and r.tenant_id is not null
+            order by r.tenant_id
+            """, nativeQuery = true)
+    List<String> findDistinctTenantIdsByPermissionCode(
+            @Param("permissionCode") String permissionCode
+    );
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             delete from RolePermissionEntity rp

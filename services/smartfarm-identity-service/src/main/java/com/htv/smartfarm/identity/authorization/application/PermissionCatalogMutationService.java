@@ -43,6 +43,31 @@ public class PermissionCatalogMutationService {
     private final TenantPermissionCatalogAdministrationService tenantMutations;
 
     @Transactional
+    public PermissionEntity createGlobal(
+            String code,
+            String resourceType,
+            String action,
+            String description
+    ) {
+        return createInternal(code, resourceType, action, description);
+    }
+
+    @Transactional
+    public PermissionEntity updateGlobal(
+            String code,
+            String resourceType,
+            String action,
+            String description
+    ) {
+        return updateInternal(code, resourceType, action, description);
+    }
+
+    @Transactional
+    public boolean deleteGlobal(String code) {
+        return deleteInternal(code);
+    }
+
+    @Transactional
     public PermissionEntity create(
             String tenantId,
             String code,

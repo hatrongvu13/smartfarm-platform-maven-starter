@@ -2,26 +2,12 @@ package com.htv.smartfarm.identity.grpc;
 
 import com.htv.smartfarm.identity.authorization.application
         .PlatformAuthorizationAdministrationService;
+import com.htv.smartfarm.identity.authorization.application
+        .GlobalPermissionCatalogAdministrationService;
+import com.htv.smartfarm.identity.authorization.domain.PermissionCode;
 import com.htv.smartfarm.identity.grpc.security.GrpcRequestSecurity;
 import com.htv.smartfarm.identity.grpc.security.IdentityGrpcAuthorities;
-import com.htv.smartfarm.proto.identity.v1
-        .CreatePlatformRoleRequest;
-import com.htv.smartfarm.proto.identity.v1
-        .CreatePlatformRoleResponse;
-import com.htv.smartfarm.proto.identity.v1
-        .GrantPlatformPermissionRequest;
-import com.htv.smartfarm.proto.identity.v1
-        .GrantPlatformPermissionResponse;
-import com.htv.smartfarm.proto.identity.v1
-        .ListPlatformRolesRequest;
-import com.htv.smartfarm.proto.identity.v1
-        .ListPlatformRolesResponse;
-import com.htv.smartfarm.proto.identity.v1
-        .PlatformAuthorizationAdministrationServiceGrpc;
-import com.htv.smartfarm.proto.identity.v1
-        .RevokePlatformPermissionRequest;
-import com.htv.smartfarm.proto.identity.v1
-        .RevokePlatformPermissionResponse;
+import com.htv.smartfarm.proto.identity.v1.*;
 
 import io.grpc.stub.StreamObserver;
 
@@ -47,6 +33,8 @@ public class PlatformAuthorizationAdministrationGrpcService
 
     private final PlatformAuthorizationAdministrationService
             administrationService;
+    private final GlobalPermissionCatalogAdministrationService
+            globalPermissions;
 
     private final IdentityAdministrationProtoMapper protoMapper;
     private final GrpcRequestSecurity requestSecurity;
@@ -286,6 +274,120 @@ public class PlatformAuthorizationAdministrationGrpcService
                             .build();
                 }
         );
+    }
+
+    @Override
+    public void getGlobalPermission(
+            GetGlobalPermissionRequest request,
+            StreamObserver<GetGlobalPermissionResponse> observer
+    ) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            requestSecurity.authorizePlatformAdministration(
+                    request.getContext(),
+                    IdentityGrpcAuthorities.PLATFORM_PERMISSION_READ
+            );
+            var value = globalPermissions.get(request.getPermissionCode());
+            return GetGlobalPermissionResponse.newBuilder()
+                    .setPermission(permission(value))
+                    .build();
+        });
+    }
+
+    @Override
+    public void createGlobalPermission(
+            CreateGlobalPermissionRequest request,
+            StreamObserver<GlobalPermissionMutationResponse> observer
+    ) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            PermissionCode.normalize(request.getCode());
+            var secured = requestSecurity.authorizePlatformAdministration(
+                    request.getContext(),
+                    IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+            );
+            var value = globalPermissions.create(
+                    request.getCode(), request.getResourceType(),
+                    request.getAction(), request.getDescription(),
+                    secured.actorId(), request.getContext().getCorrelationId()
+            );
+            return mutation(value);
+        });
+    }
+
+    @Override
+    public void updateGlobalPermission(
+            UpdateGlobalPermissionRequest request,
+            StreamObserver<GlobalPermissionMutationResponse> observer
+    ) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            PermissionCode.normalize(request.getCode());
+            var secured = requestSecurity.authorizePlatformAdministration(
+                    request.getContext(),
+                    IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+            );
+            var value = globalPermissions.update(
+                    request.getCode(), request.getResourceType(),
+                    request.getAction(), request.getDescription(),
+                    request.hasExpectedVersion() ? request.getExpectedVersion() : null,
+                    secured.actorId(), request.getContext().getCorrelationId()
+            );
+            return mutation(value);
+        });
+    }
+
+    @Override
+    public void deleteGlobalPermission(
+            DeleteGlobalPermissionRequest request,
+            StreamObserver<DeleteAuthorizationObjectResponse> observer
+    ) {
+        exceptionMapper.executeUnary(observer, () -> {
+            requireContext(request.hasContext());
+            PermissionCode.normalize(request.getCode());
+            var secured = requestSecurity.authorizePlatformAdministration(
+                    request.getContext(),
+                    IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+            );
+            boolean deleted = globalPermissions.delete(
+                    request.getCode(),
+                    request.hasExpectedVersion() ? request.getExpectedVersion() : null,
+                    secured.actorId(), request.getContext().getCorrelationId()
+            );
+            return DeleteAuthorizationObjectResponse.newBuilder()
+                    .setDeleted(deleted).build();
+        });
+    }
+
+    private GlobalPermissionMutationResponse mutation(
+            com.htv.smartfarm.identity.authorization.domain.PermissionEntity value
+    ) {
+        return GlobalPermissionMutationResponse.newBuilder()
+                .setPermission(permission(value))
+                .setVersion(value.getVersion())
+                .build();
+    }
+
+    private PermissionInfo permission(
+            com.htv.smartfarm.identity.authorization.domain.PermissionEntity value
+    ) {
+        return PermissionInfo.newBuilder()
+                .setCode(value.getCode())
+                .setResourceType(value.getResourceType())
+                .setAction(value.getAction())
+                .setDescription(value.getDescription() == null ? "" : value.getDescription())
+                .build();
+    }
+
+    private PermissionInfo permission(
+            com.htv.smartfarm.identity.authorization.application.model.PermissionData value
+    ) {
+        return PermissionInfo.newBuilder()
+                .setCode(value.code())
+                .setResourceType(value.resourceType())
+                .setAction(value.action())
+                .setDescription(value.description() == null ? "" : value.description())
+                .build();
     }
 
     private int pageSize(int requested) {

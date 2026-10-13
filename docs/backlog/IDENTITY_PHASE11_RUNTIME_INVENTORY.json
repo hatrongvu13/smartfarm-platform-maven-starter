@@ -1,0 +1,350 @@
+{
+  "repository": "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter",
+  "service": "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service",
+  "discovery": {
+    "permission_entity": [
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/domain/PermissionEntity.java"
+    ],
+    "permission_repository": [
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/bootstrap/SuperAdminBootstrapService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/oauth2/AuthService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/administration/application/DefaultTenantIdentityAdministrationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/repository/PermissionRepository.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/repository/RolePermissionRepository.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultAuthorizationCatalogService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/AuthorizationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/PermissionCatalogMutationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DynamicAuthorizationAdministrationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultPlatformAuthorizationAdministrationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/IdentityAuthorizationSynchronizer.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/RoleManagementService.java"
+    ],
+    "tenant_grpc": [
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/IdentityAdministrationGrpcService.java"
+    ],
+    "platform_grpc": [
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/PlatformAuthorizationAdministrationGrpcService.java"
+    ],
+    "permission_application": [
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/bootstrap/SuperAdminBootstrapService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/IdentityAdministrationGrpcService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/PlatformAuthorizationAdministrationGrpcService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/IdentityDirectoryGrpcService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/oauth2/AuthService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/administration/application/DefaultTenantIdentityAdministrationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultAuthorizationCatalogService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/AuthorizationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/PermissionCatalogMutationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DynamicAuthorizationAdministrationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultPlatformAuthorizationAdministrationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/TenantPermissionCatalogAdministrationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/RoleManagementService.java"
+    ],
+    "authorization_versions": [
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/token/DelegatedActorVerificationService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/oauth2/AuthService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/version/AuthorizationVersionService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/version/AuthorizationInvalidationRecorder.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/version/AuthorizationMutationCoordinator.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/messaging/event/IdentityIntegrationEventPublisher.java"
+    ],
+    "outbox": [
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/messaging/outbox/IdentityOutboxTransactionService.java",
+      "/Users/jaxmac/Documents/code/my/smartfarm-platform-maven-starter/services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/messaging/outbox/IdentityEventRecorder.java"
+    ]
+  },
+  "methods": {
+    "permission_entity": {
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/domain/PermissionEntity.java": [
+        "updateMetadata"
+      ]
+    },
+    "permission_repository": {
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/bootstrap/SuperAdminBootstrapService.java": [
+        "BootstrapResult",
+        "afterCommit",
+        "createFirstSuperAdmin",
+        "printTotpEnrollmentToConsole",
+        "superAdminExists"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/oauth2/AuthService.java": [
+        "AuthenticationResponse",
+        "EnrollmentConfirmationResponse",
+        "TenantOption",
+        "Tokens",
+        "beginRequiredTotpEnrollment",
+        "bootstrapSuperAdmin",
+        "confirmRequiredTotpEnrollment",
+        "email",
+        "login",
+        "logout",
+        "password",
+        "register",
+        "rotate",
+        "verifyMfa"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/administration/application/DefaultTenantIdentityAdministrationService.java": [
+        "assignRole",
+        "createUser",
+        "disableAccount",
+        "disableMembership",
+        "enableAccount",
+        "enableMembership",
+        "getRole",
+        "getUserAuthorization",
+        "listRoles",
+        "listUsers",
+        "revokeRole",
+        "suspendMembership",
+        "unlockAccount"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/repository/PermissionRepository.java": [],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/repository/RolePermissionRepository.java": [],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultAuthorizationCatalogService.java": [
+        "listPermissions"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/AuthorizationService.java": [
+        "batchCheckPermissions",
+        "checkPermission"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/PermissionCatalogMutationService.java": [
+        "create",
+        "delete",
+        "update"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DynamicAuthorizationAdministrationService.java": [
+        "createPermission",
+        "createRole",
+        "deletePermission",
+        "deleteRole",
+        "grant",
+        "revoke",
+        "updatePermission",
+        "updateRole"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultPlatformAuthorizationAdministrationService.java": [
+        "createPlatformRole",
+        "grantPermission",
+        "listPlatformRoles",
+        "revokePermission"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/IdentityAuthorizationSynchronizer.java": [
+        "run"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/RoleManagementService.java": [
+        "assignRole",
+        "createPermission",
+        "createRole",
+        "getRolePermissions",
+        "grantPermissionToRole",
+        "revokePermissionFromRole",
+        "revokeRole"
+      ]
+    },
+    "tenant_grpc": {
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/IdentityAdministrationGrpcService.java": [
+        "assignRole",
+        "createPermission",
+        "createTenantRole",
+        "createUser",
+        "deletePermission",
+        "deleteTenantRole",
+        "disableMembership",
+        "disableUserAccount",
+        "enableMembership",
+        "enableUserAccount",
+        "getRole",
+        "getUserAuthorization",
+        "grantPermissionToRole",
+        "listPermissions",
+        "listRoles",
+        "listUsers",
+        "revokePermissionFromRole",
+        "revokeRole",
+        "suspendMembership",
+        "unlockUserAccount",
+        "updatePermission",
+        "updateTenantRole",
+        "updateUserProfileAsAdministrator"
+      ]
+    },
+    "platform_grpc": {
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/PlatformAuthorizationAdministrationGrpcService.java": [
+        "createPlatformRole",
+        "grantPlatformPermission",
+        "listPlatformRoles",
+        "revokePlatformPermission"
+      ]
+    },
+    "permission_application": {
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/bootstrap/SuperAdminBootstrapService.java": [
+        "BootstrapResult",
+        "afterCommit",
+        "createFirstSuperAdmin",
+        "printTotpEnrollmentToConsole",
+        "superAdminExists"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/IdentityAdministrationGrpcService.java": [
+        "assignRole",
+        "createPermission",
+        "createTenantRole",
+        "createUser",
+        "deletePermission",
+        "deleteTenantRole",
+        "disableMembership",
+        "disableUserAccount",
+        "enableMembership",
+        "enableUserAccount",
+        "getRole",
+        "getUserAuthorization",
+        "grantPermissionToRole",
+        "listPermissions",
+        "listRoles",
+        "listUsers",
+        "revokePermissionFromRole",
+        "revokeRole",
+        "suspendMembership",
+        "unlockUserAccount",
+        "updatePermission",
+        "updateTenantRole",
+        "updateUserProfileAsAdministrator"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/PlatformAuthorizationAdministrationGrpcService.java": [
+        "createPlatformRole",
+        "grantPlatformPermission",
+        "listPlatformRoles",
+        "revokePlatformPermission"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/IdentityDirectoryGrpcService.java": [
+        "batchCheckPermissions",
+        "checkPermission",
+        "getPrincipal",
+        "ping",
+        "updatePrincipalProfile"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/oauth2/AuthService.java": [
+        "AuthenticationResponse",
+        "EnrollmentConfirmationResponse",
+        "TenantOption",
+        "Tokens",
+        "beginRequiredTotpEnrollment",
+        "bootstrapSuperAdmin",
+        "confirmRequiredTotpEnrollment",
+        "email",
+        "login",
+        "logout",
+        "password",
+        "register",
+        "rotate",
+        "verifyMfa"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/administration/application/DefaultTenantIdentityAdministrationService.java": [
+        "assignRole",
+        "createUser",
+        "disableAccount",
+        "disableMembership",
+        "enableAccount",
+        "enableMembership",
+        "getRole",
+        "getUserAuthorization",
+        "listRoles",
+        "listUsers",
+        "revokeRole",
+        "suspendMembership",
+        "unlockAccount"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultAuthorizationCatalogService.java": [
+        "listPermissions"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/AuthorizationService.java": [
+        "batchCheckPermissions",
+        "checkPermission"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/PermissionCatalogMutationService.java": [
+        "create",
+        "delete",
+        "update"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DynamicAuthorizationAdministrationService.java": [
+        "createPermission",
+        "createRole",
+        "deletePermission",
+        "deleteRole",
+        "grant",
+        "revoke",
+        "updatePermission",
+        "updateRole"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/DefaultPlatformAuthorizationAdministrationService.java": [
+        "createPlatformRole",
+        "grantPermission",
+        "listPlatformRoles",
+        "revokePermission"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/TenantPermissionCatalogAdministrationService.java": [
+        "apply"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/application/RoleManagementService.java": [
+        "assignRole",
+        "createPermission",
+        "createRole",
+        "getRolePermissions",
+        "grantPermissionToRole",
+        "revokePermissionFromRole",
+        "revokeRole"
+      ]
+    },
+    "authorization_versions": {
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/token/DelegatedActorVerificationService.java": [
+        "verify"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/oauth2/AuthService.java": [
+        "AuthenticationResponse",
+        "EnrollmentConfirmationResponse",
+        "TenantOption",
+        "Tokens",
+        "beginRequiredTotpEnrollment",
+        "bootstrapSuperAdmin",
+        "confirmRequiredTotpEnrollment",
+        "email",
+        "login",
+        "logout",
+        "password",
+        "register",
+        "rotate",
+        "verifyMfa"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/version/AuthorizationVersionService.java": [
+        "current",
+        "incrementSubject",
+        "incrementTenant"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/version/AuthorizationInvalidationRecorder.java": [
+        "recordSubjectInvalidation",
+        "recordTenantInvalidation"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/authorization/version/AuthorizationMutationCoordinator.java": [
+        "subjectChanged",
+        "tenantChanged"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/messaging/event/IdentityIntegrationEventPublisher.java": [
+        "publish",
+        "publishAuthorizationInvalidated"
+      ]
+    },
+    "outbox": {
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/messaging/outbox/IdentityOutboxTransactionService.java": [
+        "claimBatch",
+        "cleanupPublished",
+        "markFailed",
+        "markPublished",
+        "recoverStaleClaims",
+        "retryDead"
+      ],
+      "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/messaging/outbox/IdentityEventRecorder.java": [
+        "record",
+        "recordWithId"
+      ]
+    }
+  }
+}
