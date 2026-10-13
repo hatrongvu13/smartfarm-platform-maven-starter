@@ -97,9 +97,15 @@ service IdentityAdministrationService {
   rpc CreateTenantRole(CreateTenantRoleRequest) returns (RoleMutationResponse);
   rpc UpdateTenantRole(UpdateTenantRoleRequest) returns (RoleMutationResponse);
   rpc DeleteTenantRole(DeleteTenantRoleRequest) returns (DeleteAuthorizationObjectResponse);
-  rpc CreatePermission(CreatePermissionRequest) returns (PermissionMutationResponse);
-  rpc UpdatePermission(UpdatePermissionRequest) returns (PermissionMutationResponse);
-  rpc DeletePermission(DeletePermissionRequest) returns (DeleteAuthorizationObjectResponse);
+  rpc CreatePermission(CreatePermissionRequest) returns (PermissionMutationResponse) {
+    option deprecated = true;
+  }
+  rpc UpdatePermission(UpdatePermissionRequest) returns (PermissionMutationResponse) {
+    option deprecated = true;
+  }
+  rpc DeletePermission(DeletePermissionRequest) returns (DeleteAuthorizationObjectResponse) {
+    option deprecated = true;
+  }
   rpc GrantPermissionToRole(TenantRolePermissionRequest) returns (RoleMutationResponse);
   rpc UpdateUserProfileAsAdministrator(AdminUpdateUserProfileRequest) returns (AdminUserPrincipalResponse);
   rpc DisableUserAccount(AccountAdministrationRequest) returns (GetUserAuthorizationResponse);
@@ -129,6 +135,19 @@ service PlatformAuthorizationAdministrationService {
 
   rpc RevokePlatformPermission(RevokePlatformPermissionRequest)
       returns (RevokePlatformPermissionResponse);
+
+  // Global platform-owned permission catalog.
+  rpc GetGlobalPermission(GetGlobalPermissionRequest)
+      returns (GetGlobalPermissionResponse);
+
+  rpc CreateGlobalPermission(CreateGlobalPermissionRequest)
+      returns (GlobalPermissionMutationResponse);
+
+  rpc UpdateGlobalPermission(UpdateGlobalPermissionRequest)
+      returns (GlobalPermissionMutationResponse);
+
+  rpc DeleteGlobalPermission(DeleteGlobalPermissionRequest)
+      returns (DeleteAuthorizationObjectResponse);
 }
 
 // ============================================================
@@ -577,6 +596,43 @@ message RevokePlatformPermissionRequest {
 
 message RevokePlatformPermissionResponse {
   RoleInfo role = 1;
+}
+
+message GetGlobalPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string permission_code = 2;
+}
+
+message GetGlobalPermissionResponse {
+  PermissionInfo permission = 1;
+}
+
+message CreateGlobalPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string code = 2;
+  string resource_type = 3;
+  string action = 4;
+  string description = 5;
+}
+
+message UpdateGlobalPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string code = 2;
+  string resource_type = 3;
+  string action = 4;
+  string description = 5;
+  optional int64 expected_version = 6;
+}
+
+message DeleteGlobalPermissionRequest {
+  smartfarm.common.v1.RequestContext context = 1;
+  string code = 2;
+  optional int64 expected_version = 3;
+}
+
+message GlobalPermissionMutationResponse {
+  PermissionInfo permission = 1;
+  int64 version = 2;
 }
 
 

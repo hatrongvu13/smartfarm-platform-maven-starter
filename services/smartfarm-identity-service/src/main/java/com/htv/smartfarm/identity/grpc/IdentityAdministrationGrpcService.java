@@ -528,6 +528,15 @@ public class IdentityAdministrationGrpcService
             CreatePermissionRequest request,
             StreamObserver<PermissionMutationResponse> observer
     ) {
+        responseObserver.onError(
+                io.grpc.Status.FAILED_PRECONDITION
+                        .withDescription(
+                                "PERMISSION_CATALOG_PLATFORM_OWNED: use "
+                                        + "PlatformAuthorizationAdministrationService"
+                        )
+                        .asRuntimeException()
+        );
+        return;
         log.info(
                 "Received create permission request: "
                         + "permissionCode={}, resourceType={}, action={}",
@@ -593,6 +602,15 @@ public class IdentityAdministrationGrpcService
             UpdatePermissionRequest request,
             StreamObserver<PermissionMutationResponse> observer
     ) {
+        responseObserver.onError(
+                io.grpc.Status.FAILED_PRECONDITION
+                        .withDescription(
+                                "PERMISSION_CATALOG_PLATFORM_OWNED: use "
+                                        + "PlatformAuthorizationAdministrationService"
+                        )
+                        .asRuntimeException()
+        );
+        return;
         log.info(
                 "Received update permission request: "
                         + "permissionCode={}, resourceType={}, action={}",
@@ -658,6 +676,15 @@ public class IdentityAdministrationGrpcService
             DeletePermissionRequest request,
             StreamObserver<DeleteAuthorizationObjectResponse> observer
     ) {
+        responseObserver.onError(
+                io.grpc.Status.FAILED_PRECONDITION
+                        .withDescription(
+                                "PERMISSION_CATALOG_PLATFORM_OWNED: use "
+                                        + "PlatformAuthorizationAdministrationService"
+                        )
+                        .asRuntimeException()
+        );
+        return;
         log.info(
                 "Received delete permission request: permissionCode={}",
                 request.getCode()
