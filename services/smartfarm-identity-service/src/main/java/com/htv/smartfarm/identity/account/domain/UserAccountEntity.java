@@ -80,8 +80,15 @@ public class UserAccountEntity extends AuditableEntity {
     }
 
     public void changePasswordHash(String passwordHash) {
+        changePasswordHash(passwordHash, Instant.now());
+    }
+
+    public void changePasswordHash(String passwordHash, Instant occurredAt) {
         this.passwordHash = requireText(passwordHash, "passwordHash");
-        this.passwordChangedAt = Instant.now();
+        this.passwordChangedAt = Objects.requireNonNull(
+                occurredAt,
+                "occurredAt must not be null"
+        );
         resetLoginFailure();
     }
 

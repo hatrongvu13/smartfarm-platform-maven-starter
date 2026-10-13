@@ -1,7 +1,7 @@
 server:
   port: 8092
   ssl:
-    enabled: false
+    enabled: true
     certificate: ${IDENTITY_TLS_CERTIFICATE:classpath:.local/identity-tls.crt}
     certificate-private-key: ${IDENTITY_TLS_PRIVATE_KEY:classpath:.local/identity-tls.key}
 

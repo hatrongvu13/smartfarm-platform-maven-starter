@@ -1,9 +1,7 @@
 package com.htv.smartfarm.identity.oauth2;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -28,8 +26,11 @@ import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
-import com.htv.smartfarm.identity.token.RefreshRepository;
-import com.htv.smartfarm.identity.token.TokenService;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionService;
+import com.htv.smartfarm.identity.token.grant.GrantType;
+import com.htv.smartfarm.identity.token.grant.RefreshSessionPort;
+import com.htv.smartfarm.identity.token.grant.TokenContext;
+import com.htv.smartfarm.identity.token.grant.TokenGrantFacade;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -155,15 +156,15 @@ public class AuthService {
     private final RoleRepository roles;
     private final RolePermissionRepository rolePermissions;
     private final AccountService accountService;
-    private final RefreshRepository refresh;
-    private final TokenService tokens;
+    private final RefreshSessionPort refreshSessions;
+    private final TokenGrantFacade tokenGrants;
+    private final AuthorizationVersionService authorizationVersions;
     private final PasswordEncoder encoder;
     private final IdentitySettings settings;
     private final MfaRequirementService mfaRequirements;
     private final AuthenticatorService authenticatorService;
     private final MfaChallengeService mfaChallenges;
     private final Clock clock;
-    private final SecureRandom random = new SecureRandom();
     private final String dummyHash;
     private IdentityIntegrationEventPublisher events;
     private AuthorizationMutationCoordinator authorizationMutations;
@@ -177,8 +178,9 @@ public class AuthService {
             RoleRepository roles,
             RolePermissionRepository rolePermissions,
             AccountService accountService,
-            RefreshRepository refresh,
-            TokenService tokens,
+            RefreshSessionPort refreshSessions,
+            TokenGrantFacade tokenGrants,
+            AuthorizationVersionService authorizationVersions,
             PasswordEncoder encoder,
             IdentitySettings settings,
             MfaRequirementService mfaRequirements,
@@ -193,8 +195,9 @@ public class AuthService {
         this.roles = roles;
         this.rolePermissions = rolePermissions;
         this.accountService = accountService;
-        this.refresh = refresh;
-        this.tokens = tokens;
+        this.refreshSessions = refreshSessions;
+        this.tokenGrants = tokenGrants;
+        this.authorizationVersions = authorizationVersions;
         this.encoder = encoder;
         this.settings = settings;
         this.mfaRequirements = mfaRequirements;
@@ -241,7 +244,7 @@ public class AuthService {
                 .orElseThrow(AuthService::unauthorized);
         account.recordLoginSuccess(clock.instant());
         return AuthenticationResponse.completed(
-                issue(account, membership, UUID.randomUUID().toString())
+                issue(account, membership, GrantType.BOOTSTRAP)
         );
     }
 
@@ -444,7 +447,7 @@ public class AuthService {
                 false
         );
         return AuthenticationResponse.completed(
-                issue(account, membership, UUID.randomUUID().toString())
+                issue(account, membership, GrantType.USER_LOGIN)
         );
     }
 
@@ -506,7 +509,7 @@ public class AuthService {
                             issue(
                                     account,
                                     membership,
-                                    UUID.randomUUID().toString()
+                                    GrantType.MFA_COMPLETION
                             )
                     )
             );
@@ -571,7 +574,7 @@ public class AuthService {
                     issue(
                             account,
                             membership,
-                            UUID.randomUUID().toString()
+                            GrantType.MFA_COMPLETION
                     )
             );
         } catch (IllegalArgumentException exception) {
@@ -582,21 +585,9 @@ public class AuthService {
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public Tokens rotate(String raw) {
         if (raw == null || raw.isBlank()) throw unauthorized();
-        var session = refresh.find(raw)
-                .orElseThrow(AuthService::unauthorized);
-        if (session.revoked()) {
-            refresh.revokeFamily(session.familyId());
-            throw unauthorized();
-        }
-        if (session.expiresAt() <= clock.instant().toEpochMilli()) {
-            throw unauthorized();
-        }
-        if (!refresh.consume(session.id())) {
-            refresh.revokeFamily(session.familyId());
-            throw unauthorized();
-        }
+        var session = refreshSessions.resolve(raw);
         UserAccountEntity account = accounts
-                .findByIdForUpdate(session.userId())
+                .findByIdForUpdate(session.subjectId())
                 .orElseThrow(AuthService::unauthorized);
         if (!account.isLoginAllowed(clock.instant())) {
             throw unauthorized();
@@ -604,23 +595,30 @@ public class AuthService {
         TenantMembershipEntity membership = memberships
                 .findByTenantAndUserForUpdate(
                         session.tenantId(),
-                        session.userId()
+                        session.subjectId()
                 )
                 .orElseThrow(AuthService::unauthorized);
         if (!membership.getTenant().isEnabled()
                 || membership.getStatus() != MembershipStatus.ACTIVE
                 || !settings.gatewayAudience().equals(session.audience())) {
+            refreshSessions.revokeFamily(session.familyId(), "REFRESH_CONTEXT_INVALID");
             throw unauthorized();
         }
-        return issue(account, membership, session.familyId());
+        var context = tokenContext(
+                account,
+                membership,
+                GrantType.REFRESH_ROTATION,
+                java.util.List.of("refresh_token"),
+                session.sessionId()
+        );
+        var grant = tokenGrants.rotate(raw, context);
+        return tokens(grant);
     }
 
     @Transactional
     public void logout(String raw) {
         if (raw == null || raw.isBlank()) return;
-        refresh.find(raw).ifPresent(session ->
-                refresh.revokeFamily(session.familyId())
-        );
+        refreshSessions.revokeByRawToken(raw, "LOGOUT");
     }
 
     private void publishLoginSucceeded(
@@ -701,7 +699,7 @@ public class AuthService {
     private Tokens issue(
             UserAccountEntity account,
             TenantMembershipEntity membership,
-            String familyId
+            GrantType grantType
     ) {
         List<String> roleIds = membershipRoles.findRoleIdsByMembershipId(
                 membership.getId()
@@ -712,34 +710,85 @@ public class AuthService {
         List<String> permissions = roleIds.isEmpty()
                 ? List.of()
                 : rolePermissions.findPermissionCodesByRoleIds(roleIds);
-        String accessToken = tokens.issueUserToken(
-                account.getId(),
+        var versions = authorizationVersions.current(
                 membership.getTenant().getId(),
-                permissions,
-                roleCodes,
-                settings.accessTtl()
+                account.getId()
         );
-        byte[] bytes = new byte[48];
-        random.nextBytes(bytes);
-        String rawRefresh = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(bytes);
-        refresh.insert(
-                UUID.randomUUID().toString(),
+        var context = new TokenContext(
+                grantType,
                 account.getId(),
                 membership.getTenant().getId(),
                 settings.gatewayAudience(),
-                familyId,
-                rawRefresh,
-                Instant.now(clock)
-                        .plus(settings.refreshTtl())
-                        .toEpochMilli()
+                null,
+                null,
+                new java.util.LinkedHashSet<>(permissions),
+                new java.util.LinkedHashSet<>(roleCodes),
+                versions.subjectVersion(),
+                versions.tenantVersion(),
+                null,
+                clock.instant(),
+                authenticationMethods(grantType),
+                settings.accessTtl()
         );
+        return tokens(tokenGrants.issue(context));
+    }
+
+    private TokenContext tokenContext(
+            UserAccountEntity account,
+            TenantMembershipEntity membership,
+            GrantType grantType,
+            java.util.List<String> methods,
+            String sessionId
+    ) {
+        List<String> roleIds = membershipRoles.findRoleIdsByMembershipId(
+                membership.getId()
+        );
+        List<String> roleCodes = membershipRoles.findRoleCodesByMembershipId(
+                membership.getId()
+        );
+        List<String> permissions = roleIds.isEmpty()
+                ? List.of()
+                : rolePermissions.findPermissionCodesByRoleIds(roleIds);
+        var versions = authorizationVersions.current(
+                membership.getTenant().getId(),
+                account.getId()
+        );
+        return new TokenContext(
+                grantType,
+                account.getId(),
+                membership.getTenant().getId(),
+                settings.gatewayAudience(),
+                null,
+                null,
+                new java.util.LinkedHashSet<>(permissions),
+                new java.util.LinkedHashSet<>(roleCodes),
+                versions.subjectVersion(),
+                versions.tenantVersion(),
+                sessionId,
+                clock.instant(),
+                methods,
+                settings.accessTtl()
+        );
+    }
+
+    private java.util.List<String> authenticationMethods(GrantType grantType) {
+        return switch (grantType) {
+            case MFA_COMPLETION -> java.util.List.of("pwd", "totp");
+            case REFRESH_ROTATION -> java.util.List.of("refresh_token");
+            case BOOTSTRAP, USER_LOGIN -> java.util.List.of("pwd");
+            default -> java.util.List.of();
+        };
+    }
+
+    private Tokens tokens(com.htv.smartfarm.identity.token.grant.TokenGrant grant) {
         return new Tokens(
-                accessToken,
-                "Bearer",
-                settings.accessTtl().toSeconds(),
-                rawRefresh
+                grant.accessToken().value(),
+                grant.accessToken().tokenType(),
+                java.time.Duration.between(
+                        clock.instant(),
+                        grant.accessToken().expiresAt()
+                ).toSeconds(),
+                grant.refreshToken()
         );
     }
 

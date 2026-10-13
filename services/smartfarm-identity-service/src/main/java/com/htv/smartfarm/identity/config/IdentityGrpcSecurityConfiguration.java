@@ -4,6 +4,7 @@ import com.htv.smartfarm.identity.grpc.security.IdentityGrpcAuthorities;
 import com.htv.smartfarm.proto.identity.v1.IdentityAdministrationServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.IdentityCredentialServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.IdentityDirectoryServiceGrpc;
+import com.htv.smartfarm.proto.identity.v1.IdentityTokenServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.PlatformAuthorizationAdministrationServiceGrpc;
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
 
@@ -31,6 +32,7 @@ public class IdentityGrpcSecurityConfiguration {
         configureTenantAuthorizationPolicy(builder);
         configureUserAdministrationPolicy(builder);
         configureMembershipPolicy(builder);
+        configureTokenPolicy(builder);
         configurePlatformPolicy(builder);
 
         var policy = builder.build();
@@ -363,6 +365,43 @@ public class IdentityGrpcSecurityConfiguration {
                 IdentityAdministrationServiceGrpc
                         .getSuspendMembershipMethod(),
                 IdentityGrpcAuthorities.USER_DISABLE
+        );
+    }
+
+    /**
+     * Configures internal token issuance and session administration.
+     *
+     * Token issuance currently authenticates the configured client secret in
+     * the application service. Restrict the gRPC listener to a private network
+     * or mTLS before exposing these methods outside the trusted service plane.
+     */
+    private void configureTokenPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        builder.permitAll(
+                IdentityTokenServiceGrpc
+                        .getIssueServiceTokenMethod()
+                        .getFullMethodName()
+        );
+        builder.permitAll(
+                IdentityTokenServiceGrpc
+                        .getExchangeDelegatedTokenMethod()
+                        .getFullMethodName()
+        );
+        requireAuthority(
+                builder,
+                IdentityTokenServiceGrpc.getListSessionsMethod(),
+                IdentityGrpcAuthorities.SESSION_READ
+        );
+        requireAuthority(
+                builder,
+                IdentityTokenServiceGrpc.getRevokeSessionMethod(),
+                IdentityGrpcAuthorities.SESSION_REVOKE
+        );
+        requireAuthority(
+                builder,
+                IdentityTokenServiceGrpc.getRevokeAllSessionsMethod(),
+                IdentityGrpcAuthorities.SESSION_REVOKE
         );
     }
 

@@ -157,7 +157,8 @@ public class AccountService {
         }
 
         account.changePasswordHash(
-                passwordEncoder.encode(newRawPassword)
+                passwordEncoder.encode(newRawPassword),
+                clock.instant()
         );
         refreshRepository.revokeUser(userId);
         publishIfTenant(
@@ -194,7 +195,10 @@ public class AccountService {
         validatePassword(newRawPassword);
 
         UserAccountEntity account = getAccountForUpdate(userId);
-        account.changePasswordHash(passwordEncoder.encode(newRawPassword));
+        account.changePasswordHash(
+                passwordEncoder.encode(newRawPassword),
+                clock.instant()
+        );
         refreshRepository.revokeUser(userId);
         publishIfTenant(
                 tenantId,

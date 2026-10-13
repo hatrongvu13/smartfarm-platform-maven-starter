@@ -20,6 +20,7 @@ import com.htv.smartfarm.proto.identity.v1
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -291,7 +292,7 @@ public class IdentityProtoMapper {
             );
         }
 
-        return value.trim().toUpperCase();
+        return value.trim().toUpperCase(Locale.ROOT);
     }
 
     private String normalizeNullable(String value) {

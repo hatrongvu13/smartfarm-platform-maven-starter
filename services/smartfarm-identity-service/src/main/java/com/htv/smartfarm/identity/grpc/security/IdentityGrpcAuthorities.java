@@ -88,6 +88,16 @@ public final class IdentityGrpcAuthorities {
     public static final String USER_MFA_RESET =
             SCOPE_PREFIX + "user:mfa:reset";
 
+    // Internal token and session administration
+    public static final String TOKEN_ISSUE =
+            SCOPE_PREFIX + "token:issue";
+
+    public static final String SESSION_READ =
+            SCOPE_PREFIX + "session:read";
+
+    public static final String SESSION_REVOKE =
+            SCOPE_PREFIX + "session:revoke";
+
     // Platform administration
     public static final String PLATFORM_ROLE_MANAGE =
             SCOPE_PREFIX + "platform:manage";

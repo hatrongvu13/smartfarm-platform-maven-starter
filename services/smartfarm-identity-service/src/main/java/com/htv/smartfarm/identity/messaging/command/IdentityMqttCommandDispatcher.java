@@ -74,7 +74,12 @@ public class IdentityMqttCommandDispatcher {
             case "identity.role.assign" -> roles.assignRole(
                     message.tenantId(), subjectId, requiredText(payload, "roleCode"), message.actorId());
             case "identity.role.revoke" -> roles.revokeRole(
-                    message.tenantId(), subjectId, requiredText(payload, "roleCode"));
+                    message.tenantId(),
+                    subjectId,
+                    requiredText(payload, "roleCode"),
+                    message.actorId(),
+                    message.correlationId()
+            );
             default -> throw new IllegalArgumentException("Unsupported command type");
         }
     }

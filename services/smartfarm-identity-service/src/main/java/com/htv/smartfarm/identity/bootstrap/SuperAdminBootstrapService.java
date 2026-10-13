@@ -165,11 +165,6 @@ public class SuperAdminBootstrapService {
                 account
         );
 
-        registerTotpEnrollmentAfterCommit(
-                account.getId(),
-                normalizedEmail
-        );
-
         log.info(
                 "System SUPERADMIN created successfully: "
                         + "tenantId={}, userId={}",

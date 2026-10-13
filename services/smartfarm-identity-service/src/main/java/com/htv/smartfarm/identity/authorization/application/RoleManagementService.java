@@ -637,9 +637,21 @@ public class RoleManagementService {
             String userId,
             String roleCode
     ) {
+        revokeRole(tenantId, userId, roleCode, userId, null);
+    }
+
+    @Transactional
+    public void revokeRole(
+            String tenantId,
+            String userId,
+            String roleCode,
+            String actorId,
+            String correlationId
+    ) {
         requireText(tenantId, "tenantId");
         requireText(userId, "userId");
         requireText(roleCode, "roleCode");
+        requireText(actorId, "actorId");
 
         String normalizedRoleCode = normalizeCode(roleCode);
 
@@ -705,10 +717,12 @@ public class RoleManagementService {
                 role.getId()
         );
 
+        String normalizedActorId = actorId.trim();
+
         String eventId = events.publish(
                 tenantId,
-                userId,
-                null,
+                normalizedActorId,
+                correlationId,
                 null,
                 ROLE_REVOKED_EVENT,
                 MEMBERSHIP_AGGREGATE_TYPE,
@@ -725,8 +739,8 @@ public class RoleManagementService {
         roleAuthorizationChanged(
                 tenantId,
                 userId,
-                userId,
-                null,
+                normalizedActorId,
+                correlationId,
                 ROLE_REVOKED_REASON
         );
 

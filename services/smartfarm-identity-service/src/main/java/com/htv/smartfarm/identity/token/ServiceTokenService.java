@@ -71,8 +71,17 @@ public class ServiceTokenService {
         String normalizedActor = actorId == null || actorId.isBlank()
                 ? null
                 : actorId.trim();
+        if (normalizedActor != null && !client.delegationEnabled()) {
+            AUDIT.warn(
+                    "service_token_denied reason=delegation_not_allowed client_id={} audience={} tenant={} actor_id={}",
+                    clientId, audience, tenantId, safe(normalizedActor)
+            );
+            throw new SecurityException(
+                    "service client is not allowed to delegate an actor"
+            );
+        }
         String token;
-        if (normalizedActor != null && client.delegationEnabled()) {
+        if (normalizedActor != null) {
             var versions = delegatedActors.verify(tenantId, normalizedActor);
             token = tokens.issueDelegatedServiceToken(
                     clientId,

@@ -14,6 +14,7 @@ import com.htv.smartfarm.proto.identity.v1.*;
 import io.grpc.stub.StreamObserver;
 
 import java.util.List;
+import java.util.Locale;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class IdentityAdministrationGrpcService
     private final DynamicAuthorizationAdministrationService dynamicAuthorization;
     private final PrincipalProfileService principalProfileService;
     private final IdentityAdministrationProtoMapper protoMapper;
+    private final IdentityProtoMapper identityProtoMapper;
     private final GrpcRequestSecurity requestSecurity;
     private final GrpcExceptionMapper exceptionMapper;
 
@@ -841,8 +843,6 @@ public class IdentityAdministrationGrpcService
                         );
                     }
 
-                    var identityProtoMapper = new IdentityProtoMapper();
-
                     var command = identityProtoMapper.toUpdateProfileCommand(
                             request.getSubjectId(),
                             legacy.build()
@@ -1385,7 +1385,7 @@ public class IdentityAdministrationGrpcService
     private void validateTenantRole(String roleCode) {
         requireText(roleCode, "role_code");
 
-        String normalized = roleCode.trim().toUpperCase();
+        String normalized = roleCode.trim().toUpperCase(Locale.ROOT);
 
         if ("PLATFORM_ADMIN".equals(normalized)
                 || "SUPERADMIN".equals(normalized)) {

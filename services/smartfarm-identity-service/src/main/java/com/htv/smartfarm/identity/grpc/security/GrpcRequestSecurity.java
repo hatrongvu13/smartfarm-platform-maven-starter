@@ -92,7 +92,7 @@ public class GrpcRequestSecurity {
         );
     }
 
-    public GrpcCaller authenticatedCaller() {
+    public void authenticatedCaller() {
         GrpcCaller caller = callerProvider.currentCaller();
 
         log.debug(
@@ -102,7 +102,6 @@ public class GrpcRequestSecurity {
                 caller.isService()
         );
 
-        return caller;
     }
 
     public SecuredRequest authorizeCredentialSelf(
