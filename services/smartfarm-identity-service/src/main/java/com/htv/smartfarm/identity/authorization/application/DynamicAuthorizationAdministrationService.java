@@ -1,22 +1,33 @@
 package com.htv.smartfarm.identity.authorization.application;
 
+import java.util.List;
 import java.util.Locale;
+
 import com.htv.smartfarm.common.exception.ConflictException;
 import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
+import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
-import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DynamicAuthorizationAdministrationService {
+
+    private static final String USER_ROLE = "USER";
+    private static final String ADMIN_ROLE = "ADMIN";
+    private static final String SUPERADMIN_ROLE = "SUPERADMIN";
+    private static final String PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
+
     private final RoleManagementService management;
-    private final PermissionRepository permissions;
     private final RoleRepository roles;
     private final RolePermissionRepository grants;
     private final MembershipRoleRepository assignments;
@@ -24,72 +35,320 @@ public class DynamicAuthorizationAdministrationService {
 
     @Transactional
     public PermissionEntity createPermission(
-            String tenantId, String code, String resource, String action,
-            String description, String actorId, String correlationId
+            String tenantId,
+            String code,
+            String resource,
+            String action,
+            String description,
+            String actorId,
+            String correlationId
     ) {
         return catalog.create(
-                tenantId, code, resource, action, description,
-                actorId, correlationId
+                tenantId,
+                code,
+                resource,
+                action,
+                description,
+                actorId,
+                correlationId
         );
     }
 
     @Transactional
     public PermissionEntity updatePermission(
-            String tenantId, String code, String resource, String action,
-            String description, String actorId, String correlationId
+            String tenantId,
+            String code,
+            String resource,
+            String action,
+            String description,
+            String actorId,
+            String correlationId
     ) {
         return catalog.update(
-                tenantId, code, resource, action, description,
-                actorId, correlationId
+                tenantId,
+                code,
+                resource,
+                action,
+                description,
+                actorId,
+                correlationId
         );
     }
 
     @Transactional
     public boolean deletePermission(
-            String tenantId, String code, String actorId, String correlationId
+            String tenantId,
+            String code,
+            String actorId,
+            String correlationId
     ) {
-        return catalog.delete(tenantId, code, actorId, correlationId);
+        return catalog.delete(
+                tenantId,
+                code,
+                actorId,
+                correlationId
+        );
     }
 
-    @Deprecated(forRemoval = true)
     @Transactional
-    public PermissionEntity createPermission(
-            String code, String resource, String action, String description
+    public String createRole(
+            String tenantId,
+            String code,
+            String name,
+            String actorId,
+            String correlationId
     ) {
-        throw new IllegalStateException(
-                "tenantId, actorId and correlationId are required for runtime permission creation"
+        String normalizedRoleCode =
+                normalizeRole(code);
+
+        guardPlatform(normalizedRoleCode);
+
+        String roleId = management.createRole(
+                tenantId,
+                normalizedRoleCode,
+                name,
+                false,
+                actorId,
+                correlationId
         );
+
+        log.info(
+                "Role created: tenantId={}, roleId={}, roleCode={}, actorId={}, correlationId={}",
+                tenantId,
+                roleId,
+                normalizedRoleCode,
+                actorId,
+                correlationId
+        );
+
+        return roleId;
     }
-    @Deprecated(forRemoval = true)
+
     @Transactional
-    public PermissionEntity updatePermission(
-            String code, String resource, String action, String description
+    public void updateRole(
+            String tenantId,
+            String code,
+            String name
     ) {
-        throw new IllegalStateException(
-                "tenantId, actorId and correlationId are required for runtime permission update"
+        RoleEntity role = role(
+                tenantId,
+                code
+        );
+
+        guardSystem(
+                role.getCode(),
+                role.isSystemRole()
+        );
+
+        role.rename(name);
+
+        log.info(
+                "Role updated: tenantId={}, roleId={}, roleCode={}, newName={}",
+                tenantId,
+                role.getId(),
+                role.getCode(),
+                name
         );
     }
-    @Deprecated(forRemoval = true)
+
     @Transactional
-    public boolean deletePermission(String code) {
-        throw new IllegalStateException(
-                "tenantId, actorId and correlationId are required for runtime permission deletion"
+    public boolean deleteRole(
+            String tenantId,
+            String code
+    ) {
+        RoleEntity role = role(
+                tenantId,
+                code
+        );
+
+        guardSystem(
+                role.getCode(),
+                role.isSystemRole()
+        );
+
+        long assignmentCount =
+                assignments.countAssignmentsByRoleIds(
+                        List.of(role.getId())
+                );
+
+        if (assignmentCount > 0) {
+            log.error(
+                    "Role deletion rejected because role is assigned to memberships: "
+                            + "tenantId={}, roleId={}, roleCode={}, assignmentCount={}",
+                    tenantId,
+                    role.getId(),
+                    role.getCode(),
+                    assignmentCount
+            );
+
+            throw new ConflictException(
+                    "ROLE_IN_USE",
+                    "Revoke role from all memberships before deleting it"
+            );
+        }
+
+        grants.deleteAllByRoleId(role.getId());
+        roles.delete(role);
+
+        log.info(
+                "Role deleted: tenantId={}, roleId={}, roleCode={}",
+                tenantId,
+                role.getId(),
+                role.getCode()
+        );
+
+        return true;
+    }
+
+    @Transactional
+    public void grant(
+            String tenantId,
+            String roleCode,
+            String permissionCode,
+            String actorId,
+            String correlationId
+    ) {
+        String normalizedRoleCode =
+                normalizeRole(roleCode);
+
+        String normalizedPermissionCode =
+                normalizePermission(permissionCode);
+
+        guardPlatform(normalizedRoleCode);
+
+        management.grantPermissionToRole(
+                tenantId,
+                normalizedRoleCode,
+                normalizedPermissionCode,
+                actorId,
+                correlationId
+        );
+
+        log.info(
+                "Permission granted to role: tenantId={}, roleCode={}, permissionCode={}, actorId={}, correlationId={}",
+                tenantId,
+                normalizedRoleCode,
+                normalizedPermissionCode,
+                actorId,
+                correlationId
         );
     }
-    @Transactional public String createRole(String tenant,String code,String name,String actor,String correlation){
-        String c=normalizeRole(code); guardPlatform(c); return management.createRole(tenant,c,name,false,actor,correlation);
+
+    @Transactional
+    public void revoke(
+            String tenantId,
+            String roleCode,
+            String permissionCode,
+            String actorId,
+            String correlationId
+    ) {
+        String normalizedRoleCode =
+                normalizeRole(roleCode);
+
+        String normalizedPermissionCode =
+                normalizePermission(permissionCode);
+
+        guardPlatform(normalizedRoleCode);
+
+        management.revokePermissionFromRole(
+                tenantId,
+                normalizedRoleCode,
+                normalizedPermissionCode,
+                actorId,
+                correlationId
+        );
+
+        log.info(
+                "Permission revoked from role: tenantId={}, roleCode={}, permissionCode={}, actorId={}, correlationId={}",
+                tenantId,
+                normalizedRoleCode,
+                normalizedPermissionCode,
+                actorId,
+                correlationId
+        );
     }
-    @Transactional public void updateRole(String tenant,String code,String name){ var r=role(tenant,code); guardSystem(r.getCode(),r.isSystemRole()); r.rename(name); }
-    @Transactional public boolean deleteRole(String tenant,String code){ var r=role(tenant,code); guardSystem(r.getCode(),r.isSystemRole());
-        if(assignments.countAssignmentsByRoleIds(java.util.List.of(r.getId()))>0) throw new ConflictException("ROLE_IN_USE","Revoke role from all memberships before deleting it");
-        grants.deleteAllByRoleId(r.getId()); roles.delete(r); return true; }
-    @Transactional public void grant(String tenant,String role,String permission,String actor,String correlation){guardPlatform(normalizeRole(role));management.grantPermissionToRole(tenant,role,normalizePermission(permission),actor,correlation);}
-    @Transactional public void revoke(String tenant,String role,String permission,String actor,String correlation){guardPlatform(normalizeRole(role));management.revokePermissionFromRole(tenant,role,normalizePermission(permission),actor,correlation);}
-    private com.htv.smartfarm.identity.authorization.domain.RoleEntity role(String t,String c){String code=normalizeRole(c);return roles.findByTenantIdAndCode(t,code).orElseThrow(() -> NotFoundException.entity("Role",t+":"+code));}
-    private static void guardPermission(String c){if("*".equals(c))throw new ConflictException("PROTECTED_PERMISSION","Wildcard permission is protected");}
-    private static void guardSystem(String c,boolean system){if(system||"USER".equals(c)||"ADMIN".equals(c)||"SUPERADMIN".equals(c)||"PLATFORM_ADMIN".equals(c))throw new ConflictException("PROTECTED_ROLE","System role cannot be changed or deleted");}
-    private static void guardPlatform(String c){if("SUPERADMIN".equals(c)||"PLATFORM_ADMIN".equals(c))throw new ConflictException("PLATFORM_ROLE_DELEGATION_NOT_ALLOWED","Platform roles cannot be managed through tenant administration");}
-    private static String normalizePermission(String v){if(v==null||v.isBlank())throw new IllegalArgumentException("permission code is required");return v.trim().toLowerCase(Locale.ROOT);}
-    private static String normalizePart(String v){if(v==null||v.isBlank())throw new IllegalArgumentException("permission metadata is required");return v.trim().toLowerCase(Locale.ROOT);}
-    private static String normalizeRole(String v){if(v==null||!v.trim().matches("[A-Za-z][A-Za-z0-9_]{1,39}"))throw new IllegalArgumentException("Invalid role code");return v.trim().toUpperCase(Locale.ROOT);}
+
+    private RoleEntity role(
+            String tenantId,
+            String roleCode
+    ) {
+        String normalizedRoleCode =
+                normalizeRole(roleCode);
+
+        return roles.findByTenantIdAndCode(
+                        tenantId,
+                        normalizedRoleCode
+                )
+                .orElseThrow(() -> {
+                    log.error(
+                            "Role not found: tenantId={}, roleCode={}",
+                            tenantId,
+                            normalizedRoleCode
+                    );
+
+                    return NotFoundException.entity(
+                            "Role",
+                            tenantId + ":" + normalizedRoleCode
+                    );
+                });
+    }
+
+    private static void guardSystem(
+            String roleCode,
+            boolean systemRole
+    ) {
+        if (systemRole
+                || USER_ROLE.equals(roleCode)
+                || ADMIN_ROLE.equals(roleCode)
+                || SUPERADMIN_ROLE.equals(roleCode)
+                || PLATFORM_ADMIN_ROLE.equals(roleCode)) {
+
+            throw new ConflictException(
+                    "PROTECTED_ROLE",
+                    "System role cannot be changed or deleted"
+            );
+        }
+    }
+
+    private static void guardPlatform(
+            String roleCode
+    ) {
+        if (SUPERADMIN_ROLE.equals(roleCode)
+                || PLATFORM_ADMIN_ROLE.equals(roleCode)) {
+
+            throw new ConflictException(
+                    "PLATFORM_ROLE_DELEGATION_NOT_ALLOWED",
+                    "Platform roles cannot be managed through tenant administration"
+            );
+        }
+    }
+
+    private static String normalizePermission(
+            String value
+    ) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(
+                    "permission code is required"
+            );
+        }
+
+        return value.trim()
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizeRole(
+            String value
+    ) {
+        if (value == null
+                || !value.trim()
+                .matches("[A-Za-z][A-Za-z0-9_]{1,39}")) {
+
+            throw new IllegalArgumentException(
+                    "Invalid role code"
+            );
+        }
+
+        return value.trim()
+                .toUpperCase(Locale.ROOT);
+    }
 }

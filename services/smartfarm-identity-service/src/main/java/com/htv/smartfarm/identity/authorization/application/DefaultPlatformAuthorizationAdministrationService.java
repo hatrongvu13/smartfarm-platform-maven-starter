@@ -3,6 +3,7 @@ package com.htv.smartfarm.identity.authorization.application;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.common.paging.PageResult;
@@ -12,7 +13,6 @@ import com.htv.smartfarm.identity.authorization.application.model.PermissionData
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
 import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
 import com.htv.smartfarm.identity.authorization.domain.RolePermissionEntity;
-import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
 import com.htv.smartfarm.identity.config.IdentitySettings;
@@ -20,14 +20,19 @@ import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class DefaultPlatformAuthorizationAdministrationService
         implements PlatformAuthorizationAdministrationService {
+
+    private static final String PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
+    private static final String SUPERADMIN_ROLE = "SUPERADMIN";
 
     private final IdentitySettings settings;
     private final TenantRepository tenantRepository;
@@ -36,87 +41,258 @@ public class DefaultPlatformAuthorizationAdministrationService
     private final RoleManagementService roleManagementService;
 
     @Override
-    public PageResult<RoleData> listPlatformRoles(int pageSize, String pageToken, boolean includePermissions) {
+    public PageResult<RoleData> listPlatformRoles(
+            int pageSize,
+            String pageToken,
+            boolean includePermissions) {
+
         TenantEntity tenant = platformTenant();
-        List<RoleData> roles = roleRepository.findAllByTenantIdOrderByCodeAsc(tenant.getId()).stream()
+
+        log.debug(
+                "Listing platform roles: tenantId={}, pageSize={}, pageTokenPresent={}, includePermissions={}",
+                tenant.getId(),
+                pageSize,
+                pageToken != null && !pageToken.isBlank(),
+                includePermissions);
+
+        List<RoleData> roles = roleRepository
+                .findAllByTenantIdOrderByCodeAsc(tenant.getId())
+                .stream()
                 .filter(role -> role.isSystemRole() || isPlatformCode(role.getCode()))
                 .map(role -> toData(role, includePermissions))
                 .toList();
+
+        log.debug(
+                "Found {} platform roles for tenantId={}",
+                roles.size(),
+                tenant.getId());
+
         return PageSupport.page(roles, pageSize, pageToken);
     }
 
     @Override
     @Transactional
-    public RoleData createPlatformRole(String roleCode, String roleName, String description,
-                                       List<String> permissionCodes, String actorId) {
+    public RoleData createPlatformRole(
+            String roleCode,
+            String roleName,
+            String description,
+            List<String> permissionCodes,
+            String actorId) {
+
         TenantEntity tenant = platformTenant();
-        String code = normalize(roleCode);
-        String id = roleManagementService.createRole(
-                tenant.getId(), code, roleName, true, actorId, null);
-        for (String permissionCode : new LinkedHashSet<>(permissionCodes == null ? List.of() : permissionCodes)) {
+        String normalizedRoleCode = normalizeRoleCode(roleCode);
+        Set<String> uniquePermissionCodes = uniquePermissionCodes(permissionCodes);
+
+        log.info(
+                "Creating platform role: tenantId={}, roleCode={}, permissionCount={}, actorId={}",
+                tenant.getId(),
+                normalizedRoleCode,
+                uniquePermissionCodes.size(),
+                actorId);
+
+        String roleId = roleManagementService.createRole(
+                tenant.getId(),
+                normalizedRoleCode,
+                roleName,
+                true,
+                actorId,
+                description);
+
+        for (String permissionCode : uniquePermissionCodes) {
+            log.debug(
+                    "Granting permission while creating platform role: tenantId={}, roleCode={}, "
+                            + "permissionCode={}",
+                    tenant.getId(),
+                    normalizedRoleCode,
+                    permissionCode);
+
             roleManagementService.grantPermissionToRole(
-                    tenant.getId(), code, permissionCode, actorId, null);
+                    tenant.getId(),
+                    normalizedRoleCode,
+                    permissionCode,
+                    actorId,
+                    null);
         }
-        RoleEntity role = roleRepository.findById(id)
-                .orElseThrow(() -> NotFoundException.entity("Role", id));
+
+        RoleEntity role = findRoleById(roleId);
+
+        log.info(
+                "Platform role created successfully: tenantId={}, roleId={}, roleCode={}",
+                tenant.getId(),
+                roleId,
+                normalizedRoleCode);
+
         return toData(role, true);
     }
 
     @Override
     @Transactional
-    public RoleData grantPermission(String roleCode, String permissionCode, String actorId) {
+    public RoleData grantPermission(
+            String roleCode,
+            String permissionCode,
+            String actorId) {
+
         TenantEntity tenant = platformTenant();
+        String normalizedRoleCode = normalizeRoleCode(roleCode);
+
+        log.info(
+                "Granting permission to platform role: tenantId={}, roleCode={}, "
+                        + "permissionCode={}, actorId={}",
+                tenant.getId(),
+                normalizedRoleCode,
+                permissionCode,
+                actorId);
+
         roleManagementService.grantPermissionToRole(
-                tenant.getId(), normalize(roleCode), permissionCode, actorId, null);
-        return roleData(tenant.getId(), roleCode);
+                tenant.getId(),
+                normalizedRoleCode,
+                permissionCode,
+                actorId,
+                null);
+
+        log.info(
+                "Permission granted successfully: tenantId={}, roleCode={}, permissionCode={}",
+                tenant.getId(),
+                normalizedRoleCode,
+                permissionCode);
+
+        return roleData(tenant.getId(), normalizedRoleCode);
     }
 
     @Override
     @Transactional
-    public RoleData revokePermission(String roleCode, String permissionCode, String actorId) {
+    public RoleData revokePermission(
+            String roleCode,
+            String permissionCode,
+            String actorId) {
+
         TenantEntity tenant = platformTenant();
+        String normalizedRoleCode = normalizeRoleCode(roleCode);
+
+        log.info(
+                "Revoking permission from platform role: tenantId={}, roleCode={}, "
+                        + "permissionCode={}, actorId={}",
+                tenant.getId(),
+                normalizedRoleCode,
+                permissionCode,
+                actorId);
+
         roleManagementService.revokePermissionFromRole(
-                tenant.getId(), normalize(roleCode), permissionCode, actorId, null);
-        return roleData(tenant.getId(), roleCode);
+                tenant.getId(),
+                normalizedRoleCode,
+                permissionCode,
+                actorId,
+                null);
+
+        log.info(
+                "Permission revoked successfully: tenantId={}, roleCode={}, permissionCode={}",
+                tenant.getId(),
+                normalizedRoleCode,
+                permissionCode);
+
+        return roleData(tenant.getId(), normalizedRoleCode);
     }
 
-    private RoleData roleData(String tenantId, String roleCode) {
-        RoleEntity role = roleRepository.findByTenantIdAndCode(tenantId, normalize(roleCode))
-                .orElseThrow(() -> NotFoundException.entity("Role", tenantId + ":" + roleCode));
+    private RoleData roleData(String tenantId, String normalizedRoleCode) {
+        RoleEntity role = roleRepository
+                .findByTenantIdAndCode(tenantId, normalizedRoleCode)
+                .orElseThrow(() -> {
+                    String identifier = tenantId + ":" + normalizedRoleCode;
+
+                    log.warn(
+                            "Platform role not found: tenantId={}, roleCode={}",
+                            tenantId,
+                            normalizedRoleCode);
+
+                    return NotFoundException.entity("Role", identifier);
+                });
+
         return toData(role, true);
+    }
+
+    private RoleEntity findRoleById(String roleId) {
+        return roleRepository.findById(roleId)
+                .orElseThrow(() -> {
+                    log.error(
+                            "Role was created but could not be reloaded: roleId={}",
+                            roleId);
+
+                    return NotFoundException.entity("Role", roleId);
+                });
     }
 
     private RoleData toData(RoleEntity role, boolean includePermissions) {
         List<PermissionData> permissions = includePermissions
-                ? rolePermissionRepository.findAllByIdRoleId(role.getId()).stream()
+                ? rolePermissionRepository.findAllByIdRoleId(role.getId())
+                .stream()
                 .map(RolePermissionEntity::getPermission)
-                .map(this::permissionData).toList()
+                .map(this::toPermissionData)
+                .toList()
                 : List.of();
-        return new RoleData(role.getId(), role.getTenant().getId(), role.getCode(), role.getName(),
-                RoleTypeData.PLATFORM, permissions, role.getCreatedAt(), role.getUpdatedAt(), role.getVersion());
+
+        return new RoleData(
+                role.getId(),
+                role.getTenant().getId(),
+                role.getCode(),
+                role.getName(),
+                RoleTypeData.PLATFORM,
+                permissions,
+                role.getCreatedAt(),
+                role.getUpdatedAt(),
+                role.getVersion());
     }
 
-    private PermissionData permissionData(PermissionEntity permission) {
-        return new PermissionData(permission.getCode(), permission.getResourceType(),
-                permission.getAction(), permission.getDescription());
+    private PermissionData toPermissionData(PermissionEntity permission) {
+        return new PermissionData(
+                permission.getCode(),
+                permission.getResourceType(),
+                permission.getAction(),
+                permission.getDescription());
     }
 
     private TenantEntity platformTenant() {
-        String configured = settings.bootstrapTenant();
-        if (configured == null || configured.isBlank()) {
-            throw new IllegalStateException("smartfarm.identity.bootstrap-tenant must be configured");
+        String configuredTenant = settings.bootstrapTenant();
+
+        if (configuredTenant == null || configuredTenant.isBlank()) {
+            log.error("Bootstrap tenant is not configured");
+
+            throw new IllegalStateException(
+                    "smartfarm.identity.bootstrap-tenant must be configured");
         }
-        return tenantRepository.findById(configured)
-                .or(() -> tenantRepository.findByCode(configured))
-                .orElseThrow(() -> NotFoundException.entity("PlatformTenant", configured));
+
+        String tenantIdentifier = configuredTenant.trim();
+
+        return tenantRepository.findById(tenantIdentifier)
+                .or(() -> tenantRepository.findByCode(tenantIdentifier))
+                .orElseThrow(() -> {
+                    log.error(
+                            "Configured platform tenant was not found: tenantIdentifier={}",
+                            tenantIdentifier);
+
+                    return NotFoundException.entity(
+                            "PlatformTenant",
+                            tenantIdentifier);
+                });
     }
 
-    private static String normalize(String value) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException("roleCode must not be blank");
-        return value.trim().toUpperCase(Locale.ROOT);
+    private static Set<String> uniquePermissionCodes(List<String> permissionCodes) {
+        if (permissionCodes == null || permissionCodes.isEmpty()) {
+            return Set.of();
+        }
+
+        return new LinkedHashSet<>(permissionCodes);
     }
 
-    private static boolean isPlatformCode(String code) {
-        return "PLATFORM_ADMIN".equals(code) || "SUPERADMIN".equals(code);
+    private static String normalizeRoleCode(String roleCode) {
+        if (roleCode == null || roleCode.isBlank()) {
+            throw new IllegalArgumentException("roleCode must not be blank");
+        }
+
+        return roleCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean isPlatformCode(String roleCode) {
+        return PLATFORM_ADMIN_ROLE.equals(roleCode)
+                || SUPERADMIN_ROLE.equals(roleCode);
     }
 }

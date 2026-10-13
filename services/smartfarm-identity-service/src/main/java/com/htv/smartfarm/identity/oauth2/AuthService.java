@@ -145,7 +145,8 @@ public class AuthService {
         }
     }
 
-    public record TenantOption(String tenantId, String tenantCode, String tenantName) { }
+    public record TenantOption(String tenantId, String tenantCode, String tenantName) {
+    }
 
     private final UserAccountRepository accounts;
     private final TenantRepository tenants;

@@ -1,7 +1,5 @@
 package com.htv.smartfarm.identity.authorization.application;
 
-import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
-
 import java.util.List;
 
 import com.htv.smartfarm.common.exception.ConflictException;
@@ -9,14 +7,18 @@ import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.common.exception.ValidationException;
 import com.htv.smartfarm.identity.authorization.domain.MembershipFarmEntity;
 import com.htv.smartfarm.identity.authorization.repository.MembershipFarmRepository;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FarmScopeService {
@@ -32,12 +34,30 @@ public class FarmScopeService {
             String userId,
             String farmId
     ) {
-        validateIdentifiers(tenantId, userId, farmId);
+        validateIdentifiers(
+                tenantId,
+                userId,
+                farmId
+        );
 
         TenantMembershipEntity membership =
-                getActiveMembership(tenantId, userId);
+                getActiveMembership(
+                        tenantId,
+                        userId
+                );
 
-        if (!farmDirectoryPort.existsInTenant(tenantId, farmId)) {
+        if (!farmDirectoryPort.existsInTenant(
+                tenantId,
+                farmId
+        )) {
+            log.error(
+                    "Farm scope grant failed: farm not found, "
+                            + "tenantId={}, userId={}, farmId={}",
+                    tenantId,
+                    userId,
+                    farmId
+            );
+
             throw NotFoundException.entity(
                     "Farm",
                     tenantId + ":" + farmId
@@ -53,10 +73,24 @@ public class FarmScopeService {
         }
 
         membershipFarmRepository.save(
-                new MembershipFarmEntity(membership, farmId)
+                new MembershipFarmEntity(
+                        membership,
+                        farmId
+                )
         );
 
-        farmAuthorizationChanged(tenantId, userId, "FARM_SCOPE_GRANTED");
+        farmAuthorizationChanged(
+                tenantId,
+                userId,
+                "FARM_SCOPE_GRANTED"
+        );
+
+        log.info(
+                "Farm access granted: tenantId={}, userId={}, farmId={}",
+                tenantId,
+                userId,
+                farmId
+        );
     }
 
     @Transactional
@@ -65,18 +99,24 @@ public class FarmScopeService {
             String userId,
             String farmId
     ) {
-        validateIdentifiers(tenantId, userId, farmId);
+        validateIdentifiers(
+                tenantId,
+                userId,
+                farmId
+        );
 
         TenantMembershipEntity membership =
-                getMembership(tenantId, userId);
+                getMembership(
+                        tenantId,
+                        userId
+                );
 
-        boolean existed = membershipFarmRepository.existsByIdMembershipIdAndIdFarmId(
-
-                membership.getId(),
-
-                farmId
-
-        );
+        boolean existed =
+                membershipFarmRepository
+                        .existsByIdMembershipIdAndIdFarmId(
+                                membership.getId(),
+                                farmId
+                        );
 
         membershipFarmRepository.deleteByMembershipIdAndFarmId(
                 membership.getId(),
@@ -84,9 +124,18 @@ public class FarmScopeService {
         );
 
         if (existed) {
+            farmAuthorizationChanged(
+                    tenantId,
+                    userId,
+                    "FARM_SCOPE_REVOKED"
+            );
 
-            farmAuthorizationChanged(tenantId, userId, "FARM_SCOPE_REVOKED");
-
+            log.info(
+                    "Farm access revoked: tenantId={}, userId={}, farmId={}",
+                    tenantId,
+                    userId,
+                    farmId
+            );
         }
     }
 
@@ -99,10 +148,15 @@ public class FarmScopeService {
         requireText(userId, "userId");
 
         TenantMembershipEntity membership =
-                getMembership(tenantId, userId);
+                getMembership(
+                        tenantId,
+                        userId
+                );
 
         return membershipFarmRepository
-                .findFarmIdsByMembershipId(membership.getId());
+                .findFarmIdsByMembershipId(
+                        membership.getId()
+                );
     }
 
     private TenantMembershipEntity getActiveMembership(
@@ -110,9 +164,21 @@ public class FarmScopeService {
             String userId
     ) {
         TenantMembershipEntity membership =
-                getMembership(tenantId, userId);
+                getMembership(
+                        tenantId,
+                        userId
+                );
 
         if (membership.getStatus() != MembershipStatus.ACTIVE) {
+            log.error(
+                    "Farm scope operation failed: membership is not active, "
+                            + "tenantId={}, userId={}, membershipId={}, status={}",
+                    tenantId,
+                    userId,
+                    membership.getId(),
+                    membership.getStatus()
+            );
+
             throw new ConflictException(
                     "MEMBERSHIP_NOT_ACTIVE",
                     "Membership is not active"
@@ -127,11 +193,23 @@ public class FarmScopeService {
             String userId
     ) {
         return membershipRepository
-                .findByTenantIdAndUserId(tenantId, userId)
-                .orElseThrow(() -> NotFoundException.entity(
-                        "TenantMembership",
-                        tenantId + ":" + userId
-                ));
+                .findByTenantIdAndUserId(
+                        tenantId,
+                        userId
+                )
+                .orElseThrow(() -> {
+                    log.error(
+                            "Tenant membership not found: "
+                                    + "tenantId={}, userId={}",
+                            tenantId,
+                            userId
+                    );
+
+                    return NotFoundException.entity(
+                            "TenantMembership",
+                            tenantId + ":" + userId
+                    );
+                });
     }
 
     private void validateIdentifiers(
@@ -144,8 +222,16 @@ public class FarmScopeService {
         requireText(farmId, "farmId");
     }
 
-    private void requireText(String value, String field) {
+    private void requireText(
+            String value,
+            String field
+    ) {
         if (value == null || value.isBlank()) {
+            log.error(
+                    "Farm scope validation failed: {} is blank",
+                    field
+            );
+
             throw new ValidationException(
                     "REQUIRED_FIELD_MISSING",
                     field + " must not be blank"
@@ -153,14 +239,20 @@ public class FarmScopeService {
         }
     }
 
-    // DYNAMIC_AUTH_PHASE2B_FARM: Spring injects this; null only in legacy direct-construction tests.
+    // Spring injects this; null only in legacy direct-construction tests.
     private void farmAuthorizationChanged(
-            String tenantId, String userId, String reasonCode
+            String tenantId,
+            String userId,
+            String reasonCode
     ) {
         if (authorizationMutations != null) {
             authorizationMutations.subjectChanged(
-                    tenantId, userId, userId, null, reasonCode);
+                    tenantId,
+                    userId,
+                    userId,
+                    null,
+                    reasonCode
+            );
         }
     }
-
 }

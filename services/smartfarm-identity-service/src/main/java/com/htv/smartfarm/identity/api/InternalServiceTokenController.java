@@ -30,7 +30,9 @@ public class InternalServiceTokenController {
         this.serviceTokens = serviceTokens;
     }
 
-    /** Request body posted by the gateway's ServiceTokenClient. */
+    /**
+     * Request body posted by the gateway's ServiceTokenClient.
+     */
     public record TokenRequest(
             String clientId,
             String secret,

@@ -7,9 +7,11 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
+import lombok.Getter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+@Getter
 @MappedSuperclass
 public abstract class AuditableEntity {
 
@@ -25,15 +27,4 @@ public abstract class AuditableEntity {
     @Column(name = "entity_version", nullable = false)
     private long version;
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public long getVersion() {
-        return version;
-    }
 }

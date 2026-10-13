@@ -18,10 +18,12 @@ import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class TenantMembershipService {
 
     private final TenantRepository tenantRepository;
@@ -30,28 +32,7 @@ public class TenantMembershipService {
     private final MembershipRoleRepository membershipRoleRepository;
     private final MembershipFarmRepository membershipFarmRepository;
     private final IdentityIntegrationEventPublisher events;
-    private AuthorizationMutationCoordinator authorizationMutations;
-
-    public TenantMembershipService(
-            TenantRepository tenantRepository,
-            UserAccountRepository userAccountRepository,
-            TenantMembershipRepository membershipRepository,
-            MembershipRoleRepository membershipRoleRepository,
-            MembershipFarmRepository membershipFarmRepository,
-            IdentityIntegrationEventPublisher events
-    ) {
-        this.tenantRepository = tenantRepository;
-        this.userAccountRepository = userAccountRepository;
-        this.membershipRepository = membershipRepository;
-        this.membershipRoleRepository = membershipRoleRepository;
-        this.membershipFarmRepository = membershipFarmRepository;
-        this.events = events;
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired
-    void setAuthorizationMutationCoordinator(AuthorizationMutationCoordinator value) {
-        this.authorizationMutations = value;
-    }
+    private final AuthorizationMutationCoordinator authorizationMutations;
 
     @Transactional
     public String inviteUser(String tenantId, String userId) {

@@ -3,6 +3,7 @@ package com.htv.smartfarm.identity.messaging.outbox;
 import com.htv.smartfarm.identity.messaging.mqtt.IdentityMqttConnectionManager;
 import com.htv.smartfarm.identity.messaging.mqtt.IdentityMqttProperties;
 
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -20,10 +21,8 @@ import org.springframework.stereotype.Component;
 // smartfarm.identity.mqtt.enabled=true. We make that dependency OPTIONAL (ObjectProvider) so
 // turning MQTT off cleanly leaves the relay inert (nothing to publish through), instead of
 // failing context startup on a missing connection-manager bean.
+@Slf4j
 public class IdentityOutboxRelay {
-
-    private static final Logger log = LoggerFactory.getLogger(IdentityOutboxRelay.class);
-
     private final IdentityOutboxTransactionService transactions;
     private final ObjectProvider<IdentityMqttConnectionManager> mqttProvider;
     private final IdentityMqttProperties mqttProperties;

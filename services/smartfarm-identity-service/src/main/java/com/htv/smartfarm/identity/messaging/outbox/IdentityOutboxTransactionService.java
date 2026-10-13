@@ -5,26 +5,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class IdentityOutboxTransactionService {
 
     private final IdentityOutboxRepository repository;
     private final IdentityOutboxProperties properties;
     private final Clock clock;
-
-    public IdentityOutboxTransactionService(
-            IdentityOutboxRepository repository,
-            IdentityOutboxProperties properties,
-            Clock clock
-    ) {
-        this.repository = repository;
-        this.properties = properties;
-        this.clock = clock;
-    }
 
     @Transactional
     public List<IdentityOutboxMessage> claimBatch(int qos) {

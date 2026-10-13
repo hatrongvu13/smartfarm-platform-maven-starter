@@ -2,9 +2,13 @@ package com.htv.smartfarm.identity.mfa.config;
 
 import java.time.Duration;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+@Setter
+@Getter
 @Component
 @ConfigurationProperties(prefix = "smartfarm.identity.mfa")
 public class MfaProperties {
@@ -14,17 +18,6 @@ public class MfaProperties {
     private int maximumAttempts = 5;
     private int recoveryCodeCount = 10;
     private String encryptionKey = "";
-
-    public String getIssuer() { return issuer; }
-    public void setIssuer(String issuer) { this.issuer = issuer; }
-    public Duration getChallengeTtl() { return challengeTtl; }
-    public void setChallengeTtl(Duration challengeTtl) { this.challengeTtl = challengeTtl; }
-    public int getMaximumAttempts() { return maximumAttempts; }
-    public void setMaximumAttempts(int maximumAttempts) { this.maximumAttempts = maximumAttempts; }
-    public int getRecoveryCodeCount() { return recoveryCodeCount; }
-    public void setRecoveryCodeCount(int recoveryCodeCount) { this.recoveryCodeCount = recoveryCodeCount; }
-    public String getEncryptionKey() { return encryptionKey; }
-    public void setEncryptionKey(String encryptionKey) { this.encryptionKey = encryptionKey; }
 
     public void validateRuntime() {
         if (issuer == null || issuer.isBlank()) {

@@ -26,8 +26,10 @@ import com.htv.smartfarm.proto.identity.v1
 import io.grpc.stub.StreamObserver;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PlatformAuthorizationAdministrationGrpcService
@@ -39,6 +41,9 @@ public class PlatformAuthorizationAdministrationGrpcService
 
     private static final String PERMISSION_PATTERN =
             "[A-Za-z][A-Za-z0-9:._-]{1,79}";
+
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final PlatformAuthorizationAdministrationService
             administrationService;
@@ -53,6 +58,13 @@ public class PlatformAuthorizationAdministrationGrpcService
             StreamObserver<ListPlatformRolesResponse>
                     responseObserver
     ) {
+        log.debug(
+                "Received list platform roles request: "
+                        + "requestedPageSize={}, includePermissions={}",
+                request.getPage().getPageSize(),
+                request.getIncludePermissions()
+        );
+
         exceptionMapper.executeUnary(
                 responseObserver,
                 () -> {
@@ -65,18 +77,26 @@ public class PlatformAuthorizationAdministrationGrpcService
                                             .PLATFORM_ROLE_MANAGE
                             );
 
+                    int effectivePageSize = pageSize(
+                            request.getPage().getPageSize()
+                    );
+
                     var page =
                             administrationService
                                     .listPlatformRoles(
-                                            pageSize(
-                                                    request.getPage()
-                                                            .getPageSize()
-                                            ),
+                                            effectivePageSize,
                                             request.getPage()
                                                     .getPageToken(),
                                             request
                                                     .getIncludePermissions()
                                     );
+
+                    log.debug(
+                            "Listed platform roles successfully: "
+                                    + "pageSize={}, includePermissions={}",
+                            effectivePageSize,
+                            request.getIncludePermissions()
+                    );
 
                     return protoMapper
                             .toListPlatformRolesResponse(page);
@@ -90,6 +110,11 @@ public class PlatformAuthorizationAdministrationGrpcService
             StreamObserver<CreatePlatformRoleResponse>
                     responseObserver
     ) {
+        log.info(
+                "Received create platform role request: roleCode={}",
+                request.getRoleCode()
+        );
+
         exceptionMapper.executeUnary(
                 responseObserver,
                 () -> {
@@ -104,6 +129,13 @@ public class PlatformAuthorizationAdministrationGrpcService
                                                     .PLATFORM_ROLE_MANAGE
                                     );
 
+                    log.debug(
+                            "Create platform role request authorized: "
+                                    + "roleCode={}, actorId={}",
+                            request.getRoleCode(),
+                            secured.actorId()
+                    );
+
                     var role =
                             administrationService
                                     .createPlatformRole(
@@ -114,6 +146,13 @@ public class PlatformAuthorizationAdministrationGrpcService
                                                     .getPermissionCodesList(),
                                             secured.actorId()
                                     );
+
+                    log.info(
+                            "Platform role created successfully: "
+                                    + "roleCode={}, actorId={}",
+                            request.getRoleCode(),
+                            secured.actorId()
+                    );
 
                     return CreatePlatformRoleResponse
                             .newBuilder()
@@ -129,6 +168,13 @@ public class PlatformAuthorizationAdministrationGrpcService
             StreamObserver<GrantPlatformPermissionResponse>
                     responseObserver
     ) {
+        log.info(
+                "Received grant platform permission request: "
+                        + "roleCode={}, permissionCode={}",
+                request.getRoleCode(),
+                request.getPermissionCode()
+        );
+
         exceptionMapper.executeUnary(
                 responseObserver,
                 () -> {
@@ -146,12 +192,30 @@ public class PlatformAuthorizationAdministrationGrpcService
                                                     .PLATFORM_PERMISSION_MANAGE
                                     );
 
+                    log.debug(
+                            "Grant platform permission request authorized: "
+                                    + "roleCode={}, permissionCode={}, "
+                                    + "actorId={}",
+                            request.getRoleCode(),
+                            request.getPermissionCode(),
+                            secured.actorId()
+                    );
+
                     var role =
                             administrationService.grantPermission(
                                     request.getRoleCode(),
                                     request.getPermissionCode(),
                                     secured.actorId()
                             );
+
+                    log.info(
+                            "Platform permission granted successfully: "
+                                    + "roleCode={}, permissionCode={}, "
+                                    + "actorId={}",
+                            request.getRoleCode(),
+                            request.getPermissionCode(),
+                            secured.actorId()
+                    );
 
                     return GrantPlatformPermissionResponse
                             .newBuilder()
@@ -167,6 +231,13 @@ public class PlatformAuthorizationAdministrationGrpcService
             StreamObserver<RevokePlatformPermissionResponse>
                     responseObserver
     ) {
+        log.info(
+                "Received revoke platform permission request: "
+                        + "roleCode={}, permissionCode={}",
+                request.getRoleCode(),
+                request.getPermissionCode()
+        );
+
         exceptionMapper.executeUnary(
                 responseObserver,
                 () -> {
@@ -184,12 +255,30 @@ public class PlatformAuthorizationAdministrationGrpcService
                                                     .PLATFORM_PERMISSION_MANAGE
                                     );
 
+                    log.debug(
+                            "Revoke platform permission request authorized: "
+                                    + "roleCode={}, permissionCode={}, "
+                                    + "actorId={}",
+                            request.getRoleCode(),
+                            request.getPermissionCode(),
+                            secured.actorId()
+                    );
+
                     var role =
                             administrationService.revokePermission(
                                     request.getRoleCode(),
                                     request.getPermissionCode(),
                                     secured.actorId()
                             );
+
+                    log.info(
+                            "Platform permission revoked successfully: "
+                                    + "roleCode={}, permissionCode={}, "
+                                    + "actorId={}",
+                            request.getRoleCode(),
+                            request.getPermissionCode(),
+                            secured.actorId()
+                    );
 
                     return RevokePlatformPermissionResponse
                             .newBuilder()
@@ -201,15 +290,36 @@ public class PlatformAuthorizationAdministrationGrpcService
 
     private int pageSize(int requested) {
         if (requested <= 0) {
-            return 20;
+            log.debug(
+                    "Using default page size: requested={}, default={}",
+                    requested,
+                    DEFAULT_PAGE_SIZE
+            );
+
+            return DEFAULT_PAGE_SIZE;
         }
 
-        return Math.min(requested, 100);
+        if (requested > MAX_PAGE_SIZE) {
+            log.debug(
+                    "Limiting requested page size: requested={}, maximum={}",
+                    requested,
+                    MAX_PAGE_SIZE
+            );
+
+            return MAX_PAGE_SIZE;
+        }
+
+        return requested;
     }
 
     private void validateRoleCode(String roleCode) {
         if (roleCode == null
                 || !roleCode.matches(ROLE_PATTERN)) {
+            log.warn(
+                    "Platform authorization request rejected: "
+                            + "invalid role code"
+            );
+
             throw new IllegalArgumentException(
                     "Invalid platform role code"
             );
@@ -223,6 +333,11 @@ public class PlatformAuthorizationAdministrationGrpcService
                 || !permissionCode.matches(
                 PERMISSION_PATTERN
         )) {
+            log.warn(
+                    "Platform authorization request rejected: "
+                            + "invalid permission code"
+            );
+
             throw new IllegalArgumentException(
                     "Invalid permission code"
             );
@@ -231,8 +346,13 @@ public class PlatformAuthorizationAdministrationGrpcService
 
     private void requireContext(boolean hasContext) {
         if (!hasContext) {
+            log.warn(
+                    "Platform authorization request rejected: "
+                            + "request context is missing"
+            );
+
             throw new IllegalArgumentException(
-                    "request context is required"
+                    "Request context is required"
             );
         }
     }

@@ -7,7 +7,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(
         name = "sf_tenant",
@@ -43,19 +45,4 @@ public class TenantEntity extends AuditableEntity {
         this.enabled = true;
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
 }

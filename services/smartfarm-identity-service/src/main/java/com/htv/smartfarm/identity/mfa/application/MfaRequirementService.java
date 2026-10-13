@@ -7,10 +7,12 @@ import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class MfaRequirementService {
 
     private static final Set<String> REQUIRED_TOTP_ROLES = Set.of(
@@ -19,12 +21,6 @@ public class MfaRequirementService {
 
     private final TenantMembershipRepository memberships;
     private final MembershipRoleRepository membershipRoles;
-
-    public MfaRequirementService(TenantMembershipRepository memberships,
-            MembershipRoleRepository membershipRoles) {
-        this.memberships = memberships;
-        this.membershipRoles = membershipRoles;
-    }
 
     @Transactional(readOnly = true)
     public boolean requiresTotp(String tenantId, String userId) {

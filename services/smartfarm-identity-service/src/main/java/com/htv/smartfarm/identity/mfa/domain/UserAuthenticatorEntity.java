@@ -11,7 +11,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "sf_user_authenticator", indexes = {
         @Index(name = "ix_authenticator_user_status", columnList = "user_id,status")
@@ -88,13 +90,4 @@ public class UserAuthenticatorEntity extends AuditableEntity {
         return value.trim();
     }
 
-    public String getId() { return id; }
-    public String getUserId() { return userId; }
-    public AuthenticatorType getType() { return type; }
-    public AuthenticatorStatus getStatus() { return status; }
-    public String getDisplayName() { return displayName; }
-    public String getSecretCiphertext() { return secretCiphertext; }
-    public Instant getVerifiedAt() { return verifiedAt; }
-    public Instant getLastUsedAt() { return lastUsedAt; }
-    public Long getLastAcceptedTimeStep() { return lastAcceptedTimeStep; }
 }

@@ -12,7 +12,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "sf_mfa_challenge", indexes = {
         @Index(name = "ix_mfa_challenge_user_status", columnList = "user_id,status"),
@@ -57,7 +59,7 @@ public class MfaChallengeEntity extends AuditableEntity {
     }
 
     public MfaChallengeEntity(String id, String userId, String tenantId,
-            MfaChallengePurpose purpose, String challengeHash, Instant expiresAt) {
+                              MfaChallengePurpose purpose, String challengeHash, Instant expiresAt) {
         this.id = requireText(id, "id");
         this.userId = requireText(userId, "userId");
         this.tenantId = requireText(tenantId, "tenantId");
@@ -91,7 +93,9 @@ public class MfaChallengeEntity extends AuditableEntity {
         if (status == MfaChallengeStatus.PENDING) status = MfaChallengeStatus.EXPIRED;
     }
 
-    public boolean expiredAt(Instant now) { return !expiresAt.isAfter(now); }
+    public boolean expiredAt(Instant now) {
+        return !expiresAt.isAfter(now);
+    }
 
     private void requirePending(Instant now) {
         if (expiredAt(now)) {
@@ -108,14 +112,4 @@ public class MfaChallengeEntity extends AuditableEntity {
         return value.trim();
     }
 
-    public String getId() { return id; }
-    public String getUserId() { return userId; }
-    public String getTenantId() { return tenantId; }
-    public MfaChallengePurpose getPurpose() { return purpose; }
-    public MfaChallengeStatus getStatus() { return status; }
-    public String getChallengeHash() { return challengeHash; }
-    public int getAttemptCount() { return attemptCount; }
-    public Instant getExpiresAt() { return expiresAt; }
-    public Instant getVerifiedAt() { return verifiedAt; }
-    public Instant getConsumedAt() { return consumedAt; }
 }

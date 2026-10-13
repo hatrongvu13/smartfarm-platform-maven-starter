@@ -21,12 +21,14 @@ import com.htv.smartfarm.identity.mfa.repository.RecoveryCodeRepository;
 import com.htv.smartfarm.identity.mfa.repository.UserAuthenticatorRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class MfaChallengeService {
 
     private final MfaChallengeRepository challenges;
@@ -37,32 +39,7 @@ public class MfaChallengeService {
     private final MfaProperties properties;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
-    private IdentityIntegrationEventPublisher events;
-
-    public MfaChallengeService(
-            MfaChallengeRepository challenges,
-            UserAuthenticatorRepository authenticators,
-            RecoveryCodeRepository recoveryCodes,
-            SecretCipher cipher,
-            TotpService totp,
-            MfaProperties properties,
-            Clock clock
-    ) {
-        this.challenges = challenges;
-        this.authenticators = authenticators;
-        this.recoveryCodes = recoveryCodes;
-        this.cipher = cipher;
-        this.totp = totp;
-        this.properties = properties;
-        this.clock = clock;
-    }
-
-    @Autowired
-    void setIdentityIntegrationEventPublisher(
-            IdentityIntegrationEventPublisher events
-    ) {
-        this.events = events;
-    }
+    private final IdentityIntegrationEventPublisher events;
 
     @Transactional
     public MfaChallenge create(

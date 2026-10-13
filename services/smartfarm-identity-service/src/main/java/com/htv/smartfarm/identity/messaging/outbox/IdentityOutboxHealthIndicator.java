@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
@@ -16,15 +17,11 @@ import org.springframework.stereotype.Component;
         name = "enabled",
         havingValue = "true"
 )
+@RequiredArgsConstructor
 public class IdentityOutboxHealthIndicator implements HealthIndicator {
 
     private final IdentityOutboxRepository repository;
     private final Clock clock;
-
-    public IdentityOutboxHealthIndicator(IdentityOutboxRepository repository, Clock clock) {
-        this.repository = repository;
-        this.clock = clock;
-    }
 
     @Override
     public Health health() {

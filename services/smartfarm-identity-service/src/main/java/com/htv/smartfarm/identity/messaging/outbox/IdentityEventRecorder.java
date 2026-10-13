@@ -4,19 +4,16 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class IdentityEventRecorder {
 
     private final IdentityOutboxRepository repository;
     private final Clock clock;
-
-    public IdentityEventRecorder(IdentityOutboxRepository repository, Clock clock) {
-        this.repository = repository;
-        this.clock = clock;
-    }
 
     @Transactional
     public String recordWithId(

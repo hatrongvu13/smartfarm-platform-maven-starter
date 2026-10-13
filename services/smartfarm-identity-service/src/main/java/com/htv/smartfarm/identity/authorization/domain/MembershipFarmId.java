@@ -5,7 +5,9 @@ import java.util.Objects;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import lombok.Getter;
 
+@Getter
 @Embeddable
 public class MembershipFarmId implements Serializable {
 
@@ -34,14 +36,6 @@ public class MembershipFarmId implements Serializable {
     ) {
         this.membershipId = membershipId;
         this.farmId = farmId;
-    }
-
-    public String getMembershipId() {
-        return membershipId;
-    }
-
-    public String getFarmId() {
-        return farmId;
     }
 
     @Override

@@ -12,9 +12,11 @@ import javax.crypto.spec.SecretKeySpec;
 
 import com.htv.smartfarm.identity.mfa.config.MfaProperties;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class AesGcmSecretCipher implements SecretCipher {
 
     private static final byte FORMAT_VERSION = 1;
@@ -23,10 +25,6 @@ public class AesGcmSecretCipher implements SecretCipher {
 
     private final MfaProperties properties;
     private final SecureRandom random = new SecureRandom();
-
-    public AesGcmSecretCipher(MfaProperties properties) {
-        this.properties = properties;
-    }
 
     @Override
     public String encrypt(String plaintext) {

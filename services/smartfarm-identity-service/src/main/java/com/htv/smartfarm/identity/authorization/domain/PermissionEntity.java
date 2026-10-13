@@ -7,7 +7,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(
         name = "sf_permission",
@@ -56,19 +58,4 @@ public class PermissionEntity extends AuditableEntity {
         this.description = description == null || description.isBlank() ? null : description.trim();
     }
 
-    public String getCode() {
-        return code;
-    }
-
-    public String getResourceType() {
-        return resourceType;
-    }
-
-    public String getAction() {
-        return action;
-    }
-
-    public String getDescription() {
-        return description;
-    }
 }

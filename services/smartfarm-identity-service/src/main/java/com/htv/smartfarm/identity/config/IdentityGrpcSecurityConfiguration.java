@@ -2,180 +2,442 @@ package com.htv.smartfarm.identity.config;
 
 import com.htv.smartfarm.identity.grpc.security.IdentityGrpcAuthorities;
 import com.htv.smartfarm.proto.identity.v1.IdentityAdministrationServiceGrpc;
-import com.htv.smartfarm.proto.identity.v1.IdentityDirectoryServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.IdentityCredentialServiceGrpc;
+import com.htv.smartfarm.proto.identity.v1.IdentityDirectoryServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.PlatformAuthorizationAdministrationServiceGrpc;
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
+
+import io.grpc.MethodDescriptor;
+
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+@Slf4j
 @Configuration(proxyBeanMethods = false)
 public class IdentityGrpcSecurityConfiguration {
 
     @Bean
     GrpcMethodPolicy identityGrpcMethodPolicy() {
-        return GrpcMethodPolicy.builder()
+        log.info("Initializing Identity gRPC method security policy");
 
-                // Directory
-                .requireAuthority(
-                        IdentityDirectoryServiceGrpc
-                                .getGetPrincipalMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.PRINCIPAL_READ
-                )
-                .requireAuthority(
-                        IdentityDirectoryServiceGrpc
-                                .getUpdatePrincipalProfileMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.PRINCIPAL_UPDATE
-                )
-                .requireAuthority(
-                        IdentityDirectoryServiceGrpc
-                                .getCheckPermissionMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.PERMISSION_CHECK
-                )
-                .requireAuthority(
-                        IdentityDirectoryServiceGrpc
-                                .getBatchCheckPermissionsMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.PERMISSION_CHECK
-                )
-                .requireAuthenticated(
-                        IdentityDirectoryServiceGrpc
-                                .getPingMethod()
-                                .getFullMethodName()
-                )
+        var builder = GrpcMethodPolicy.builder();
 
-                // Credential self-service and credential administration
-                .requireAuthority(IdentityCredentialServiceGrpc.getGetSecurityProfileMethod().getFullMethodName(), IdentityGrpcAuthorities.SECURITY_READ)
-                .requireAuthority(IdentityCredentialServiceGrpc.getBeginTotpEnrollmentMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_ENROLL)
-                .requireAuthority(IdentityCredentialServiceGrpc.getConfirmTotpEnrollmentMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_ENROLL)
-                .requireAuthority(IdentityCredentialServiceGrpc.getDisableOwnMfaMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_DISABLE)
-                .requireAuthority(IdentityCredentialServiceGrpc.getRegenerateRecoveryCodesMethod().getFullMethodName(), IdentityGrpcAuthorities.MFA_RECOVERY_REGENERATE)
-                .requireAuthority(IdentityCredentialServiceGrpc.getResetUserMfaMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_MFA_RESET)
-                .requireAuthority(IdentityCredentialServiceGrpc.getChangeOwnPasswordMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_CREDENTIAL_RESET)
+        configureDirectoryPolicy(builder);
+        configureCredentialPolicy(builder);
+        configureTenantCatalogPolicy(builder);
+        configureTenantUserPolicy(builder);
+        configureTenantAuthorizationPolicy(builder);
+        configureUserAdministrationPolicy(builder);
+        configureMembershipPolicy(builder);
+        configurePlatformPolicy(builder);
 
-                // Tenant role catalog
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getListRolesMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.ROLE_READ
-                )
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getGetRoleMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.ROLE_READ
-                )
+        var policy = builder.build();
 
-                // Permission catalog
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getListPermissionsMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.PERMISSION_READ
-                )
+        log.info(
+                "Identity gRPC method security policy initialized successfully"
+        );
 
-                // Tenant users
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getListUsersMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.USER_READ
-                )
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getGetUserAuthorizationMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.USER_READ
-                )
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getCreateUserMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.USER_CREATE
-                )
+        return policy;
+    }
 
-                // Dynamic tenant authorization administration
-                .requireAuthority(IdentityAdministrationServiceGrpc.getCreateTenantRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.ROLE_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getUpdateTenantRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.ROLE_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getDeleteTenantRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.ROLE_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getCreatePermissionMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getUpdatePermissionMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getDeletePermissionMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getGrantPermissionToRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getRevokePermissionFromRoleMethod().getFullMethodName(), IdentityGrpcAuthorities.PERMISSION_MANAGE)
+    /**
+     * Configures principal directory operations and permission checks.
+     */
+    private void configureDirectoryPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityDirectoryServiceGrpc.getGetPrincipalMethod(),
+                IdentityGrpcAuthorities.PRINCIPAL_READ
+        );
 
-                // SUPERADMIN profile/account administration
-                .requireAuthority(IdentityAdministrationServiceGrpc.getUpdateUserProfileAsAdministratorMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_PROFILE_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getDisableUserAccountMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getEnableUserAccountMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE)
-                .requireAuthority(IdentityAdministrationServiceGrpc.getUnlockUserAccountMethod().getFullMethodName(), IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE)
+        requireAuthority(
+                builder,
+                IdentityDirectoryServiceGrpc
+                        .getUpdatePrincipalProfileMethod(),
+                IdentityGrpcAuthorities.PRINCIPAL_UPDATE
+        );
 
-                // Role assignment
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getAssignRoleMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.ROLE_ASSIGN
-                )
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getRevokeRoleMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.ROLE_ASSIGN
-                )
+        requireAuthority(
+                builder,
+                IdentityDirectoryServiceGrpc.getCheckPermissionMethod(),
+                IdentityGrpcAuthorities.PERMISSION_CHECK
+        );
 
-                // Membership status
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getDisableMembershipMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.USER_DISABLE
-                )
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getEnableMembershipMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.USER_DISABLE
-                )
-                .requireAuthority(
-                        IdentityAdministrationServiceGrpc
-                                .getSuspendMembershipMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.USER_DISABLE
-                )
+        requireAuthority(
+                builder,
+                IdentityDirectoryServiceGrpc
+                        .getBatchCheckPermissionsMethod(),
+                IdentityGrpcAuthorities.PERMISSION_CHECK
+        );
 
-                // Platform
-                .requireAuthority(
-                        PlatformAuthorizationAdministrationServiceGrpc
-                                .getListPlatformRolesMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.PLATFORM_ROLE_MANAGE
-                )
-                .requireAuthority(
-                        PlatformAuthorizationAdministrationServiceGrpc
-                                .getCreatePlatformRoleMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities.PLATFORM_ROLE_MANAGE
-                )
-                .requireAuthority(
-                        PlatformAuthorizationAdministrationServiceGrpc
-                                .getGrantPlatformPermissionMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities
-                                .PLATFORM_PERMISSION_MANAGE
-                )
-                .requireAuthority(
-                        PlatformAuthorizationAdministrationServiceGrpc
-                                .getRevokePlatformPermissionMethod()
-                                .getFullMethodName(),
-                        IdentityGrpcAuthorities
-                                .PLATFORM_PERMISSION_MANAGE
-                )
-                .build();
+        requireAuthenticated(
+                builder,
+                IdentityDirectoryServiceGrpc.getPingMethod()
+        );
+    }
+
+    /**
+     * Configures credential self-service and credential administration.
+     */
+    private void configureCredentialPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityCredentialServiceGrpc
+                        .getGetSecurityProfileMethod(),
+                IdentityGrpcAuthorities.SECURITY_READ
+        );
+
+        requireAuthority(
+                builder,
+                IdentityCredentialServiceGrpc
+                        .getBeginTotpEnrollmentMethod(),
+                IdentityGrpcAuthorities.MFA_ENROLL
+        );
+
+        requireAuthority(
+                builder,
+                IdentityCredentialServiceGrpc
+                        .getConfirmTotpEnrollmentMethod(),
+                IdentityGrpcAuthorities.MFA_ENROLL
+        );
+
+        requireAuthority(
+                builder,
+                IdentityCredentialServiceGrpc.getDisableOwnMfaMethod(),
+                IdentityGrpcAuthorities.MFA_DISABLE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityCredentialServiceGrpc
+                        .getRegenerateRecoveryCodesMethod(),
+                IdentityGrpcAuthorities.MFA_RECOVERY_REGENERATE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityCredentialServiceGrpc.getResetUserMfaMethod(),
+                IdentityGrpcAuthorities.USER_MFA_RESET
+        );
+
+        requireAuthority(
+                builder,
+                IdentityCredentialServiceGrpc
+                        .getChangeOwnPasswordMethod(),
+                IdentityGrpcAuthorities.USER_CREDENTIAL_RESET
+        );
+    }
+
+    /**
+     * Configures read operations for tenant role and permission catalogs.
+     */
+    private void configureTenantCatalogPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc.getListRolesMethod(),
+                IdentityGrpcAuthorities.ROLE_READ
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc.getGetRoleMethod(),
+                IdentityGrpcAuthorities.ROLE_READ
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getListPermissionsMethod(),
+                IdentityGrpcAuthorities.PERMISSION_READ
+        );
+    }
+
+    /**
+     * Configures tenant user query and creation operations.
+     */
+    private void configureTenantUserPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc.getListUsersMethod(),
+                IdentityGrpcAuthorities.USER_READ
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getGetUserAuthorizationMethod(),
+                IdentityGrpcAuthorities.USER_READ
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc.getCreateUserMethod(),
+                IdentityGrpcAuthorities.USER_CREATE
+        );
+    }
+
+    /**
+     * Configures dynamic tenant roles, permissions, grants and revocations.
+     */
+    private void configureTenantAuthorizationPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        configureTenantRoleManagementPolicy(builder);
+        configureTenantPermissionManagementPolicy(builder);
+        configureTenantRolePermissionPolicy(builder);
+    }
+
+    /**
+     * Configures tenant role creation, modification and deletion.
+     */
+    private void configureTenantRoleManagementPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getCreateTenantRoleMethod(),
+                IdentityGrpcAuthorities.ROLE_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getUpdateTenantRoleMethod(),
+                IdentityGrpcAuthorities.ROLE_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getDeleteTenantRoleMethod(),
+                IdentityGrpcAuthorities.ROLE_MANAGE
+        );
+    }
+
+    /**
+     * Configures tenant permission creation, modification and deletion.
+     */
+    private void configureTenantPermissionManagementPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getCreatePermissionMethod(),
+                IdentityGrpcAuthorities.PERMISSION_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getUpdatePermissionMethod(),
+                IdentityGrpcAuthorities.PERMISSION_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getDeletePermissionMethod(),
+                IdentityGrpcAuthorities.PERMISSION_MANAGE
+        );
+    }
+
+    /**
+     * Configures granting and revoking permissions on tenant roles.
+     */
+    private void configureTenantRolePermissionPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getGrantPermissionToRoleMethod(),
+                IdentityGrpcAuthorities.PERMISSION_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getRevokePermissionFromRoleMethod(),
+                IdentityGrpcAuthorities.PERMISSION_MANAGE
+        );
+    }
+
+    /**
+     * Configures profile, account and role assignment administration.
+     */
+    private void configureUserAdministrationPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getUpdateUserProfileAsAdministratorMethod(),
+                IdentityGrpcAuthorities.USER_PROFILE_MANAGE
+        );
+
+        configureUserAccountPolicy(builder);
+        configureRoleAssignmentPolicy(builder);
+    }
+
+    /**
+     * Configures user account enable, disable and unlock operations.
+     */
+    private void configureUserAccountPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getDisableUserAccountMethod(),
+                IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getEnableUserAccountMethod(),
+                IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getUnlockUserAccountMethod(),
+                IdentityGrpcAuthorities.USER_ACCOUNT_MANAGE
+        );
+    }
+
+    /**
+     * Configures role assignment and revocation on tenant users.
+     */
+    private void configureRoleAssignmentPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc.getAssignRoleMethod(),
+                IdentityGrpcAuthorities.ROLE_ASSIGN
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc.getRevokeRoleMethod(),
+                IdentityGrpcAuthorities.ROLE_ASSIGN
+        );
+    }
+
+    /**
+     * Configures tenant membership status changes.
+     */
+    private void configureMembershipPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getDisableMembershipMethod(),
+                IdentityGrpcAuthorities.USER_DISABLE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getEnableMembershipMethod(),
+                IdentityGrpcAuthorities.USER_DISABLE
+        );
+
+        requireAuthority(
+                builder,
+                IdentityAdministrationServiceGrpc
+                        .getSuspendMembershipMethod(),
+                IdentityGrpcAuthorities.USER_DISABLE
+        );
+    }
+
+    /**
+     * Configures platform-level role and permission administration.
+     */
+    private void configurePlatformPolicy(
+            GrpcMethodPolicy.Builder builder
+    ) {
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getListPlatformRolesMethod(),
+                IdentityGrpcAuthorities.PLATFORM_ROLE_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getCreatePlatformRoleMethod(),
+                IdentityGrpcAuthorities.PLATFORM_ROLE_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getGrantPlatformPermissionMethod(),
+                IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+        );
+
+        requireAuthority(
+                builder,
+                PlatformAuthorizationAdministrationServiceGrpc
+                        .getRevokePlatformPermissionMethod(),
+                IdentityGrpcAuthorities.PLATFORM_PERMISSION_MANAGE
+        );
+    }
+
+    /**
+     * Adds an authority requirement for a gRPC method.
+     */
+    private void requireAuthority(
+            GrpcMethodPolicy.Builder builder,
+            MethodDescriptor<?, ?> method,
+            String authority
+    ) {
+        String fullMethodName = method.getFullMethodName();
+
+        log.debug(
+                "Registering gRPC authority policy: "
+                        + "method={}, authority={}",
+                fullMethodName,
+                authority
+        );
+
+        builder.requireAuthority(
+                fullMethodName,
+                authority
+        );
+    }
+
+    /**
+     * Adds an authentication requirement for a gRPC method.
+     */
+    private void requireAuthenticated(
+            GrpcMethodPolicy.Builder builder,
+            MethodDescriptor<?, ?> method
+    ) {
+        String fullMethodName = method.getFullMethodName();
+
+        log.debug(
+                "Registering authenticated gRPC method policy: method={}",
+                fullMethodName
+        );
+
+        builder.requireAuthenticated(fullMethodName);
     }
 }

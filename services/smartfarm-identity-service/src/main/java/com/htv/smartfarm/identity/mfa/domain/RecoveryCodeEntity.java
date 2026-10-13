@@ -9,7 +9,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "sf_recovery_code", indexes = {
         @Index(name = "ix_recovery_authenticator", columnList = "authenticator_id")
@@ -50,8 +52,4 @@ public class RecoveryCodeEntity extends AuditableEntity {
         return value.trim();
     }
 
-    public String getId() { return id; }
-    public String getAuthenticatorId() { return authenticatorId; }
-    public String getCodeHash() { return codeHash; }
-    public Instant getUsedAt() { return usedAt; }
 }

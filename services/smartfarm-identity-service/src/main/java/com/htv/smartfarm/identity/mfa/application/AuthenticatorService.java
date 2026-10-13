@@ -27,10 +27,12 @@ import com.htv.smartfarm.identity.mfa.repository.UserAuthenticatorRepository;
 import com.htv.smartfarm.identity.token.RefreshRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AuthenticatorService {
 
     private final UserAccountRepository accounts;
@@ -44,25 +46,6 @@ public class AuthenticatorService {
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
     private final IdentityIntegrationEventPublisher events;
-
-    public AuthenticatorService(UserAccountRepository accounts,
-            UserAuthenticatorRepository authenticators,
-            RecoveryCodeRepository recoveryCodes,
-            MfaRequirementService requirements,
-            RefreshRepository refresh, SecretCipher cipher,
-            TotpService totp, MfaProperties properties, Clock clock,
-            IdentityIntegrationEventPublisher events) {
-        this.accounts = accounts;
-        this.authenticators = authenticators;
-        this.recoveryCodes = recoveryCodes;
-        this.requirements = requirements;
-        this.refresh = refresh;
-        this.cipher = cipher;
-        this.totp = totp;
-        this.properties = properties;
-        this.clock = clock;
-        this.events = events;
-    }
 
     @Transactional
     public TotpEnrollment beginTotpEnrollment(String userId, String displayName) {

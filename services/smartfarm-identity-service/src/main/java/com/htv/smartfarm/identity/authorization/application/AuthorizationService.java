@@ -1,10 +1,11 @@
 package com.htv.smartfarm.identity.authorization.application;
 
 import java.time.Clock;
-import java.util.HashSet;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
@@ -18,15 +19,34 @@ import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AuthorizationService {
 
     private static final int MAX_BATCH_TARGETS = 100;
+
     private static final String FARM_RESOURCE = "FARM";
+    private static final String WILDCARD_PERMISSION = "*";
+
+    private static final String REASON_ALLOWED_BY_ROLE = "ALLOWED_BY_ROLE";
+    private static final String REASON_ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
+    private static final String REASON_ACCOUNT_DISABLED = "ACCOUNT_DISABLED";
+    private static final String REASON_ACCOUNT_LOCKED = "ACCOUNT_LOCKED";
+    private static final String REASON_MEMBERSHIP_NOT_FOUND = "MEMBERSHIP_NOT_FOUND";
+    private static final String REASON_MEMBERSHIP_NOT_ACTIVE = "MEMBERSHIP_NOT_ACTIVE";
+    private static final String REASON_MEMBERSHIP_SUSPENDED = "MEMBERSHIP_SUSPENDED";
+    private static final String REASON_MEMBERSHIP_DISABLED = "MEMBERSHIP_DISABLED";
+    private static final String REASON_MEMBERSHIP_STATUS_INVALID = "MEMBERSHIP_STATUS_INVALID";
+    private static final String REASON_TENANT_DISABLED = "TENANT_DISABLED";
+    private static final String REASON_ROLE_NOT_GRANTED = "ROLE_NOT_GRANTED";
+    private static final String REASON_PERMISSION_NOT_GRANTED = "PERMISSION_NOT_GRANTED";
+    private static final String REASON_RESOURCE_OUT_OF_SCOPE = "RESOURCE_OUT_OF_SCOPE";
 
     private final UserAccountRepository userAccountRepository;
     private final TenantMembershipRepository membershipRepository;
@@ -35,62 +55,71 @@ public class AuthorizationService {
     private final MembershipFarmRepository membershipFarmRepository;
     private final Clock clock;
 
-    @Transactional(readOnly = true)
     public PermissionDecision checkPermission(
             String tenantId,
             String subjectId,
-            PermissionTarget target
-    ) {
-        validateRequest(
+            PermissionTarget target) {
+
+        validateRequest(tenantId, subjectId, target);
+
+        log.debug(
+                "Checking permission: tenantId={}, subjectId={}, resourceType={}, action={}, "
+                        + "resourceIdPresent={}",
                 tenantId,
                 subjectId,
-                target
-        );
+                target.resourceType(),
+                target.action(),
+                hasText(target.resourceId()));
 
-        AuthorizationContext authorizationContext =
-                loadAuthorizationContext(
-                        tenantId,
-                        subjectId
-                );
+        AuthorizationContext context = loadAuthorizationContext(
+                tenantId,
+                subjectId);
 
-        if (!authorizationContext.allowed()) {
+        if (!context.allowed()) {
+            logDeniedContext(
+                    tenantId,
+                    subjectId,
+                    context.reasonCode());
+
             return PermissionDecision.deny(
                     target,
-                    authorizationContext.reasonCode()
-            );
+                    context.reasonCode());
         }
 
-        return evaluateTarget(
+        PermissionDecision decision = evaluateTarget(target, context);
+
+        logDecision(
+                tenantId,
+                subjectId,
                 target,
-                authorizationContext.permissionCodes(),
-                authorizationContext.farmIds()
-        );
+                decision);
+
+        return decision;
     }
 
     /**
      * Kiểm tra nhiều permission bằng cách chỉ tải account, membership,
      * role, permission và farm scope một lần.
      */
-    @Transactional(readOnly = true)
     public List<PermissionDecision> batchCheckPermissions(
             String tenantId,
             String subjectId,
-            List<PermissionTarget> targets
-    ) {
+            List<PermissionTarget> targets) {
+
         requireText(tenantId, "tenantId");
         requireText(subjectId, "subjectId");
 
         if (targets == null || targets.isEmpty()) {
+            log.debug(
+                    "Skipping batch permission check because targets are empty: "
+                            + "tenantId={}, subjectId={}",
+                    tenantId,
+                    subjectId);
+
             return List.of();
         }
 
-        if (targets.size() > MAX_BATCH_TARGETS) {
-            throw new IllegalArgumentException(
-                    "A maximum of "
-                            + MAX_BATCH_TARGETS
-                            + " permission targets is allowed"
-            );
-        }
+        validateBatchSize(targets.size());
 
         /*
          * Validate toàn bộ request trước khi truy vấn dữ liệu để tránh
@@ -98,263 +127,306 @@ public class AuthorizationService {
          */
         targets.forEach(this::validateTarget);
 
-        AuthorizationContext authorizationContext =
-                loadAuthorizationContext(
-                        tenantId,
-                        subjectId
-                );
+        log.debug(
+                "Checking permission batch: tenantId={}, subjectId={}, targetCount={}",
+                tenantId,
+                subjectId,
+                targets.size());
 
-        if (!authorizationContext.allowed()) {
+        AuthorizationContext context = loadAuthorizationContext(
+                tenantId,
+                subjectId);
+
+        if (!context.allowed()) {
+            logDeniedContext(
+                    tenantId,
+                    subjectId,
+                    context.reasonCode());
+
             return denyAll(
                     targets,
-                    authorizationContext.reasonCode()
-            );
+                    context.reasonCode());
         }
 
-        return targets.stream()
-                .map(target -> evaluateTarget(
-                        target,
-                        authorizationContext.permissionCodes(),
-                        authorizationContext.farmIds()
-                ))
+        List<PermissionDecision> decisions = targets.stream()
+                .map(target -> evaluateTarget(target, context))
                 .toList();
+
+        long allowedCount = decisions.stream()
+                .filter(PermissionDecision::allowed)
+                .count();
+
+        log.debug(
+                "Batch permission check completed: tenantId={}, subjectId={}, "
+                        + "targetCount={}, allowedCount={}, deniedCount={}",
+                tenantId,
+                subjectId,
+                targets.size(),
+                allowedCount,
+                decisions.size() - allowedCount);
+
+        return decisions;
     }
 
     private AuthorizationContext loadAuthorizationContext(
             String tenantId,
-            String subjectId
-    ) {
+            String subjectId) {
+
         UserAccountEntity account = userAccountRepository
                 .findById(subjectId)
                 .orElse(null);
 
         if (account == null) {
             return AuthorizationContext.denied(
-                    "ACCOUNT_NOT_FOUND"
-            );
+                    REASON_ACCOUNT_NOT_FOUND);
         }
 
         if (!account.isEnabled()) {
             return AuthorizationContext.denied(
-                    "ACCOUNT_DISABLED"
-            );
+                    REASON_ACCOUNT_DISABLED);
         }
 
-        if (!account.isLoginAllowed(clock.instant())) {
+        Instant now = clock.instant();
+
+        if (!account.isLoginAllowed(now)) {
             return AuthorizationContext.denied(
-                    "ACCOUNT_LOCKED"
-            );
+                    REASON_ACCOUNT_LOCKED);
         }
 
-        TenantMembershipEntity membership =
-                membershipRepository
-                        .findByTenantIdAndUserId(
-                                tenantId,
-                                subjectId
-                        )
-                        .orElse(null);
+        TenantMembershipEntity membership = membershipRepository
+                .findByTenantIdAndUserId(tenantId, subjectId)
+                .orElse(null);
 
         if (membership == null) {
             return AuthorizationContext.denied(
-                    "MEMBERSHIP_NOT_FOUND"
-            );
+                    REASON_MEMBERSHIP_NOT_FOUND);
         }
 
         if (!membership.getTenant().isEnabled()) {
             return AuthorizationContext.denied(
-                    "TENANT_DISABLED"
-            );
+                    REASON_TENANT_DISABLED);
         }
 
         if (membership.getStatus() != MembershipStatus.ACTIVE) {
             return AuthorizationContext.denied(
-                    membershipReason(
-                            membership.getStatus()
-                    )
-            );
+                    membershipReason(membership.getStatus()));
         }
 
-        List<String> roleIds =
-                membershipRoleRepository
-                        .findRoleIdsByMembershipId(
-                                membership.getId()
-                        );
+        List<String> roleIds = membershipRoleRepository
+                .findRoleIdsByMembershipId(membership.getId());
 
         if (roleIds.isEmpty()) {
             return AuthorizationContext.denied(
-                    "ROLE_NOT_GRANTED"
-            );
+                    REASON_ROLE_NOT_GRANTED);
         }
 
-        Set<String> permissionCodes =
-                rolePermissionRepository
-                        .findPermissionCodesByRoleIds(roleIds)
-                        .stream()
-                        .map(this::normalize)
-                        .collect(
-                                java.util.stream.Collectors.toUnmodifiableSet()
-                        );
+        Set<String> permissionCodes = rolePermissionRepository
+                .findPermissionCodesByRoleIds(roleIds)
+                .stream()
+                .filter(AuthorizationService::hasText)
+                .map(AuthorizationService::normalize)
+                .collect(Collectors.toUnmodifiableSet());
 
-        Set<String> farmIds = new HashSet<>(
-                membershipFarmRepository
-                        .findFarmIdsByMembershipId(
-                                membership.getId()
-                        )
-        );
+        Set<String> farmIds = Set.copyOf(
+                membershipFarmRepository.findFarmIdsByMembershipId(
+                        membership.getId()));
+
+        log.debug(
+                "Authorization context loaded: tenantId={}, subjectId={}, membershipId={}, "
+                        + "roleCount={}, permissionCount={}, farmScopeCount={}, wildcard={}",
+                tenantId,
+                subjectId,
+                membership.getId(),
+                roleIds.size(),
+                permissionCodes.size(),
+                farmIds.size(),
+                permissionCodes.contains(WILDCARD_PERMISSION));
 
         return AuthorizationContext.allowed(
                 permissionCodes,
-                Set.copyOf(farmIds)
-        );
+                farmIds);
     }
 
     private PermissionDecision evaluateTarget(
             PermissionTarget target,
-            Set<String> permissionCodes,
-            Set<String> farmIds
-    ) {
-        validateTarget(target);
+            AuthorizationContext context) {
 
         String permissionCode = buildPermissionCode(
                 target.resourceType(),
-                target.action()
-        );
+                target.action());
 
-        boolean wildcard = permissionCodes.contains("*");
+        boolean wildcardGranted = context.permissionCodes()
+                .contains(WILDCARD_PERMISSION);
 
-        if (!wildcard && !permissionCodes.contains(permissionCode)) {
+        if (!wildcardGranted
+                && !context.permissionCodes().contains(permissionCode)) {
+
             return PermissionDecision.deny(
                     target,
-                    "PERMISSION_NOT_GRANTED"
-            );
+                    REASON_PERMISSION_NOT_GRANTED);
         }
 
-        // The protected SUPERADMIN wildcard grants every resource inside its authenticated
-        // tenant, including farms not explicitly mapped to the root membership.
-        if (!wildcard && requiresFarmScope(target)
-                && !farmIds.contains(target.resourceId())) {
+        /*
+         * Wildcard được bảo vệ dành cho SUPERADMIN cho phép truy cập mọi
+         * resource trong tenant đã xác thực, kể cả farm chưa được gán
+         * trực tiếp vào membership.
+         */
+        if (!wildcardGranted
+                && requiresFarmScope(target)
+                && !context.farmIds().contains(target.resourceId())) {
+
             return PermissionDecision.deny(
                     target,
-                    "RESOURCE_OUT_OF_SCOPE"
-            );
+                    REASON_RESOURCE_OUT_OF_SCOPE);
         }
 
         return PermissionDecision.allow(
                 target,
-                "ALLOWED_BY_ROLE"
-        );
+                REASON_ALLOWED_BY_ROLE);
     }
 
     private List<PermissionDecision> denyAll(
             List<PermissionTarget> targets,
-            String reasonCode
-    ) {
+            String reasonCode) {
+
         return targets.stream()
                 .map(target -> PermissionDecision.deny(
                         target,
-                        reasonCode
-                ))
+                        reasonCode))
                 .toList();
     }
 
-    private boolean requiresFarmScope(
-            PermissionTarget target
-    ) {
-        return FARM_RESOURCE.equalsIgnoreCase(
-                target.resourceType()
-        )
-                && target.resourceId() != null
-                && !target.resourceId().isBlank();
+    private void logDecision(
+            String tenantId,
+            String subjectId,
+            PermissionTarget target,
+            PermissionDecision decision) {
+
+        if (decision.allowed()) {
+            log.debug(
+                    "Permission allowed: tenantId={}, subjectId={}, resourceType={}, "
+                            + "action={}, resourceIdPresent={}, reasonCode={}",
+                    tenantId,
+                    subjectId,
+                    target.resourceType(),
+                    target.action(),
+                    hasText(target.resourceId()),
+                    decision.reasonCode());
+
+            return;
+        }
+
+        log.debug(
+                "Permission denied: tenantId={}, subjectId={}, resourceType={}, "
+                        + "action={}, resourceIdPresent={}, reasonCode={}",
+                tenantId,
+                subjectId,
+                target.resourceType(),
+                target.action(),
+                hasText(target.resourceId()),
+                decision.reasonCode());
     }
 
-    private String buildPermissionCode(
+    private void logDeniedContext(
+            String tenantId,
+            String subjectId,
+            String reasonCode) {
+
+        log.debug(
+                "Authorization context denied: tenantId={}, subjectId={}, reasonCode={}",
+                tenantId,
+                subjectId,
+                reasonCode);
+    }
+
+    private static boolean requiresFarmScope(PermissionTarget target) {
+        return FARM_RESOURCE.equalsIgnoreCase(target.resourceType())
+                && hasText(target.resourceId());
+    }
+
+    private static String buildPermissionCode(
             String resourceType,
-            String action
-    ) {
+            String action) {
+
         return normalize(resourceType)
                 + ":"
                 + normalize(action);
     }
 
-    private String membershipReason(
-            MembershipStatus status
-    ) {
+    private static String membershipReason(MembershipStatus status) {
         if (status == null) {
-            return "MEMBERSHIP_STATUS_INVALID";
+            return REASON_MEMBERSHIP_STATUS_INVALID;
         }
 
         return switch (status) {
-            case INVITED -> "MEMBERSHIP_NOT_ACTIVE";
-            case SUSPENDED -> "MEMBERSHIP_SUSPENDED";
-            case DISABLED -> "MEMBERSHIP_DISABLED";
-            case ACTIVE -> "ALLOWED";
+            case INVITED -> REASON_MEMBERSHIP_NOT_ACTIVE;
+            case SUSPENDED -> REASON_MEMBERSHIP_SUSPENDED;
+            case DISABLED -> REASON_MEMBERSHIP_DISABLED;
+            case ACTIVE -> throw new IllegalStateException(
+                    "Active membership must not be mapped to a denial reason");
         };
     }
 
     private void validateRequest(
             String tenantId,
             String subjectId,
-            PermissionTarget target
-    ) {
+            PermissionTarget target) {
+
         requireText(tenantId, "tenantId");
         requireText(subjectId, "subjectId");
         validateTarget(target);
     }
 
-    private void validateTarget(
-            PermissionTarget target
-    ) {
+    private static void validateBatchSize(int targetCount) {
+        if (targetCount > MAX_BATCH_TARGETS) {
+            throw new IllegalArgumentException(
+                    "A maximum of "
+                            + MAX_BATCH_TARGETS
+                            + " permission targets is allowed");
+        }
+    }
+
+    private void validateTarget(PermissionTarget target) {
         if (target == null) {
             throw new IllegalArgumentException(
-                    "Permission target must not be null"
-            );
+                    "Permission target must not be null");
         }
 
-        requireText(
-                target.resourceType(),
-                "resourceType"
-        );
+        requireText(target.resourceType(), "resourceType");
+        requireText(target.action(), "action");
 
-        requireText(
-                target.action(),
-                "action"
-        );
-
-        if (FARM_RESOURCE.equalsIgnoreCase(
-                target.resourceType()
-        )) {
-            requireText(
-                    target.resourceId(),
-                    "resourceId"
-            );
+        if (FARM_RESOURCE.equalsIgnoreCase(target.resourceType())) {
+            requireText(target.resourceId(), "resourceId");
         }
     }
 
-    private String normalize(String value) {
-        return value
-                .trim()
-                .toUpperCase(Locale.ROOT);
+    private static String normalize(String value) {
+        return value.trim().toUpperCase(Locale.ROOT);
     }
 
-    private void requireText(
+    private static void requireText(
             String value,
-            String field
-    ) {
-        if (value == null || value.isBlank()) {
+            String field) {
+
+        if (!hasText(value)) {
             throw new IllegalArgumentException(
-                    field + " must not be blank"
-            );
+                    field + " must not be blank");
         }
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private record AuthorizationContext(
             boolean allowed,
             String reasonCode,
             Set<String> permissionCodes,
-            Set<String> farmIds
-    ) {
+            Set<String> farmIds) {
 
         private AuthorizationContext {
+            requireText(reasonCode, "reasonCode");
+
             permissionCodes = permissionCodes == null
                     ? Set.of()
                     : Set.copyOf(permissionCodes);
@@ -364,27 +436,23 @@ public class AuthorizationService {
                     : Set.copyOf(farmIds);
         }
 
-        static AuthorizationContext allowed(
+        private static AuthorizationContext allowed(
                 Set<String> permissionCodes,
-                Set<String> farmIds
-        ) {
+                Set<String> farmIds) {
+
             return new AuthorizationContext(
                     true,
-                    "ALLOWED",
+                    REASON_ALLOWED_BY_ROLE,
                     permissionCodes,
-                    farmIds
-            );
+                    farmIds);
         }
 
-        static AuthorizationContext denied(
-                String reasonCode
-        ) {
+        private static AuthorizationContext denied(String reasonCode) {
             return new AuthorizationContext(
                     false,
                     reasonCode,
                     Set.of(),
-                    Set.of()
-            );
+                    Set.of());
         }
     }
 }

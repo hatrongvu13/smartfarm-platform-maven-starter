@@ -15,7 +15,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(
         name = "sf_tenant_membership",
@@ -92,19 +94,4 @@ public class TenantMembershipEntity extends AuditableEntity {
         return status == MembershipStatus.ACTIVE;
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public TenantEntity getTenant() {
-        return tenant;
-    }
-
-    public UserAccountEntity getUser() {
-        return user;
-    }
-
-    public MembershipStatus getStatus() {
-        return status;
-    }
 }

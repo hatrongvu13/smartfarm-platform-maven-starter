@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Transaction boundary for runtime permission-catalog administration.
- *
+ * <p>
  * The catalog remains globally stored, but every runtime administration command must identify
  * the tenant whose effective policy is being changed. Startup/bootstrap synchronization must not
  * use this service because it has no authenticated tenant or actor context.

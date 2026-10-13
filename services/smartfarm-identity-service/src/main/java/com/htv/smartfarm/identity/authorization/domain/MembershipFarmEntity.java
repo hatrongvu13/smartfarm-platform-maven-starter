@@ -9,7 +9,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "sf_membership_farm")
 public class MembershipFarmEntity {
@@ -57,14 +59,6 @@ public class MembershipFarmEntity {
                 membership.getId(),
                 farmId.trim()
         );
-    }
-
-    public MembershipFarmId getId() {
-        return id;
-    }
-
-    public TenantMembershipEntity getMembership() {
-        return membership;
     }
 
     public String getMembershipId() {

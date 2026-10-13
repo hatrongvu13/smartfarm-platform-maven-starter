@@ -5,25 +5,18 @@ import com.htv.smartfarm.identity.mfa.repository.UserAuthenticatorRepository;
 import com.htv.smartfarm.identity.token.RefreshRepository;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CredentialAdministrationService {
 
     private final UserAuthenticatorRepository authenticators;
     private final RecoveryCodeRepository recoveryCodes;
     private final RefreshRepository refresh;
     private final IdentityIntegrationEventPublisher events;
-
-    public CredentialAdministrationService(UserAuthenticatorRepository authenticators,
-            RecoveryCodeRepository recoveryCodes, RefreshRepository refresh,
-            IdentityIntegrationEventPublisher events) {
-        this.authenticators = authenticators;
-        this.recoveryCodes = recoveryCodes;
-        this.refresh = refresh;
-        this.events = events;
-    }
 
     @Transactional
     public void resetUserMfa(String userId) {
