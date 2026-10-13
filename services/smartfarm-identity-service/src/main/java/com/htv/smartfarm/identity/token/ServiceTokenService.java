@@ -3,6 +3,9 @@ package com.htv.smartfarm.identity.token;
 import java.util.List;
 
 import com.htv.smartfarm.identity.config.ServiceTokenSettings;
+import com.htv.smartfarm.identity.token.grant.GrantType;
+import com.htv.smartfarm.identity.token.grant.TokenContext;
+import com.htv.smartfarm.identity.token.grant.TokenGrantFacade;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,18 +20,18 @@ public class ServiceTokenService {
     );
 
     private final ServiceTokenSettings settings;
-    private final TokenService tokens;
+    private final TokenGrantFacade tokenGrants;
     private final PasswordEncoder encoder;
     private final DelegatedActorVerificationService delegatedActors;
 
     public ServiceTokenService(
             ServiceTokenSettings settings,
-            TokenService tokens,
+            TokenGrantFacade tokenGrants,
             PasswordEncoder encoder,
             DelegatedActorVerificationService delegatedActors
     ) {
         this.settings = settings;
-        this.tokens = tokens;
+        this.tokenGrants = tokenGrants;
         this.encoder = encoder;
         this.delegatedActors = delegatedActors;
     }
@@ -80,27 +83,33 @@ public class ServiceTokenService {
                     "service client is not allowed to delegate an actor"
             );
         }
-        String token;
+        var grantType = normalizedActor == null
+                ? GrantType.SERVICE_CLIENT
+                : GrantType.DELEGATED_SERVICE;
+        long subjectVersion = 0;
+        long tenantVersion = 0;
         if (normalizedActor != null) {
             var versions = delegatedActors.verify(tenantId, normalizedActor);
-            token = tokens.issueDelegatedServiceToken(
-                    clientId,
-                    tenantId,
-                    audience,
-                    scopes,
-                    normalizedActor,
-                    versions,
-                    settings.ttl()
-            );
-        } else {
-            token = tokens.issueServiceToken(
-                    clientId,
-                    tenantId,
-                    audience,
-                    scopes,
-                    settings.ttl()
-            );
+            subjectVersion = versions.subjectVersion();
+            tenantVersion = versions.tenantVersion();
         }
+        var context = new TokenContext(
+                grantType,
+                "svc:" + clientId,
+                tenantId,
+                audience,
+                clientId,
+                normalizedActor,
+                new java.util.LinkedHashSet<>(scopes),
+                java.util.Set.of(),
+                subjectVersion,
+                tenantVersion,
+                null,
+                java.time.Instant.now(),
+                java.util.List.of("client_secret"),
+                settings.ttl()
+        );
+        String token = tokenGrants.issue(context).accessToken().value();
         AUDIT.info(
                 "service_token_granted client_id={} audience={} tenant={} actor_id={} scopes={} ttl_s={}",
                 clientId, audience, tenantId, safe(actorId), scopes,

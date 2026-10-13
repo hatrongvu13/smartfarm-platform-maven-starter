@@ -23,7 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class JpaRefreshSessionAdapter implements RefreshSessionPort {
     private final RefreshSessionJpaRepository sessions; private final RefreshTokenJpaRepository tokens;
-    private final IdentitySettings settings; private final Clock clock; private final SecureRandom random=new SecureRandom();
+    private final IdentitySettings settings;
+    private final Clock clock;
+    private final RefreshReplayRevocationService replayRevocation;
+    private final SecureRandom random=new SecureRandom();
     @Override @Transactional
     public RefreshGrant create(TokenContext context){
         var now=clock.instant();String sid=UUID.randomUUID().toString(),family=UUID.randomUUID().toString();
@@ -53,7 +56,10 @@ public class JpaRefreshSessionAdapter implements RefreshSessionPort {
         if(raw==null||raw.isBlank())throw new IllegalArgumentException("refresh token must not be blank");
         var now=clock.instant();var old=tokens.lockByTokenHash(hash(raw)).orElseThrow(()->new SecurityException("invalid refresh token"));
         var session=sessions.findById(old.getSessionId()).orElseThrow(()->new SecurityException("refresh session not found"));
-        if(!session.active(now)||!old.usable(now)){session.revoke(now,"REFRESH_TOKEN_REUSE");tokens.revokeSessionTokens(session.getId(),now);throw new SecurityException("refresh token reuse detected");}
+        if(!session.active(now)||!old.usable(now)){
+            replayRevocation.revoke(session.getId(),"REFRESH_TOKEN_REUSE");
+            throw new SecurityException("refresh token reuse detected");
+        }
         String replacementId=UUID.randomUUID().toString();String next=raw();
         tokens.save(new RefreshTokenEntity(replacementId,session.getId(),hash(next),now,session.getExpiresAt()));
         old.consume(now,replacementId);session.touch(now);return new RefreshGrant(next,session.getId(),session.getFamilyId());

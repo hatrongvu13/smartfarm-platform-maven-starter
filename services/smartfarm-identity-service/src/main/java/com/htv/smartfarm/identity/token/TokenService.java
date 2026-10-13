@@ -23,6 +23,8 @@ import java.util.UUID;
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionService;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionTuple;
+import com.htv.smartfarm.identity.token.grant.GrantType;
+import com.htv.smartfarm.identity.token.grant.TokenContext;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -155,7 +157,63 @@ public class TokenService {
                 "user",
                 ttl,
                 versions,
+                null,
                 null
+        );
+    }
+
+    /** Signs a previously authorized unified token context. */
+    public String issue(TokenContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("context must not be null");
+        }
+        if (context.grantType() == GrantType.SERVICE_CLIENT) {
+            validateServiceScopes(context.scopes());
+            return issue(
+                    context.subjectId(),
+                    context.clientId(),
+                    context.tenantId(),
+                    context.audience(),
+                    context.scopes(),
+                    List.of(),
+                    "service",
+                    context.ttl(),
+                    null,
+                    null,
+                    context
+            );
+        }
+        if (context.grantType() == GrantType.DELEGATED_SERVICE) {
+            validateServiceScopes(context.scopes());
+            return issue(
+                    context.subjectId(),
+                    context.clientId(),
+                    context.tenantId(),
+                    context.audience(),
+                    context.scopes(),
+                    List.of(),
+                    "service",
+                    context.ttl(),
+                    null,
+                    context.delegatedActorClaim(),
+                    context
+            );
+        }
+        return issue(
+                context.subjectId(),
+                null,
+                context.tenantId(),
+                context.audience(),
+                context.scopes(),
+                context.roles(),
+                "user",
+                context.ttl(),
+                new AuthorizationVersionTuple(
+                        context.subjectAuthorizationVersion(),
+                        context.tenantAuthorizationVersion()
+                ),
+                null,
+                context
         );
     }
 
@@ -177,6 +235,7 @@ public class TokenService {
                 List.of(),
                 "service",
                 ttl,
+                null,
                 null,
                 null
         );
@@ -215,7 +274,8 @@ public class TokenService {
                 "service",
                 ttl,
                 null,
-                Map.copyOf(actor)
+                Map.copyOf(actor),
+                null
         );
     }
 
@@ -229,7 +289,8 @@ public class TokenService {
             String tokenType,
             Duration ttl,
             AuthorizationVersionTuple authorizationVersion,
-            Map<String, Object> delegatedActor
+            Map<String, Object> delegatedActor,
+            TokenContext tokenContext
     ) {
         validateTtl(ttl);
         Instant now = clock.instant();
@@ -257,6 +318,18 @@ public class TokenService {
         }
         if (delegatedActor != null) claims.claim("act", delegatedActor);
         if (clientId != null) claims.claim("client_id", clientId);
+        if (tokenContext != null) {
+            if (tokenContext.sessionId() != null
+                    && !tokenContext.sessionId().isBlank()) {
+                claims.claim("sid", tokenContext.sessionId());
+            }
+            if (tokenContext.authenticatedAt() != null) {
+                claims.claim("auth_time", tokenContext.authenticatedAt());
+            }
+            if (!tokenContext.authenticationMethods().isEmpty()) {
+                claims.claim("amr", tokenContext.authenticationMethods());
+            }
+        }
         return encoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(SignatureAlgorithm.RS256)
                         .keyId(settings.keyId())

@@ -14,19 +14,7 @@ public class NimbusUserTokenSigner implements TokenSigner {
 
     @Override
     public IssuedToken sign(TokenContext context) {
-        if (context.grantType() == GrantType.SERVICE_CLIENT
-                || context.grantType() == GrantType.DELEGATED_SERVICE) {
-            throw new IllegalArgumentException(
-                    "Service grants must use the service-token policy path"
-            );
-        }
-        String value = tokens.issueUserToken(
-                context.subjectId(),
-                context.tenantId(),
-                context.scopes(),
-                context.roles(),
-                context.ttl()
-        );
+        String value = tokens.issue(context);
         return new IssuedToken(
                 value,
                 "Bearer",

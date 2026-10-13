@@ -24,7 +24,7 @@ import com.htv.smartfarm.identity.mfa.domain.RecoveryCodeEntity;
 import com.htv.smartfarm.identity.mfa.domain.UserAuthenticatorEntity;
 import com.htv.smartfarm.identity.mfa.repository.RecoveryCodeRepository;
 import com.htv.smartfarm.identity.mfa.repository.UserAuthenticatorRepository;
-import com.htv.smartfarm.identity.token.RefreshRepository;
+import com.htv.smartfarm.identity.token.session.RefreshSessionAdministrationService;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
 import lombok.RequiredArgsConstructor;
@@ -39,7 +39,7 @@ public class AuthenticatorService {
     private final UserAuthenticatorRepository authenticators;
     private final RecoveryCodeRepository recoveryCodes;
     private final MfaRequirementService requirements;
-    private final RefreshRepository refresh;
+    private final RefreshSessionAdministrationService refresh;
     private final SecretCipher cipher;
     private final TotpService totp;
     private final MfaProperties properties;

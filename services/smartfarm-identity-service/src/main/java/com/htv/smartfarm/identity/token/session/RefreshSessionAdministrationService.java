@@ -31,4 +31,40 @@ public class RefreshSessionAdministrationService {
             if(s.revoke(clock.instant(),reason)){tokens.revokeSessionTokens(s.getId(),clock.instant());count++;}
         } return count;
     }
+
+    /** Compatibility command for global account/credential changes. */
+    @Transactional
+    public void revokeUser(String userId) {
+        revokeSessions(
+                sessions.findAllByUserIdOrderByCreatedAtDesc(userId),
+                "USER_SECURITY_CHANGED"
+        );
+    }
+
+    /** Compatibility command for tenant membership/account changes. */
+    @Transactional
+    public void revokeUserInTenant(String userId, String tenantId) {
+        revokeSessions(
+                sessions.findAllByUserIdAndTenantIdOrderByCreatedAtDesc(
+                        userId,
+                        tenantId
+                ),
+                "TENANT_ACCESS_CHANGED"
+        );
+    }
+
+    private int revokeSessions(
+            java.util.List<com.htv.smartfarm.identity.token.session.entity.RefreshSessionEntity> values,
+            String reason
+    ) {
+        int count = 0;
+        var now = clock.instant();
+        for (var session : values) {
+            if (session.revoke(now, reason)) {
+                tokens.revokeSessionTokens(session.getId(), now);
+                count++;
+            }
+        }
+        return count;
+    }
 }

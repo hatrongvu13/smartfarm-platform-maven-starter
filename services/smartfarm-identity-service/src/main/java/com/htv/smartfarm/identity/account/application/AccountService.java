@@ -16,7 +16,7 @@ import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.domain.UserProfileEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
 import com.htv.smartfarm.identity.account.repository.UserProfileRepository;
-import com.htv.smartfarm.identity.token.RefreshRepository;
+import com.htv.smartfarm.identity.token.session.RefreshSessionAdministrationService;
 import com.htv.smartfarm.identity.messaging.event.IdentityIntegrationEventPublisher;
 
 import lombok.RequiredArgsConstructor;
@@ -41,7 +41,7 @@ public class AccountService {
     private final PasswordEncoder passwordEncoder;
     private final AuthorizationMutationCoordinator authorizationMutations;
     private final Clock clock;
-    private final RefreshRepository refreshRepository;
+    private final RefreshSessionAdministrationService refreshRepository;
     private final IdentityIntegrationEventPublisher events;
 
     @Transactional

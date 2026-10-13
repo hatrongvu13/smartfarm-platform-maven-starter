@@ -38,7 +38,7 @@ import com.htv.smartfarm.identity.tenant.application.TenantMembershipService;
 import com.htv.smartfarm.identity.tenant.domain.MembershipStatus;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
-import com.htv.smartfarm.identity.token.RefreshRepository;
+import com.htv.smartfarm.identity.token.session.RefreshSessionAdministrationService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -60,7 +60,7 @@ public class DefaultTenantIdentityAdministrationService
     private final MembershipRoleRepository membershipRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final MembershipFarmRepository membershipFarmRepository;
-    private final RefreshRepository refreshRepository;
+    private final RefreshSessionAdministrationService refreshRepository;
     private final Clock clock;
 
     @Override
