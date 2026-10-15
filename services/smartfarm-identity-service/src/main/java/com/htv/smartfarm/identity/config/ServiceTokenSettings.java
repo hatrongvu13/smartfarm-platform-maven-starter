@@ -3,6 +3,7 @@ package com.htv.smartfarm.identity.config;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import java.time.Duration;
 import java.util.List;
@@ -205,6 +206,7 @@ public record ServiceTokenSettings(
             );
         }
 
+        @ConstructorBinding
         public Client {
 
             audiences = audiences == null

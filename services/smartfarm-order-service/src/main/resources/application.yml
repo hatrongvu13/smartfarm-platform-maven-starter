@@ -62,7 +62,8 @@ smartfarm:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
       allow-local-http: ${SMARTFARM_SECURITY_ALLOW_LOCAL_HTTP:false}
   identity:
-    base-url: ${IDENTITY_BASE_URL:http://localhost:8092}
+    grpc-host: ${IDENTITY_GRPC_HOST:localhost}
+    grpc-port: ${IDENTITY_GRPC_PORT:9092}
   order:
     grpc:
       inventory-deadline: ${ORDER_INVENTORY_GRPC_DEADLINE:5s}

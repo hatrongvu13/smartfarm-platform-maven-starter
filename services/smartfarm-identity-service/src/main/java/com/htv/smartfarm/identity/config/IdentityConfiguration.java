@@ -72,10 +72,6 @@ public class IdentityConfiguration {
                                 "/api/v1/auth/mfa/verify",
                                 "/api/v1/auth/logout"
                         ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/internal/service-token"
-                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt ->

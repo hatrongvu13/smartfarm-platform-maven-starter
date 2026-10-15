@@ -19,20 +19,14 @@ server:
 # key spring-grpc never binds the identity gRPC server, so the gateway's getPrincipal /
 # getSecurityProfile calls fail with UNAVAILABLE (Connection refused /127.0.0.1:9092).
 spring.grpc.server.port: 9092
+spring.grpc.server.address: ${IDENTITY_GRPC_BIND_ADDRESS:127.0.0.1}
 smartfarm:
   security:
     grpc:
       # Phase 3C: compare static JWT scopes with live Identity authorization.
       # SHADOW records divergence but preserves the existing static decision.
       authorization-mode: ${SMARTFARM_GRPC_AUTHORIZATION_MODE:SHADOW}
-  grpc:
-    tls:
-      enabled: false
-      cert-chain: ${GRPC_CERT_CHAIN:}
-      private-key: ${GRPC_PRIVATE_KEY:}
   identity:
-    internal-api:
-      secret: ${IDENTITY_INTERNAL_API_SECRET:}
     authorization:
       permission-sync:
         enabled: true

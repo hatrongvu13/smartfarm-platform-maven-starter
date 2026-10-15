@@ -63,8 +63,8 @@ public class LivestockDevController {
 
     // ---- helpers ----
 
-    private LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub authed(String tenant, String actor) {
-        String serviceToken = serviceTokens.tokenFor(LIVESTOCK_AUDIENCE, tenant, actor);
+    private LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub authed(Jwt jwt) {
+        String serviceToken = serviceTokens.tokenFor(LIVESTOCK_AUDIENCE, jwt);
         return stub.withDeadlineAfter(3, TimeUnit.SECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> serviceToken));
     }
@@ -143,7 +143,7 @@ public class LivestockDevController {
             if (body.dueAtEpochMs() != null)
                 req.setDueAt(com.google.protobuf.Timestamp.newBuilder()
                         .setSeconds(body.dueAtEpochMs() / 1000).setNanos((int) (body.dueAtEpochMs() % 1000) * 1_000_000));
-            var reply = authed(tenant, actor).createTask(req.build());
+            var reply = authed(jwt).createTask(req.build());
             return Map.of("taskId", reply.getTaskId(), "status", reply.getStatus());
         });
     }
@@ -160,7 +160,7 @@ public class LivestockDevController {
                     .setTaskId(id).setAssigneeId(body.assigneeId());
             if (body.acceptWindowSeconds() != null) b.setAcceptWindowSeconds(body.acceptWindowSeconds());
             if (body.reportWindowSeconds() != null) b.setReportWindowSeconds(body.reportWindowSeconds());
-            return view(authed(tenant, actor).assignTask(b.build()).getTask());
+            return view(authed(jwt).assignTask(b.build()).getTask());
         });
     }
 
@@ -171,7 +171,7 @@ public class LivestockDevController {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();
             var req = AcceptTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id).build();
-            return view(authed(tenant, actor).acceptTask(req).getTask());
+            return view(authed(jwt).acceptTask(req).getTask());
         });
     }
 
@@ -183,7 +183,7 @@ public class LivestockDevController {
             String actor = jwt.getSubject();
             var req = CompleteTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id)
                     .setCompletionNote(body == null || body.note() == null ? "" : body.note()).build();
-            return view(authed(tenant, actor).completeTask(req).getTask());
+            return view(authed(jwt).completeTask(req).getTask());
         });
     }
 
@@ -195,7 +195,7 @@ public class LivestockDevController {
             String actor = jwt.getSubject();
             var req = CancelTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id)
                     .setReason(body == null || body.reason() == null ? "" : body.reason()).build();
-            return view(authed(tenant, actor).cancelTask(req).getTask());
+            return view(authed(jwt).cancelTask(req).getTask());
         });
     }
 
@@ -219,7 +219,7 @@ public class LivestockDevController {
                 }
             }
             if (assigneeId != null && !assigneeId.isBlank()) b.setAssigneeId(assigneeId);
-            var resp = authed(tenant, actor).listTasks(b.build());
+            var resp = authed(jwt).listTasks(b.build());
             List<Map<String, Object>> items = new ArrayList<>();
             for (LivestockTask t : resp.getTasksList()) items.add(view(t));
             return Map.of("count", items.size(), "tasks", items);
@@ -233,7 +233,7 @@ public class LivestockDevController {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();
             var req = GetTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id).build();
-            return view(authed(tenant, actor).getTask(req).getTask());
+            return view(authed(jwt).getTask(req).getTask());
         });
     }
 }

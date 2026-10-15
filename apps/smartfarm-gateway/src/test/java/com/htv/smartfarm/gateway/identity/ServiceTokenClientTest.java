@@ -1,67 +1,89 @@
 package com.htv.smartfarm.gateway.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
 
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicReference;
+import java.time.Instant;
 
+import com.htv.smartfarm.proto.identity.v1.ExchangeDelegatedTokenRequest;
+import com.htv.smartfarm.proto.identity.v1.IdentityTokenServiceGrpc;
+import com.htv.smartfarm.proto.identity.v1.TokenGrantResponse;
 import com.htv.smartfarm.security.authorization.InMemoryAuthorizationVersionWatermarkStore;
+
+import io.grpc.CallCredentials;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.web.reactive.function.client.ClientResponse;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 class ServiceTokenClientTest {
     @Test
-    void sendsDedicatedInternalSecretHeaderWhenMintingToken() {
-        var captured = new AtomicReference<org.springframework.web.reactive.function.client.ClientRequest>();
-        WebClient identity = WebClient.builder()
-                .baseUrl("http://identity")
-                .exchangeFunction(request -> {
-                    captured.set(request);
-                    return Mono.just(ClientResponse.create(HttpStatus.OK)
-                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                            .body("""
-                                    {"accessToken":"service-jwt","tokenType":"Bearer",
-                                     "expiresInSeconds":300,"audience":"inventory"}
-                                    """)
-                            .build());
-                })
-                .build();
+    void exchangesDelegatedTokenWithIdentityOverGrpcAndCachesByVersions() {
+        IdentityTokenServiceGrpc.IdentityTokenServiceBlockingStub identity =
+                mock(IdentityTokenServiceGrpc.IdentityTokenServiceBlockingStub.class);
+        when(identity.withDeadlineAfter(anyLong(), any(TimeUnit.class))).thenReturn(identity);
+        when(identity.withCallCredentials(any(CallCredentials.class))).thenReturn(identity);
+        when(identity.exchangeDelegatedToken(any(ExchangeDelegatedTokenRequest.class)))
+                .thenReturn(TokenGrantResponse.newBuilder()
+                        .setAccessToken("service-jwt")
+                        .setTokenType("Bearer")
+                        .setExpiresInSeconds(300)
+                        .setAudience("smartfarm-order")
+                        .build());
+
         var client = new ServiceTokenClient(
                 identity,
                 "gateway",
                 "client-secret",
-                "internal-transport-secret",
                 Duration.ofSeconds(2),
                 new InMemoryAuthorizationVersionWatermarkStore()
         );
+        Jwt user = Jwt.withTokenValue("user-jwt")
+                .header("alg", "RS256")
+                .subject("user-1")
+                .claim("tenant_id", "tenant-1")
+                .claim("authorization_version", 3)
+                .claim("tenant_authorization_version", 7)
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(300))
+                .build();
 
-        assertThat(client.tokenFor("inventory", "tenant-1", "user-1"))
-                .isEqualTo("service-jwt");
-        assertThat(captured.get().headers().getFirst("X-Identity-Internal-Secret"))
-                .isEqualTo("internal-transport-secret");
+        assertThat(client.tokenFor("smartfarm-order", user)).isEqualTo("service-jwt");
+        assertThat(client.tokenFor("smartfarm-order", user)).isEqualTo("service-jwt");
+
+        var request = org.mockito.ArgumentCaptor.forClass(ExchangeDelegatedTokenRequest.class);
+        verify(identity, times(1)).exchangeDelegatedToken(request.capture());
+        assertThat(request.getValue().getClientId()).isEqualTo("gateway");
+        assertThat(request.getValue().getClientSecret()).isEqualTo("client-secret");
+        assertThat(request.getValue().getActorSubjectId()).isEqualTo("user-1");
+        assertThat(request.getValue().getContext().getTenantId()).isEqualTo("tenant-1");
+        assertThat(request.getValue().getContext().getActorId()).isEqualTo("user-1");
     }
 
     @Test
-    void refusesToMintWhenInternalSecretIsMissing() {
+    void rejectsJwtWithoutAuthorizationVersions() {
+        var identity = mock(IdentityTokenServiceGrpc.IdentityTokenServiceBlockingStub.class);
         var client = new ServiceTokenClient(
-                WebClient.builder().baseUrl("http://identity").build(),
+                identity,
                 "gateway",
                 "client-secret",
-                "",
                 Duration.ofSeconds(2),
                 new InMemoryAuthorizationVersionWatermarkStore()
         );
+        Jwt user = Jwt.withTokenValue("user-jwt")
+                .header("alg", "RS256")
+                .subject("user-1")
+                .claim("tenant_id", "tenant-1")
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(300))
+                .build();
 
-        assertThatThrownBy(() -> client.tokenFor(
-                "inventory",
-                "tenant-1",
-                "user-1"
-        )).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("internal API secret");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> client.tokenFor("smartfarm-order", user)
+        ).isInstanceOf(org.springframework.security.access.AccessDeniedException.class)
+                .hasMessageContaining("authorization_version");
+        verifyNoInteractions(identity);
     }
 }

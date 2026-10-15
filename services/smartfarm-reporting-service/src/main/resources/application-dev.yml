@@ -22,8 +22,6 @@ smartfarm:
       audiences:
         - smartfarm-reporting
       allow-local-http: true
-  identity:
-    base-url: http://localhost:8092
   livestock:
     grpc-host: localhost
     grpc-port: 9091

@@ -47,8 +47,8 @@ public class ReportingDevController {
                                 String templateId) {
     }
 
-    private ReportingServiceGrpc.ReportingServiceBlockingStub authed(String tenant, String actor) {
-        String token = serviceTokens.tokenFor(REPORTING_AUDIENCE, tenant, actor);
+    private ReportingServiceGrpc.ReportingServiceBlockingStub authed(Jwt jwt) {
+        String token = serviceTokens.tokenFor(REPORTING_AUDIENCE, jwt);
         return stub.withDeadlineAfter(5, TimeUnit.SECONDS).withCallCredentials(new BearerCallCredentials(() -> token));
     }
 
@@ -125,7 +125,7 @@ public class ReportingDevController {
                     range.setTo(com.google.protobuf.Timestamp.newBuilder().setSeconds(body.toEpochMs() / 1000));
                 b.setPeriod(range);
             }
-            return jobView(authed(tenant, actor).requestExport(b.build()).getJob());
+            return jobView(authed(jwt).requestExport(b.build()).getJob());
         });
     }
 
@@ -136,7 +136,7 @@ public class ReportingDevController {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();
             var req = GetExportJobRequest.newBuilder().setContext(ctx(tenant, actor, null)).setJobId(id).build();
-            return jobView(authed(tenant, actor).getExportJob(req).getJob());
+            return jobView(authed(jwt).getExportJob(req).getJob());
         });
     }
 
@@ -150,7 +150,7 @@ public class ReportingDevController {
             String actor = jwt.getSubject();
             var req = ListExportJobsRequest.newBuilder().setContext(ctx(tenant, actor, null)).setFarmId(farmId)
                     .setPage(PageRequest.newBuilder().setPageSize(limit)).build();
-            var resp = authed(tenant, actor).listExportJobs(req);
+            var resp = authed(jwt).listExportJobs(req);
             List<Map<String, Object>> items = new ArrayList<>();
             for (ExportJob j : resp.getJobsList()) items.add(jobView(j));
             return Map.of("count", items.size(), "jobs", items);
@@ -164,7 +164,7 @@ public class ReportingDevController {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();
             var req = GetDownloadLocationRequest.newBuilder().setContext(ctx(tenant, actor, null)).setJobId(id).build();
-            var loc = authed(tenant, actor).getDownloadLocation(req);
+            var loc = authed(jwt).getDownloadLocation(req);
             var m = new LinkedHashMap<String, Object>();
             m.put("url", loc.getUrl());
             m.put("contentType", loc.getContentType());

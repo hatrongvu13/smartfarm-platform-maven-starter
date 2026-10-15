@@ -42,7 +42,8 @@ smartfarm:
       key-id: ${MQTT_HMAC_KEY_ID:default}
       max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
   identity:
-    base-url: ${IDENTITY_BASE_URL}
+    grpc-host: ${IDENTITY_GRPC_HOST:127.0.0.1}
+    grpc-port: ${IDENTITY_GRPC_PORT:9092}
   order:
     service-client:
       id: ${ORDER_SERVICE_CLIENT_ID:order}

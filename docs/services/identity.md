@@ -4,14 +4,14 @@
 
 ## Responsibility and runtime
 
-Identity owns account/profile, tenant membership, RBAC and permission administration, MFA, JWT issuance/JWKS, service-client validation, and refresh-session lifecycle. HTTP defaults to `127.0.0.1:8092`; gRPC port `9092` is configured in base configuration. Production explicitly binds gRPC to loopback (`IDENTITY_GRPC_BIND_ADDRESS`, default `127.0.0.1`). Dev does not set a gRPC bind address in the identity profile, so do not assume loopback without verifying the Spring gRPC default/runtime.
+Identity owns account/profile, tenant membership, RBAC and permission administration, MFA, JWT issuance/JWKS, service-client validation, and refresh-session lifecycle. HTTP defaults to `127.0.0.1:8092`; gRPC port `9092` is configured in base configuration and binds to loopback by default in every profile (`IDENTITY_GRPC_BIND_ADDRESS`).
 
-The service has five gRPC service implementations: directory, administration, platform authorization administration, credentials, and token/session. The token service contract and `IdentityTokenGrpcService` adapter contain all five RPC handlers. Issue/exchange now require a valid caller JWT; session RPCs require specific authorities. gRPC TLS remains disabled by default, and runtime registration/policy tests are still required.
+The service has five gRPC service implementations: directory, administration, platform authorization administration, credentials, and token/session. Machine-token issue validates registered client credentials and audience allowlists; delegated exchange additionally requires a verified user JWT matching the actor and tenant. Session RPCs require specific authorities. Cross-host gRPC requires TLS/mTLS and private network controls; the default deployment is loopback-only.
 
 ## Inbound interfaces
 
 - **HTTP authentication:** `AuthController` exposes registration (when enabled), login, bootstrap-superadmin, refresh, logout, MFA verify/enrollment, and credential flows under `/api/v1/auth/**`.
-- **HTTP machine-token issuance:** `InternalServiceTokenController` exposes `POST /internal/service-token`. The gateway must send a dedicated `X-Identity-Internal-Secret` header in addition to client credentials in the body; the controller compares it in constant time and fails closed if the secret is not configured. Configure the same independently managed `IDENTITY_INTERNAL_API_SECRET` in both gateway and identity (required in prod). Spring's bearer-token filter chain still permits this route, so the dedicated header, private binding, and TLS/mTLS remain essential; retire the HTTP path if it cannot be kept private.
+- **HTTP authentication/OAuth edge:** `AuthController` continues to serve public login, registration, MFA, refresh/logout, and JWKS over HTTP; Gateway proxies these edge operations. They are not internal administration APIs.
 - **gRPC:** `IdentityDirectoryService`, `IdentityAdministrationService`, `PlatformAuthorizationAdministrationService`, `IdentityCredentialService`, and `IdentityTokenService`. The exact contract is in `identity.proto`; method authorities and explicit public methods are configured in `IdentityGrpcSecurityConfiguration`.
 - **MQTT commands:** optional inbox/dispatcher path is disabled by default; when enabled it dispatches application-service commands rather than writing repositories from the transport adapter.
 
@@ -24,7 +24,7 @@ The service has five gRPC service implementations: directory, administration, pl
 
 ## Local runtime verification
 
-The dev YAML declares a `gateway` service-token client and a development-only client-secret hash. However, the latest local startup on 2026-10-15 logged `clientCount=0`; `POST /internal/service-token` returned 401 even with the correct shared internal header, and Identity logged `bad_credentials`. Missing and incorrect internal headers also returned 401 as intended. Therefore the shared-header gate is verified, but dev client configuration binding and successful token issuance are **not** verified; the binding cause remains unresolved. Do not treat the configured YAML allowlist as evidence that the local flow currently works.
+The dev YAML declares three service clients. A profile binding regression was fixed: the nested `Client` record has an explicit compatibility constructor, so its canonical constructor now uses `@ConstructorBinding`; the profile-loading test confirms all three clients bind. `auth_time` is serialized as NumericDate epoch seconds and covered by token decoding tests. Gateway now calls `ExchangeDelegatedToken` over gRPC; Order and Reporting call `IssueServiceToken` over gRPC. Unit tests cover actor/tenant binding and the Gateway client, but actual multi-service gRPC registration/runtime and cross-host TLS/mTLS remain unverified.
 
 ## Authentication and bootstrap facts
 
@@ -37,14 +37,14 @@ The dev YAML declares a `gateway` service-token client and a development-only cl
 - Dev defaults to `IDENTITY_DB_URL` with local fallback `jdbc:postgresql://localhost:5432/smartfarm`; Hibernate uses `ddl-auto: update`, Flyway is disabled in `application-dev.yml`, and `open-in-view` is true.
 - Production requires `IDENTITY_DB_URL/USER/PASSWORD`, enables Flyway, uses Hibernate `ddl-auto: validate`, and defaults both HTTP/gRPC binds to loopback.
 - Refresh-session persistence is relational JPA; do not describe refresh families as Redis-backed.
-- gRPC TLS is disabled in the service defaults. MQTT envelope signing/verification is enabled in dev with a shared development secret and disabled by default in production; broker authentication/ACL/TLS are separate controls and are not enabled by the application profile alone.
+- gRPC TLS is not configured for the single-host loopback default. Any cross-host gRPC deployment must enable TLS/mTLS before widening bind addresses. MQTT envelope signing/verification is enabled in dev with a shared development secret and disabled by default in production; broker authentication/ACL/TLS are separate controls and are not enabled by the application profile alone.
 
 ## Open work (verified against current source)
 
-1. Resolve and test dev `ServiceTokenSettings.clients` binding; prove `clientCount > 0` and successful local token issuance with the shared header.
-2. Add TLS/mTLS to the private service-token issuance boundary, decide whether to retire the HTTP endpoint, and add server-level registration and method-policy tests.
+1. Add server-level registration and enforcement tests for all five `IdentityTokenService` RPCs; prove Gateway, Order, and Reporting issuance against a running gRPC server.
+2. Configure TLS/mTLS and certificate identity validation before supporting cross-host gRPC; keep loopback binding for local/single-host deployments.
 3. Add a concurrent PostgreSQL first-super-admin test.
 4. Prove replay revocation, refresh rotation races, and session RPC authorization/isolation in PostgreSQL/gRPC integration tests.
 5. Close remaining permission ownership, mutation/version/outbox, paging/search, and identity-proto model gaps tracked in [`IDENTITY_BACKLOG_UPDATED.md`](../../IDENTITY_BACKLOG_UPDATED.md).
 
-[REST API](../api/rest-api.md) · [gRPC API](../api/grpc-api.md) · [Security architecture](../security/security-architecture.md) · [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)
+[Identity flows — target vs current](identity-flows.md) · [REST API](../api/rest-api.md) · [gRPC API](../api/grpc-api.md) · [Security architecture](../security/security-architecture.md) · [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)

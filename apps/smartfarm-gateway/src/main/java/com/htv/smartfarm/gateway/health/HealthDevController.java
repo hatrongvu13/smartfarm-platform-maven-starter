@@ -44,8 +44,8 @@ public class HealthDevController {
         this.serviceTokens = serviceTokens;
     }
 
-    private AnimalHealthServiceGrpc.AnimalHealthServiceBlockingStub authed(String tenant, String actor) {
-        String token = serviceTokens.tokenFor(HEALTH_AUDIENCE, tenant, actor);
+    private AnimalHealthServiceGrpc.AnimalHealthServiceBlockingStub authed(Jwt jwt) {
+        String token = serviceTokens.tokenFor(HEALTH_AUDIENCE, jwt);
         return stub.withDeadlineAfter(5, TimeUnit.SECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> token));
     }
@@ -118,7 +118,7 @@ public class HealthDevController {
             String actor = jwt.getSubject();
             var req = ListObservationsRequest.newBuilder().setContext(ctx(tenant, actor))
                     .setAnimalId(animalId).setPage(PageRequest.newBuilder().setPageSize(limit)).build();
-            var resp = authed(tenant, actor).listObservations(req);
+            var resp = authed(jwt).listObservations(req);
             List<Map<String, Object>> items = new ArrayList<>();
             for (HealthObservation o : resp.getObservationsList()) items.add(observationView(o));
             return Map.of("count", items.size(), "observations", items);
@@ -135,7 +135,7 @@ public class HealthDevController {
             String actor = jwt.getSubject();
             var req = ListVaccinationsRequest.newBuilder().setContext(ctx(tenant, actor))
                     .setAnimalId(animalId).setPage(PageRequest.newBuilder().setPageSize(limit)).build();
-            var resp = authed(tenant, actor).listVaccinations(req);
+            var resp = authed(jwt).listVaccinations(req);
             List<Map<String, Object>> items = new ArrayList<>();
             for (Vaccination v : resp.getVaccinationsList()) items.add(vaccinationView(v));
             return Map.of("count", items.size(), "vaccinations", items);
@@ -152,7 +152,7 @@ public class HealthDevController {
             String actor = jwt.getSubject();
             var req = ListAlertsRequest.newBuilder().setContext(ctx(tenant, actor))
                     .setFarmId(farmId).setPage(PageRequest.newBuilder().setPageSize(limit)).build();
-            var resp = authed(tenant, actor).listAlerts(req);
+            var resp = authed(jwt).listAlerts(req);
             List<Map<String, Object>> items = new ArrayList<>();
             for (HealthAlert a : resp.getAlertsList()) items.add(alertView(a));
             return Map.of("count", items.size(), "alerts", items);

@@ -42,17 +42,99 @@ mvn -f apps/smartfarm-gateway/pom.xml               spring-boot:run
 ## Database (dev)
 Identity dev defaults to `IDENTITY_DB_URL` or `jdbc:postgresql://localhost:5432/smartfarm`, `postgres/root`; `ddl-auto: update`, Flyway disabled, and `open-in-view: true` are explicit in `services/smartfarm-identity-service/src/main/resources/application-dev.yml`. Identity production instead requires `IDENTITY_DB_URL/USER/PASSWORD`, enables Flyway, validates the schema, and uses loopback bind addresses by default. Other module database settings are per their own `application-*.yml`; do not infer production database isolation from this identity setting.
 
-For local Gateway-to-Identity service-token requests, export the same private transport secret to both processes before starting them:
+Internal service-token issuance now uses Identity gRPC. HTTP remains for public authentication/OAuth-facing requests and JWKS. The ignored root `.env` may supply database and client secrets; do not enable shell tracing (`set -x`) while loading or using secrets.
 
 ```bash
-export IDENTITY_INTERNAL_API_SECRET="$(openssl rand -hex 32)"
+set -a
+. ./.env
+set +a
 mvn -f services/smartfarm-identity-service/pom.xml spring-boot:run
+```
+
+Run the command in the first terminal and leave it in the foreground. In a second user-owned terminal, start Gateway in the foreground:
+
+```bash
+set -a
+. ./.env
+set +a
 mvn -f apps/smartfarm-gateway/pom.xml spring-boot:run
 ```
 
-In separate terminals, load the same value from a local ignored env file rather than generating it twice. Identity's dev profile supplies a clearly development-only fallback; an explicit environment value overrides it. The Gateway will fail closed if it has no secret, and production requires `IDENTITY_INTERNAL_API_SECRET` to be configured independently in both services. This shared header secret does not encrypt traffic; use private networking and TLS/mTLS across hosts.
+Stop both processes with Ctrl-C after testing; do not start them in the background. Identity's dev profile has local-only client credentials; production secrets must be independently provisioned for Gateway, Order, and Reporting. Identity's gRPC listener defaults to loopback. Do not widen it to cross-host traffic until TLS/mTLS and network access controls are configured.
 
-**Current runtime caveat (2026-10-15):** the checked-in dev YAML declares the Gateway service-token client, but a local Identity startup logged `clientCount=0`; issuance with the correct shared header still returned 401 (`bad_credentials`). The header check itself rejected missing and incorrect values. Until the client configuration binding issue is fixed and verified, do not assume these commands establish a working Gateway-to-Identity token flow.
+The profile-binding regression test verifies that Identity loads all three dev service clients. Gateway delegated exchange and actor/tenant binding now have gRPC unit tests; actual server registration and multi-service runtime verification remain outstanding.
+
+## Manual Gateway → Identity gRPC check
+
+Identity's token RPC is internal and is not exposed through an HTTP test endpoint. To exercise the delegated gRPC flow through Gateway, start Identity and Gateway in the foreground as shown above, then use valid local credentials for an existing test user:
+
+```bash
+# Expected: Identity health UP; the dev database must be available.
+curl -fsS http://localhost:8092/actuator/health
+curl -fsS http://localhost:8080/actuator/health
+```
+
+Run this Python 3 smoke test in the foreground. It prompts for the password without echoing it, handles an MFA verification challenge, never prints access/refresh tokens, and calls GraphQL `me` through the Gateway:
+
+```bash
+python3 - <<'PY'
+import getpass
+import json
+import urllib.error
+import urllib.request
+
+base = "http://localhost:8080"
+
+def post(path, payload, token=None):
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(
+        base + path,
+        data=json.dumps(payload).encode(),
+        headers=headers,
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return json.load(response)
+
+tenant_id = input("Tenant ID: ").strip()
+email = input("Test account email: ").strip()
+password = getpass.getpass("Password: ")
+try:
+    auth = post("/api/v1/auth/login", {
+        "tenantId": tenant_id,
+        "email": email,
+        "password": password,
+    })
+    if auth.get("authenticationStatus") == "MFA_REQUIRED":
+        method = input(f"MFA method {auth.get('availableMethods')}: ").strip()
+        code = getpass.getpass("MFA code: ")
+        auth = post("/api/v1/auth/mfa/verify", {
+            "challengeToken": auth["challengeToken"],
+            "method": method,
+            "code": code,
+        })
+    if auth.get("authenticationStatus") != "COMPLETED":
+        print("Authentication needs another step:", auth.get("authenticationStatus"))
+        if auth.get("tenants"):
+            print("Available tenants:", json.dumps(auth["tenants"]))
+        raise SystemExit(2)
+    access_token = auth.get("accessToken")
+    if not access_token:
+        raise SystemExit("Login completed without an access token")
+    result = post("/graphql", {
+        "query": "{ me { subjectId active profile { email } membership { tenantId status } } }"
+    }, access_token)
+    print(json.dumps(result, indent=2))
+except urllib.error.HTTPError as error:
+    print("Request failed with HTTP", error.code)
+    raise SystemExit(1)
+finally:
+    password = None
+```
+
+A successful `me` query exercises Gateway JWT validation, `ExchangeDelegatedToken` over gRPC, and Identity directory gRPC. If login requires MFA enrollment or tenant selection, complete that flow first and rerun with the selected tenant. Never use `curl -v` or print access/refresh tokens. Focused automated checks: `mvn -f services/smartfarm-identity-service/pom.xml -Dtest=IdentityTokenGrpcServiceTest,IdentityTokenGrpcPolicyTest,ServiceTokenSettingsDevProfileTest,TokenServiceAuthTimeTest test`; Gateway/Order/Reporting client checks: run `-Dtest=ServiceTokenClientTest test` from each module POM.
 
 ## Smoke test
 ```bash

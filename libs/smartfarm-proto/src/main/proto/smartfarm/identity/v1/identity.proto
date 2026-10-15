@@ -760,8 +760,11 @@ message ChangeOwnPasswordResponse {
 // Service này không thay thế các endpoint public authentication,
 // OAuth2/OIDC hoặc các RPC directory/administration hiện có.
 //
-// Các RPC cấp token phải được bảo vệ bằng service identity,
-// mTLS hoặc cơ chế xác thực nội bộ tương đương.
+// IssueServiceToken xác thực machine client bằng client_id/client_secret
+// đã allowlist và chỉ được expose trên gRPC listener private/loopback.
+// ExchangeDelegatedToken còn yêu cầu user JWT hợp lệ trong metadata.
+// RPC session yêu cầu JWT và authority tương ứng.
+// Nếu triển khai cross-host, bắt buộc bật TLS/mTLS.
 //
 // Không ghi client_secret, access_token hoặc refresh token
 // vào application log, audit log hay integration event.
@@ -813,7 +816,8 @@ message IssueServiceTokenRequest {
 
   // Credential nhạy cảm.
   //
-  // Chỉ sử dụng trên TLS/mTLS.
+  // Listener hiện chỉ bind loopback. Nếu triển khai cross-host,
+  // chỉ truyền trường này qua TLS/mTLS.
   // Không log request payload hoặc giá trị trường này.
   string client_secret = 3;
 
@@ -831,7 +835,8 @@ message ExchangeDelegatedTokenRequest {
 
   // Credential nhạy cảm.
   //
-  // Chỉ sử dụng trên TLS/mTLS.
+  // Listener hiện chỉ bind loopback. Nếu triển khai cross-host,
+  // chỉ truyền trường này qua TLS/mTLS.
   // Không log request payload hoặc giá trị trường này.
   string client_secret = 3;
 

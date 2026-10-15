@@ -105,7 +105,7 @@ type Mutation {
 }
 
 input AuthorizationRoleInput { code: String!, name: String! }
-input AuthorizationPermissionInput { code: String!, resourceType: String!, action: String!, description: String }
+input AuthorizationPermissionInput { code: String!, resourceType: String!, action: String!, description: String, expectedVersion: Float }
 
 input AdminUpdateUserProfileInput { subjectId: ID!, expectedVersion: Float, displayName: String, firstName: String, lastName: String, phoneNumber: String, avatarUrl: String, locale: String, timeZone: String }
 

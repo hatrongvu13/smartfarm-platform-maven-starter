@@ -10,17 +10,13 @@ Identity auth operations include login, register (when enabled), refresh, logout
 
 `GET /api/v1/me` is a thin identity (`subject`, `tenantId`) response, not the full profile or membership representation. The full principal/profile path is GraphQL/gRPC-backed.
 
-## Internal service-token HTTP endpoint
-
-Identity also has `POST /internal/service-token`. The HTTP resource-server configuration permits the route through its bearer-token filter, but the controller additionally requires the dedicated `X-Identity-Internal-Secret` header. The request body carries `clientId`, `secret`, `audience`, and `tenantId`, with optional `actorId`. `ServiceTokenService` validates the client secret, audience allowlist, scopes, and whether delegation is enabled.
-
-The separate shared header secret adds an application authentication check; it does not encrypt the request. Identity binds to loopback by default, and the header secret must be independently provisioned through `IDENTITY_INTERNAL_API_SECRET` in both gateway and identity. Use TLS/mTLS for any network boundary and retire this HTTP path if it cannot be kept private. See [gRPC API](grpc-api.md#service-token-flow-post-internalservice-token) and [Identity service](../services/identity.md).
+Internal Identity administration and machine-token issuance use gRPC, not REST. HTTP remains for public authentication/OAuth-facing endpoints, JWKS, health, and operational probes. Gateway proxies public authentication endpoints to Identity; backend services use gRPC for synchronous service-to-service operations. See [gRPC API](grpc-api.md#service-token-issuance-and-security) and [Identity service](../services/identity.md).
 
 ## Security and environments
 
 - Gateway routes enforce JWT/scope policy as configured in gateway source; development-only service facades should not be described as production API.
-- Identity's internal service-token route passes the bearer filter chain but requires the dedicated internal header and client credentials in the handler.
-- gRPC TLS is disabled by default. Production identity HTTP/gRPC bind addresses default to loopback and are configurable; network exposure requires an authenticated transport boundary.
+- Identity machine-token issuance validates registered client credentials and audience allowlists over gRPC; delegated exchange additionally requires a caller JWT bound to actor and tenant.
+- Identity HTTP/gRPC bind addresses default to loopback and are configurable; cross-host gRPC requires TLS/mTLS and private network controls.
 - OpenAPI exposure is controlled by the gateway configuration. Check the live profile/configuration rather than assuming `/v3/api-docs` is enabled in every deployment.
 
 ← [gRPC API](grpc-api.md) · [Events](events.md) · [Gateway mapping](../architecture/gateway-mapping.md)

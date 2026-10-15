@@ -5,6 +5,7 @@ import com.htv.smartfarm.proto.identity.v1.IdentityAdministrationServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.IdentityCredentialServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.IdentityDirectoryServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.PlatformAuthorizationAdministrationServiceGrpc;
+import com.htv.smartfarm.proto.identity.v1.IdentityTokenServiceGrpc;
 import io.grpc.ManagedChannel;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,6 +39,11 @@ public class IdentityGrpcClientConfig {
     @Bean
     PlatformAuthorizationAdministrationServiceGrpc.PlatformAuthorizationAdministrationServiceBlockingStub platform(@Qualifier("identityGrpcChannel") ManagedChannel c) {
         return PlatformAuthorizationAdministrationServiceGrpc.newBlockingStub(c);
+    }
+
+    @Bean
+    IdentityTokenServiceGrpc.IdentityTokenServiceBlockingStub token(@Qualifier("identityGrpcChannel") ManagedChannel c) {
+        return IdentityTokenServiceGrpc.newBlockingStub(c);
     }
 
     @Bean(name = "identityChannelCloser")

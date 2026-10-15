@@ -2,6 +2,8 @@ package com.htv.smartfarm.identity.grpc;
 
 import com.htv.smartfarm.identity.token.ServiceTokenService;
 import com.htv.smartfarm.identity.token.session.RefreshSessionAdministrationService;
+import com.htv.smartfarm.identity.grpc.security.GrpcCaller;
+import com.htv.smartfarm.identity.grpc.security.GrpcCallerProvider;
 import com.htv.smartfarm.proto.identity.v1.ExchangeDelegatedTokenRequest;
 import com.htv.smartfarm.proto.identity.v1.IdentityTokenServiceGrpc;
 import com.htv.smartfarm.proto.identity.v1.IssueServiceTokenRequest;
@@ -30,6 +32,7 @@ public class IdentityTokenGrpcService
     private final ServiceTokenService tokenService;
     private final RefreshSessionAdministrationService sessionService;
     private final GrpcExceptionMapper exceptionMapper;
+    private final GrpcCallerProvider callerProvider;
 
     @Override
     public void issueServiceToken(
@@ -64,6 +67,16 @@ public class IdentityTokenGrpcService
         exceptionMapper.executeUnary(observer, () -> {
             requireContext(request.hasContext());
             requireText(request.getActorSubjectId(), "actor_subject_id");
+            GrpcCaller caller = callerProvider.currentCaller();
+            if (!caller.isUser()
+                    || !caller.subjectId().equals(request.getActorSubjectId())
+                    || !caller.tenantId().equals(request.getContext().getTenantId())) {
+                throw Status.PERMISSION_DENIED
+                        .withDescription(
+                                "delegated actor and tenant must match the authenticated user"
+                        )
+                        .asRuntimeException();
+            }
             var grant = tokenService.issue(
                     request.getClientId(),
                     request.getClientSecret(),

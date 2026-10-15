@@ -46,6 +46,13 @@ public final class GrpcExceptionMapper {
                     .asRuntimeException(statusException.getTrailers());
         }
 
+        if (exception instanceof SecurityException) {
+            return status(
+                    Status.UNAUTHENTICATED,
+                    "Authentication failed"
+            );
+        }
+
         if (exception instanceof ValidationException
                 || exception instanceof IllegalArgumentException) {
             return status(

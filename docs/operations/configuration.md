@@ -28,7 +28,7 @@ smartfarm:
 | gRPC endpoints | `*_GRPC_HOST`, `*_GRPC_PORT` (identity 9092, livestock 9091, inventory 9093, finance 9094, order 9095, reporting 9096) |
 | DB | Identity uses `IDENTITY_DB_URL/USER/PASSWORD` (local fallback only in dev; required in prod); each other module has its own datasource configuration |
 | MQTT | `SMARTFARM_MQTT_URL`, `SMARTFARM_MQTT_EVENTS_ENABLED`, `SMARTFARM_MQTT_TOPIC_FILTER` |
-| Gateway / Identity internal token minting | `IDENTITY_INTERNAL_API_SECRET` must have the same independently managed value in gateway and identity; required in prod and sent as `X-Identity-Internal-Secret` |
+| Identity service-token gRPC | `IDENTITY_GRPC_HOST/PORT`, `GATEWAY_SERVICE_CLIENT_SECRET`, `ORDER_SERVICE_SECRET`, `REPORTING_SERVICE_SECRET`; gRPC binds to loopback by default, with TLS/mTLS required for cross-host deployment |
 | Gateway | `GATEWAY_SERVICE_CLIENT_ID/SECRET`, `GATEWAY_*_GRPC_DEADLINE` |
 
 ## Known config issues

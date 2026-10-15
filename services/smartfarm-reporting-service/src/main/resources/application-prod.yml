@@ -16,3 +16,5 @@ spring:
 server:
   address: ${REPORTING_BIND_ADDRESS:127.0.0.1}
 spring.grpc.server.address: ${REPORTING_GRPC_BIND_ADDRESS:127.0.0.1}
+smartfarm.identity.grpc-host: ${IDENTITY_GRPC_HOST:127.0.0.1}
+smartfarm.identity.grpc-port: ${IDENTITY_GRPC_PORT:9092}

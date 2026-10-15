@@ -32,6 +32,7 @@ public class IdentityGraphQlController {
     private final IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory;
     private final IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub admin;
     private final IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential;
+    private final PlatformAuthorizationAdministrationServiceGrpc.PlatformAuthorizationAdministrationServiceBlockingStub platform;
     private final ServiceTokenClient tokens;
     private final GatewayRequestContextFactory contexts;
     private final String audience;
@@ -41,6 +42,7 @@ public class IdentityGraphQlController {
             IdentityDirectoryServiceGrpc.IdentityDirectoryServiceBlockingStub directory,
             IdentityAdministrationServiceGrpc.IdentityAdministrationServiceBlockingStub admin,
             IdentityCredentialServiceGrpc.IdentityCredentialServiceBlockingStub credential,
+            PlatformAuthorizationAdministrationServiceGrpc.PlatformAuthorizationAdministrationServiceBlockingStub platform,
             ServiceTokenClient tokens,
             GatewayRequestContextFactory contexts,
             @Value("${smartfarm.identity.grpc-audience:smartfarm-identity}") String audience,
@@ -49,6 +51,7 @@ public class IdentityGraphQlController {
         this.directory = directory;
         this.admin = admin;
         this.credential = credential;
+        this.platform = platform;
         this.tokens = tokens;
         this.contexts = contexts;
         this.audience = audience;
@@ -228,31 +231,49 @@ public class IdentityGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:platform:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> createAuthorizationPermission(@Argument Map<String, Object> input) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
-            var x = admin(jwt, c).createPermission(CreatePermissionRequest.newBuilder().setContext(c).setCode(requiredInput(input, "code")).setResourceType(requiredInput(input, "resourceType")).setAction(requiredInput(input, "action")).setDescription(optionalInput(input, "description")).build());
+            var x = platform(jwt, c).createGlobalPermission(CreateGlobalPermissionRequest.newBuilder()
+                    .setContext(c)
+                    .setCode(requiredInput(input, "code"))
+                    .setResourceType(requiredInput(input, "resourceType"))
+                    .setAction(requiredInput(input, "action"))
+                    .setDescription(optionalInput(input, "description"))
+                    .build());
             return permission(x.getPermission());
         });
     }
 
     @MutationMapping
-    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:platform:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> updateAuthorizationPermission(@Argument Map<String, Object> input) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
-            var x = admin(jwt, c).updatePermission(UpdatePermissionRequest.newBuilder().setContext(c).setCode(requiredInput(input, "code")).setResourceType(requiredInput(input, "resourceType")).setAction(requiredInput(input, "action")).setDescription(optionalInput(input, "description")).build());
+            var request = UpdateGlobalPermissionRequest.newBuilder()
+                    .setContext(c)
+                    .setCode(requiredInput(input, "code"))
+                    .setResourceType(requiredInput(input, "resourceType"))
+                    .setAction(requiredInput(input, "action"))
+                    .setDescription(optionalInput(input, "description"));
+            if (input.get("expectedVersion") instanceof Number version) {
+                request.setExpectedVersion(version.longValue());
+            }
+            var x = platform(jwt, c).updateGlobalPermission(request.build());
             return permission(x.getPermission());
         });
     }
 
     @MutationMapping
-    @PreAuthorize("(hasAuthority('SCOPE_identity:permission:manage') or hasAuthority('SCOPE_*'))")
+    @PreAuthorize("(hasAuthority('SCOPE_identity:platform:permission:manage') or hasAuthority('SCOPE_*'))")
     public Mono<Boolean> deleteAuthorizationPermission(@Argument String code) {
         return jwtCall(jwt -> {
             var c = contexts.create(jwt);
-            return admin(jwt, c).deletePermission(DeletePermissionRequest.newBuilder().setContext(c).setCode(required(code, "code")).build()).getDeleted();
+            return platform(jwt, c).deleteGlobalPermission(DeleteGlobalPermissionRequest.newBuilder()
+                    .setContext(c)
+                    .setCode(required(code, "code"))
+                    .build()).getDeleted();
         });
     }
 
@@ -727,6 +748,15 @@ public class IdentityGraphQlController {
             RequestContext context
     ) {
         return credential
+                .withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
+                .withCallCredentials(credentials(jwt, context));
+    }
+
+    private PlatformAuthorizationAdministrationServiceGrpc.PlatformAuthorizationAdministrationServiceBlockingStub platform(
+            Jwt jwt,
+            RequestContext context
+    ) {
+        return platform
                 .withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(credentials(jwt, context));
     }

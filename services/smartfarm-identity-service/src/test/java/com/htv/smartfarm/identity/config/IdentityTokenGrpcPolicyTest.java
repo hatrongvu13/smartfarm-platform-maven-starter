@@ -8,14 +8,14 @@ import org.junit.jupiter.api.Test;
 
 class IdentityTokenGrpcPolicyTest {
     @Test
-    void tokenIssuanceRequiresAuthenticationAndSessionsKeepAuthorities() {
+    void machineTokenIssueUsesClientCredentialWhileDelegationAndSessionsRequireJwt() {
         var policy = new IdentityGrpcSecurityConfiguration()
                 .identityGrpcMethodPolicy();
 
         assertThat(policy.isPublic(
                 IdentityTokenServiceGrpc.getIssueServiceTokenMethod()
                         .getFullMethodName()
-        )).isFalse();
+        )).isTrue();
         assertThat(policy.isPublic(
                 IdentityTokenServiceGrpc.getExchangeDelegatedTokenMethod()
                         .getFullMethodName()

@@ -37,6 +37,9 @@ smartfarm:
   reporting:
     grpc:
       livestock-deadline: ${REPORTING_LIVESTOCK_GRPC_DEADLINE:10s}
+  identity:
+    grpc-host: ${IDENTITY_GRPC_HOST:localhost}
+    grpc-port: ${IDENTITY_GRPC_PORT:9092}
     output-dir: ${REPORTING_OUTPUT_DIR:./.local/reports}
     download-ttl-seconds: ${REPORTING_DOWNLOAD_TTL:900}
     worker:

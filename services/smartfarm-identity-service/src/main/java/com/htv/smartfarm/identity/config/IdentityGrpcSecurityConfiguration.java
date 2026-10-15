@@ -372,9 +372,9 @@ public class IdentityGrpcSecurityConfiguration {
     private void configureTokenPolicy(
             GrpcMethodPolicy.Builder builder
     ) {
-        requireAuthenticated(
-                builder,
+        builder.permitAll(
                 IdentityTokenServiceGrpc.getIssueServiceTokenMethod()
+                        .getFullMethodName()
         );
         requireAuthenticated(
                 builder,

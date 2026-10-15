@@ -23,7 +23,7 @@
 | | Status | Gap |
 |-|--------|-----|
 | JWT validation (gateway) | IMPLEMENTED | issuer + audience + tenant + JWKS |
-| Service token issuance | IMPLEMENTED, transport risk open | HTTP requires a dedicated shared internal header plus client credentials; gRPC issue/exchange require caller JWT plus client credentials; duplicate transports and TLS/mTLS remain open |
+| Service token issuance | IMPLEMENTED, transport risk open | gRPC-only; machine issue validates allowlisted client credentials, delegated exchange additionally requires a verified caller JWT; cross-host TLS/mTLS remains open |
 | gRPC TLS | DESIGNED | **off by default** — plaintext nội bộ |
 | MQTT auth/ACL/mTLS | DESIGNED only | broker `allow_anonymous true`; ACL/mTLS = sample config (`docs/security/mqtt-acl-mtls.md`) |
 | MQTT message HMAC envelope | IMPLEMENTED; profile-configured | HMAC code exists; dev profiles enable signing/verification and prod profiles default off. Verify each deployed publisher/consumer and rollout state independently. |
@@ -40,7 +40,7 @@
 
 ## 6. Known security gaps
 - gRPC TLS off by default; private/loopback binding is not a substitute for authenticated transport.
-- HTTP `POST /internal/service-token` requires `IDENTITY_INTERNAL_API_SECRET` in a dedicated header but still passes the bearer-token filter chain; gRPC issue/exchange require a caller JWT. Consolidate the duplicate transports and enable TLS/mTLS; a shared header is not encryption.
+- Identity service-token issuance is gRPC-only. Machine-token issue validates per-client credentials and audience allowlists; delegated exchange additionally validates a caller JWT and binds actor/tenant to its verified claims. Identity gRPC binds to loopback by default; cross-host deployments still need TLS/mTLS and private network controls.
 - No dedicated server-level test currently proves registration and enforcement of the five identity token/session RPC handlers.
 - MQTT broker chưa auth/TLS/ACL (ISSUE-02 + RISK-BROKER-01).
 - App-level HMAC signing/verification is configured on in development and off by default in production; production broker authentication/TLS/ACL is not enabled by these settings.
@@ -52,7 +52,7 @@
 - [x] TOTP MFA + lockout
 - [x] DB RBAC + gRPC fail-closed authz
 - [x] Correlation propagation
-- [-] Protect service-token issuance with caller authentication and a shared internal header; TLS/mTLS and duplicate-path removal remain
+- [x] Retire HTTP service-token issuance; validate machine-client credentials and require caller JWT for delegated exchange
 - [x] Stop bootstrap from generating/logging TOTP enrollment secret
 - [ ] gRPC TLS enabled
 - [ ] MQTT broker auth + TLS + ACL

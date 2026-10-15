@@ -324,7 +324,10 @@ public class TokenService {
                 claims.claim("sid", tokenContext.sessionId());
             }
             if (tokenContext.authenticatedAt() != null) {
-                claims.claim("auth_time", tokenContext.authenticatedAt());
+                claims.claim(
+                        "auth_time",
+                        tokenContext.authenticatedAt().getEpochSecond()
+                );
             }
             if (!tokenContext.authenticationMethods().isEmpty()) {
                 claims.claim("amr", tokenContext.authenticationMethods());

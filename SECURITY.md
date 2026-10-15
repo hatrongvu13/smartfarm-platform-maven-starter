@@ -23,7 +23,7 @@ DB RBAC (role→permission + per-farm scope); gRPC fail-closed exact-method auth
 
 ## Transport security
 - Nội bộ gRPC: TLS **chưa bật mặc định** (cần bật cho prod).
-- Identity service-token gRPC issue/exchange yêu cầu caller JWT. HTTP internal service-token endpoint yêu cầu header `IDENTITY_INTERNAL_API_SECRET` riêng cộng client credentials; shared header không mã hóa traffic, vì vậy endpoint phải ở private network và dùng TLS/mTLS khi đi qua host.
+- Identity machine-token issuance is gRPC-only and validates allowlisted client credentials; delegated exchange additionally requires a verified user JWT whose subject and tenant match the requested actor and tenant. Identity gRPC binds to loopback by default. Cross-host deployment still requires TLS/mTLS and private network controls.
 - MQTT: broker hiện `allow_anonymous true` — **phải** cấu hình auth + TLS + ACL cho prod (ISSUE-02).
 - App-level MQTT message HMAC: implementation exists; dev profiles enable it and production profiles default it off. Broker authentication/ACL/TLS are separate and remain unconfigured.
 

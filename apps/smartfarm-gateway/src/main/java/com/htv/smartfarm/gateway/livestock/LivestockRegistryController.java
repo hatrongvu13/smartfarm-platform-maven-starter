@@ -57,8 +57,8 @@ public class LivestockRegistryController {
 
     // ---- helpers ----
 
-    private LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub authed(String tenant, String actor) {
-        String serviceToken = serviceTokens.tokenFor(LIVESTOCK_AUDIENCE, tenant, actor);
+    private LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub authed(Jwt jwt) {
+        String serviceToken = serviceTokens.tokenFor(LIVESTOCK_AUDIENCE, jwt);
         return stub.withDeadlineAfter(3, TimeUnit.SECONDS)
                 .withCallCredentials(new BearerCallCredentials(() -> serviceToken));
     }
@@ -110,7 +110,7 @@ public class LivestockRegistryController {
                 animal.setBirthDate(com.google.protobuf.Timestamp.newBuilder()
                         .setSeconds(body.birthDateEpochMs() / 1000).setNanos((int) (body.birthDateEpochMs() % 1000) * 1_000_000));
             var req = RegisterAnimalRequest.newBuilder().setContext(ctx(tenant, actor)).setAnimal(animal).build();
-            return animalView(authed(tenant, actor).registerAnimal(req).getAnimal());
+            return animalView(authed(jwt).registerAnimal(req).getAnimal());
         });
     }
 
@@ -121,7 +121,7 @@ public class LivestockRegistryController {
             String tenant = jwt.getClaimAsString("tenant_id");
             String actor = jwt.getSubject();
             var req = GetAnimalRequest.newBuilder().setContext(ctx(tenant, actor)).setAnimalId(id).build();
-            return animalView(authed(tenant, actor).getAnimal(req).getAnimal());
+            return animalView(authed(jwt).getAnimal(req).getAnimal());
         });
     }
 
@@ -137,7 +137,7 @@ public class LivestockRegistryController {
             var b = ListAnimalsRequest.newBuilder().setContext(ctx(tenant, actor)).setFarmId(farmId)
                     .setPage(PageRequest.newBuilder().setPageSize(limit));
             if (batchId != null && !batchId.isBlank()) b.setBatchId(batchId);
-            var resp = authed(tenant, actor).listAnimals(b.build());
+            var resp = authed(jwt).listAnimals(b.build());
             List<Map<String, Object>> items = new ArrayList<>();
             for (Animal a : resp.getAnimalsList()) items.add(animalView(a));
             return Map.of("count", items.size(), "animals", items);
@@ -160,7 +160,7 @@ public class LivestockRegistryController {
                     .setEnabled(body.enabled() == null || body.enabled());
             if (body.assigneeId() != null) sched.setAssigneeId(body.assigneeId());
             var req = CreateScheduleRequest.newBuilder().setContext(ctx(tenant, actor)).setSchedule(sched).build();
-            return scheduleView(authed(tenant, actor).createSchedule(req).getSchedule());
+            return scheduleView(authed(jwt).createSchedule(req).getSchedule());
         });
     }
 
@@ -174,7 +174,7 @@ public class LivestockRegistryController {
             String actor = jwt.getSubject();
             var req = ListSchedulesRequest.newBuilder().setContext(ctx(tenant, actor)).setFarmId(farmId)
                     .setPage(PageRequest.newBuilder().setPageSize(limit)).build();
-            var resp = authed(tenant, actor).listSchedules(req);
+            var resp = authed(jwt).listSchedules(req);
             List<Map<String, Object>> items = new ArrayList<>();
             for (TaskSchedule s : resp.getSchedulesList()) items.add(scheduleView(s));
             return Map.of("count", items.size(), "schedules", items);

@@ -1,6 +1,7 @@
 package com.htv.smartfarm.order.grpc;
 
 import com.htv.smartfarm.proto.finance.v1.FarmFinanceServiceGrpc;
+import com.htv.smartfarm.proto.identity.v1.IdentityTokenServiceGrpc;
 import com.htv.smartfarm.proto.inventory.v1.InventoryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -40,8 +41,16 @@ public class OrderGrpcClientConfig {
             @Value("${smartfarm.finance.grpc-port:9094}") int port) { return channel(host,port); }
     @Bean InventoryServiceGrpc.InventoryServiceBlockingStub inventoryStub(@Qualifier("inventoryChannel") ManagedChannel c) { return InventoryServiceGrpc.newBlockingStub(c); }
     @Bean FarmFinanceServiceGrpc.FarmFinanceServiceBlockingStub financeStub(@Qualifier("financeChannel") ManagedChannel c) { return FarmFinanceServiceGrpc.newBlockingStub(c); }
+    @Bean(name="identityChannel", destroyMethod="")
+    ManagedChannel identityChannel(@Value("${smartfarm.identity.grpc-host:localhost}") String host,
+            @Value("${smartfarm.identity.grpc-port:9092}") int port) { return channel(host, port); }
+    @Bean IdentityTokenServiceGrpc.IdentityTokenServiceBlockingStub identityTokenStub(
+            @Qualifier("identityChannel") ManagedChannel c) {
+        return IdentityTokenServiceGrpc.newBlockingStub(c);
+    }
     @Bean(name="orderGrpcChannelCloser") AutoCloseable closer(@Qualifier("inventoryChannel") ManagedChannel inventory,
-            @Qualifier("financeChannel") ManagedChannel finance) {
-        return () -> { close(inventory); close(finance); };
+            @Qualifier("financeChannel") ManagedChannel finance,
+            @Qualifier("identityChannel") ManagedChannel identity) {
+        return () -> { close(inventory); close(finance); close(identity); };
     }
 }

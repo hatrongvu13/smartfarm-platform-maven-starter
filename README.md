@@ -76,7 +76,7 @@ REST (client↔gateway, gateway↔identity auth), gRPC (gateway↔services, orde
 → [`docs/index.md`](./docs/index.md) (kiến trúc · API · services · operations · security).
 
 ## 9. Security
-Identity implements RS256/JWKS tokens, relational refresh rotation/reuse detection, TOTP MFA, and DB-backed RBAC. Open risks include duplicate service-token transports, disabled-by-default gRPC TLS, and broker ACL/TLS configuration. MQTT HMAC is enabled in dev and defaults off in prod. Details: [`SECURITY.md`](./SECURITY.md), [`docs/security/security-architecture.md`](./docs/security/security-architecture.md).
+Identity implements RS256/JWKS tokens, relational refresh rotation/reuse detection, TOTP MFA, and DB-backed RBAC. Open risks include gRPC server-level/runtime coverage, cross-host TLS/mTLS, and broker ACL/TLS configuration. MQTT HMAC is enabled in dev and defaults off in prod. Details: [`SECURITY.md`](./SECURITY.md), [`docs/security/security-architecture.md`](./docs/security/security-architecture.md).
 
 ## 10. License
 Source-available dưới **PolyForm Strict License 1.0.0** — xem [`LICENSE`](./LICENSE).
@@ -84,8 +84,8 @@ Copyright © 2026 Vu Ha Trong — xem [`COPYRIGHT`](./COPYRIGHT).
 Chỉ được **xem, nghiên cứu, và chạy** cho mục đích **phi thương mại** được phép. Thương mại hoá, phân phối lại, chỉnh sửa, sublicense, và tạo sản phẩm phái sinh đều **không** được phép trừ khi có uỷ quyền riêng bằng văn bản từ chủ sở hữu bản quyền. Liên hệ cấp phép thương mại qua chủ repository trên GitHub.
 
 ## 11. Known limitations
-- Identity service-token issuance has two transports; HTTP requires `IDENTITY_INTERNAL_API_SECRET` plus client credentials, while gRPC issue/exchange require an authenticated caller JWT plus client credentials. gRPC TLS defaults off; choose and harden a single transport.
-- The dev profile declares a Gateway service-token client, but the latest local Identity startup reported `clientCount=0`; issuance with the correct internal header returned 401 (`bad_credentials`). Successful local token issuance remains unverified.
+- Synchronous internal calls use gRPC; public auth/OAuth-facing HTTP, JWKS, and operations health endpoints remain HTTP. Gateway delegated token exchange and Order/Reporting machine-token issuance now use Identity gRPC; machine-token RPCs validate allowlisted client credentials and Identity gRPC binds to loopback by default.
+- The dev-profile service-client binding bug is fixed and covered by a profile-loading test. RPC-level tests cover delegated actor/tenant binding and the Gateway gRPC client; actual multi-service runtime registration/transport security remains a release gate.
 - Identity bootstrap no longer generates or logs TOTP enrollment secrets; authenticated enrollment is a separate MFA challenge flow.
 - The identity token/session RPC adapter, JPA refresh-session persistence, and session RPC methods exist, but focused server-registration/security and concurrent PostgreSQL coverage remains incomplete.
 - gRPC inventory `AdjustStock` and `TraceLot` have implementations (older docs claiming they are missing are stale); FarmDirectory has five unimplemented RPCs and AnimalHealthService has six.

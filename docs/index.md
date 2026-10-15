@@ -22,7 +22,7 @@
 - [Events (MQTT)](api/events.md)
 
 ## Services
-- [gateway](services/gateway.md) · [identity](services/identity.md) · [order](services/order.md) · [inventory](services/inventory.md) · [finance](services/finance.md) · [livestock](services/livestock.md) · [health](services/health.md) · [reporting](services/reporting.md)
+- [gateway](services/gateway.md) · [identity](services/identity.md) · [Identity flows — target vs current](services/identity-flows.md) · [order](services/order.md) · [inventory](services/inventory.md) · [finance](services/finance.md) · [livestock](services/livestock.md) · [health](services/health.md) · [reporting](services/reporting.md)
 
 ## Operations
 - [Local Development](operations/local-development.md)
