@@ -5,6 +5,8 @@ import com.htv.smartfarm.gateway.identity.GatewayRequestContextFactory;
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
 import com.htv.smartfarm.proto.order.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
 
 import java.time.Instant;
@@ -12,6 +14,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -128,7 +131,7 @@ public class OrderSagaGateway {
             return action.call();
         } catch (StatusRuntimeException e) {
             if (e.getStatus().getCode() == io.grpc.Status.Code.UNAUTHENTICATED)
-                tokens.invalidate(AUDIENCE, jwt.getClaimAsString("tenant_id"));
+                tokens.invalidate(AUDIENCE, jwt.getClaimAsString(TokenClaimContract.TENANT_ID));
             throw errors.graphQl(op, e);
         } catch (RuntimeException e) {
             throw e;
@@ -138,7 +141,7 @@ public class OrderSagaGateway {
     }
 
     private OrderSagaAdministrationServiceGrpc.OrderSagaAdministrationServiceBlockingStub stub(Jwt jwt, String correlation) {
-        String tenant = jwt.getClaimAsString("tenant_id");
+        String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
         String token = tokens.tokenFor(AUDIENCE, jwt);
         return base.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> token, () -> tenant, () -> correlation));
     }

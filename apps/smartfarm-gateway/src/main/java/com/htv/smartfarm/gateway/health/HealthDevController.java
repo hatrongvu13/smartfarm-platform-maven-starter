@@ -6,6 +6,8 @@ import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.health.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 import com.htv.smartfarm.security.grpc.GrpcStatusHttpMapping;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
 
 import java.util.ArrayList;
@@ -13,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -114,7 +117,7 @@ public class HealthDevController {
                                                   @RequestParam String animalId,
                                                   @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListObservations", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = ListObservationsRequest.newBuilder().setContext(ctx(tenant, actor))
                     .setAnimalId(animalId).setPage(PageRequest.newBuilder().setPageSize(limit)).build();
@@ -131,7 +134,7 @@ public class HealthDevController {
                                                   @RequestParam String animalId,
                                                   @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListVaccinations", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = ListVaccinationsRequest.newBuilder().setContext(ctx(tenant, actor))
                     .setAnimalId(animalId).setPage(PageRequest.newBuilder().setPageSize(limit)).build();
@@ -148,7 +151,7 @@ public class HealthDevController {
                                             @RequestParam String farmId,
                                             @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListAlerts", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = ListAlertsRequest.newBuilder().setContext(ctx(tenant, actor))
                     .setFarmId(farmId).setPage(PageRequest.newBuilder().setPageSize(limit)).build();

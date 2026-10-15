@@ -32,10 +32,13 @@ import io.grpc.stub.StreamObserver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.grpc.server.service.GrpcService;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@GrpcService
 @RequiredArgsConstructor
 public class IdentityDirectoryGrpcService
         extends IdentityDirectoryServiceGrpc

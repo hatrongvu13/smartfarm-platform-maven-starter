@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.google.protobuf.Timestamp;
+import com.htv.smartfarm.common.contract.IdentityEventContract;
 import com.htv.smartfarm.identity.messaging.outbox.IdentityEventRecorder;
 import com.htv.smartfarm.proto.events.v1.DomainEvent;
 import com.htv.smartfarm.proto.events.v1.EventMetadata;
@@ -13,16 +14,8 @@ import com.htv.smartfarm.proto.events.v1.IdentityLifecycleEvent;
 
 import org.springframework.stereotype.Service;
 
-/**
- * Publishes identity account/role/membership/mfa lifecycle events as protobuf {@link DomainEvent}
- * frames (payload {@link IdentityLifecycleEvent}) — the SAME wire format every other service uses,
- * so the gateway WS bridge ({@code DomainEvent.parseFrom}) accepts them. Previously these were
- * serialized as JSON, which the protobuf-only bridge silently dropped (EVT-01).
- */
 @Service
 public class IdentityIntegrationEventPublisher {
-
-    private static final String SOURCE = "smartfarm-identity-service";
 
     private final IdentityEventRecorder recorder;
     private final Clock clock;
@@ -53,12 +46,11 @@ public class IdentityIntegrationEventPublisher {
         EventMetadata.Builder metadata = EventMetadata.newBuilder()
                 .setEventId(eventId)
                 .setTenantId(nullToEmpty(tenantId))
-                // Identity is a tenant-global aggregate: no farm scope. The WS bridge keys on this.
-                .setFarmId("_global")
+                .setFarmId(IdentityEventContract.GLOBAL_FARM_ID)
                 .setAggregateId(nullToEmpty(aggregateId))
                 .setCorrelationId(nullToEmpty(correlationId))
                 .setCausationId(nullToEmpty(causationId))
-                .setProducer(SOURCE)
+                .setProducer(IdentityEventContract.IDENTITY_PRODUCER)
                 .setOccurredAt(toTimestamp(occurredAt))
                 .setAggregateVersion(aggregateVersion);
 
@@ -105,35 +97,70 @@ public class IdentityIntegrationEventPublisher {
     }
 
     public String publishAuthorizationInvalidated(
-            String tenantId, String subjectId, String actorId,
-            String correlationId, long tenantVersion,
-            long subjectVersion, String reasonCode) {
-        if (tenantVersion < 0 || subjectVersion < 0) throw new IllegalArgumentException("negative authorization version");
+            String tenantId,
+            String subjectId,
+            String actorId,
+            String correlationId,
+            long tenantVersion,
+            long subjectVersion,
+            String reasonCode
+    ) {
+        if (tenantVersion < 0 || subjectVersion < 0) {
+            throw new IllegalArgumentException("negative authorization version");
+        }
         String tenant = java.util.Objects.requireNonNull(tenantId).trim();
         String subject = subjectId == null ? "" : subjectId.trim();
         String reason = java.util.Objects.requireNonNull(reasonCode).trim();
-        if (tenant.isEmpty() || reason.isEmpty()) throw new IllegalArgumentException("tenantId and reasonCode are required");
+        if (tenant.isEmpty() || reason.isEmpty()) {
+            throw new IllegalArgumentException("tenantId and reasonCode are required");
+        }
         String eventId = UUID.randomUUID().toString();
         Instant occurredAt = clock.instant();
         EventMetadata metadata = EventMetadata.newBuilder()
-                .setEventId(eventId).setTenantId(tenant).setFarmId("_global")
+                .setEventId(eventId)
+                .setTenantId(tenant)
+                .setFarmId(IdentityEventContract.GLOBAL_FARM_ID)
                 .setAggregateId(subject.isEmpty() ? tenant : subject)
-                .setCorrelationId(nullToEmpty(correlationId)).setProducer(SOURCE)
+                .setCorrelationId(nullToEmpty(correlationId))
+                .setProducer(IdentityEventContract.IDENTITY_PRODUCER)
                 .setOccurredAt(toTimestamp(occurredAt))
-                .setAggregateVersion(subject.isEmpty() ? tenantVersion : subjectVersion).build();
-        var invalidation = com.htv.smartfarm.proto.events.v1.AuthorizationInvalidated.newBuilder()
-                .setTenantId(tenant).setSubjectId(subject)
+                .setAggregateVersion(subject.isEmpty() ? tenantVersion : subjectVersion)
+                .build();
+        var invalidation = com.htv.smartfarm.proto.events.v1.AuthorizationInvalidated
+                .newBuilder()
+                .setTenantId(tenant)
+                .setSubjectId(subject)
                 .setTenantAuthorizationVersion(tenantVersion)
-                .setSubjectAuthorizationVersion(subjectVersion).setReasonCode(reason).build();
-        byte[] payload = DomainEvent.newBuilder().setMetadata(metadata)
-                .setAuthorizationInvalidated(invalidation).build().toByteArray();
-        String topic = IdentityEventTopics.domain(tenant, "authorization-invalidated", 1);
-        recorder.recordWithId(eventId, tenant, actorId, correlationId, null,
-                "identity.authorization.invalidated", 1,
-                subject.isEmpty() ? "authorization-tenant" : "authorization-subject",
+                .setSubjectAuthorizationVersion(subjectVersion)
+                .setReasonCode(reason)
+                .build();
+        byte[] payload = DomainEvent.newBuilder()
+                .setMetadata(metadata)
+                .setAuthorizationInvalidated(invalidation)
+                .build()
+                .toByteArray();
+        String topic = IdentityEventTopics.domain(
+                tenant,
+                IdentityEventContract.AUTHORIZATION_INVALIDATED_EVENT_NAME,
+                1
+        );
+        recorder.recordWithId(
+                eventId,
+                tenant,
+                actorId,
+                correlationId,
+                null,
+                IdentityEventContract.AUTHORIZATION_INVALIDATED_EVENT_TYPE,
+                1,
+                subject.isEmpty()
+                        ? IdentityEventContract.AUTHORIZATION_TENANT_AGGREGATE_TYPE
+                        : IdentityEventContract.AUTHORIZATION_SUBJECT_AGGREGATE_TYPE,
                 subject.isEmpty() ? tenant : subject,
                 subject.isEmpty() ? tenantVersion : subjectVersion,
-                topic, payload, occurredAt);
+                topic,
+                payload,
+                occurredAt
+        );
         return eventId;
     }
 

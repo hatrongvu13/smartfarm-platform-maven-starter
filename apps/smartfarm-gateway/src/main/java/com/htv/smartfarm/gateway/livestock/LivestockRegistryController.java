@@ -6,6 +6,8 @@ import com.htv.smartfarm.proto.livestock.v1.*;
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 import com.htv.smartfarm.security.grpc.GrpcStatusHttpMapping;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
 
 import java.util.ArrayList;
@@ -13,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,7 +103,7 @@ public class LivestockRegistryController {
         return call("RegisterAnimal", () -> {
             if (body == null || body.farmId() == null || body.tagCode() == null)
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "farmId and tagCode required");
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var animal = Animal.newBuilder().setFarmId(body.farmId()).setTagCode(body.tagCode());
             if (body.species() != null) animal.setSpecies(body.species());
@@ -118,7 +121,7 @@ public class LivestockRegistryController {
     @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> getAnimal(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetAnimal", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = GetAnimalRequest.newBuilder().setContext(ctx(tenant, actor)).setAnimalId(id).build();
             return animalView(authed(jwt).getAnimal(req).getAnimal());
@@ -132,7 +135,7 @@ public class LivestockRegistryController {
                                                  @RequestParam(required = false) String batchId,
                                                  @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListAnimals", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var b = ListAnimalsRequest.newBuilder().setContext(ctx(tenant, actor)).setFarmId(farmId)
                     .setPage(PageRequest.newBuilder().setPageSize(limit));
@@ -152,7 +155,7 @@ public class LivestockRegistryController {
         return call("CreateSchedule", () -> {
             if (body == null || body.farmId() == null || body.title() == null || body.cronExpression() == null)
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "farmId, title, cronExpression required");
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var sched = TaskSchedule.newBuilder().setFarmId(body.farmId()).setTitle(body.title())
                     .setType(type(body.type())).setCronExpression(body.cronExpression())
@@ -170,7 +173,7 @@ public class LivestockRegistryController {
                                                    @RequestParam String farmId,
                                                    @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListSchedules", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = ListSchedulesRequest.newBuilder().setContext(ctx(tenant, actor)).setFarmId(farmId)
                     .setPage(PageRequest.newBuilder().setPageSize(limit)).build();

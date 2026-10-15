@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import org.junit.jupiter.api.Test;
 
 class TokenContextContractTest {
@@ -53,9 +54,12 @@ class TokenContextContractTest {
                 Duration.ofMinutes(5)
         );
         assertThat(context.delegatedActorClaim())
-                .containsEntry("sub", "user-1")
-                .containsEntry("authorization_version", 5L)
-                .containsEntry("tenant_authorization_version", 9L);
+                .containsEntry(TokenClaimContract.SUBJECT, "user-1")
+                .containsEntry(TokenClaimContract.AUTHORIZATION_VERSION, 5L)
+                .containsEntry(
+                        TokenClaimContract.TENANT_AUTHORIZATION_VERSION,
+                        9L
+                );
     }
 
     @Test

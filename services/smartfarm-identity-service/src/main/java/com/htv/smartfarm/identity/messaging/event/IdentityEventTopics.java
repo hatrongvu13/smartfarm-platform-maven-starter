@@ -3,6 +3,8 @@ package com.htv.smartfarm.identity.messaging.event;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import com.htv.smartfarm.common.contract.IdentityEventContract;
+
 public final class IdentityEventTopics {
 
     private static final Pattern SEGMENT = Pattern.compile("[A-Za-z0-9_-]{1,100}");
@@ -10,17 +12,13 @@ public final class IdentityEventTopics {
     private IdentityEventTopics() {
     }
 
-    /**
-     * Standard SmartFarm domain topic: {@code smartfarm/<tenant>/_global/domain/<event>/v<n>}.
-     * Identity is tenant-global (no farm), so the farm segment is the literal {@code _global}; this
-     * matches the gateway WS bridge filter {@code smartfarm/+/+/domain/#} (EVT-02 — previously used a
-     * non-standard {@code <aggregate>-<event>} segment).
-     */
     public static String domain(String tenantId, String eventName, int version) {
-        return "smartfarm/" + segment(tenantId, "tenantId")
-                + "/_global/domain/"
+        return IdentityEventContract.TOPIC_NAMESPACE + "/"
+                + segment(tenantId, "tenantId")
+                + "/" + IdentityEventContract.GLOBAL_FARM_ID
+                + "/" + IdentityEventContract.DOMAIN_EVENT_SEGMENT + "/"
                 + segment(normalize(eventName), "eventName")
-                + "/v" + version;
+                + "/" + IdentityEventContract.TOPIC_VERSION_PREFIX + version;
     }
 
     private static String normalize(String value) {

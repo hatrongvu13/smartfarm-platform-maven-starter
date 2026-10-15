@@ -129,4 +129,4 @@ smartfarm:
       challenge-ttl: ${IDENTITY_MFA_CHALLENGE_TTL:5m}
       maximum-attempts: ${IDENTITY_MFA_MAXIMUM_ATTEMPTS:5}
       recovery-code-count: ${IDENTITY_MFA_RECOVERY_CODE_COUNT:10}
-      encryption-key: ${IDENTITY_MFA_ENCRYPTION_KEY:GitxwqL/a1ALNdR0FxUvdaxNAwFi+BRxATfcvyI5P8k=}
+      encryption-key: ${IDENTITY_MFA_ENCRYPTION_KEY:}

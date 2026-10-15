@@ -1,6 +1,9 @@
 package com.htv.smartfarm.gateway.graphql;
 
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import org.springframework.beans.factory.annotation.Value;
 import com.htv.smartfarm.proto.common.v1.PageRequest;
 import com.htv.smartfarm.proto.common.v1.RequestContext;
@@ -73,7 +76,7 @@ public class FarmGraphQlController {
 
     private RequestContext ctx(Jwt jwt) {
         return RequestContext.newBuilder()
-                .setTenantId(jwt.getClaimAsString("tenant_id")).setActorId(jwt.getSubject()).build();
+                .setTenantId(jwt.getClaimAsString(TokenClaimContract.TENANT_ID)).setActorId(jwt.getSubject()).build();
     }
 
     private LivestockTaskServiceGrpc.LivestockTaskServiceBlockingStub liveStub(Jwt jwt) {

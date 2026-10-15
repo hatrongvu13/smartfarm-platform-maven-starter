@@ -12,6 +12,8 @@ import com.htv.smartfarm.proto.common.v1.PageRequest;
 import com.htv.smartfarm.proto.common.v1.Quantity;
 import com.htv.smartfarm.proto.order.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
 
 import java.time.Instant;
@@ -21,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -175,7 +178,7 @@ public class OrderGraphQlController {
     }
 
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub stub(Jwt jwt, String correlationId) {
-        String tenant = required(jwt.getClaimAsString("tenant_id"), "tenantId");
+        String tenant = required(jwt.getClaimAsString(TokenClaimContract.TENANT_ID), "tenantId");
         String token = tokens.tokenFor(AUDIENCE, jwt);
         return orders.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS)
                 .withCallCredentials(new BearerCallCredentials(
@@ -191,7 +194,7 @@ public class OrderGraphQlController {
                                         return action.apply(jwt, GatewayCorrelationContext.get(reactorContext));
                                     } catch (StatusRuntimeException exception) {
                                         if (exception.getStatus().getCode() == io.grpc.Status.Code.UNAUTHENTICATED) {
-                                            tokens.invalidate(AUDIENCE, jwt.getClaimAsString("tenant_id"));
+                                            tokens.invalidate(AUDIENCE, jwt.getClaimAsString(TokenClaimContract.TENANT_ID));
                                         }
                                         throw errors.graphQl(operation, exception);
                                     }

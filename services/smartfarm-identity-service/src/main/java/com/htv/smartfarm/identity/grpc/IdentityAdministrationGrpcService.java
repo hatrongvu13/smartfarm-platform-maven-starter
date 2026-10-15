@@ -19,10 +19,12 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.grpc.server.service.GrpcService;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@GrpcService
 @RequiredArgsConstructor
 public class IdentityAdministrationGrpcService
         extends IdentityAdministrationServiceGrpc

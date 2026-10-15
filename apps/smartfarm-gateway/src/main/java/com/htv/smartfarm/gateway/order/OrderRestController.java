@@ -8,6 +8,8 @@ import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
 import com.htv.smartfarm.proto.common.v1.*;
 import com.htv.smartfarm.proto.order.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +18,7 @@ import java.time.Instant;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -150,7 +153,7 @@ public class OrderRestController {
     }
 
     private FarmOrderServiceGrpc.FarmOrderServiceBlockingStub stub(Jwt jwt, String correlation) {
-        String tenant = required(jwt.getClaimAsString("tenant_id"), "tenantId");
+        String tenant = required(jwt.getClaimAsString(TokenClaimContract.TENANT_ID), "tenantId");
         String token = tokens.tokenFor(AUDIENCE, jwt);
         return base.withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS).withCallCredentials(new BearerCallCredentials(() -> token, () -> tenant, () -> correlation));
     }
@@ -161,7 +164,7 @@ public class OrderRestController {
                 return fn.call();
             } catch (StatusRuntimeException e) {
                 if (e.getStatus().getCode() == io.grpc.Status.Code.UNAUTHENTICATED)
-                    tokens.invalidate(AUDIENCE, jwt.getClaimAsString("tenant_id"));
+                    tokens.invalidate(AUDIENCE, jwt.getClaimAsString(TokenClaimContract.TENANT_ID));
                 throw errors.rest(op, e);
             }
         }).subscribeOn(Schedulers.boundedElastic());

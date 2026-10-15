@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionService;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionTuple;
@@ -113,8 +114,13 @@ public class TokenService {
             if (!acceptedAudience || jwt.getSubject() == null
                     || jwt.getSubject().isBlank()
                     || jwt.getExpiresAt() == null
-                    || jwt.getClaimAsString("tenant_id") == null
-                    || jwt.getClaimAsString("token_type") == null) {
+                    || jwt.getClaimAsString(TokenClaimContract.TENANT_ID) == null
+                    || jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE) == null
+                    || !TokenClaimContract.supportsVersion(
+                            jwt.getClaims().get(
+                                    TokenClaimContract.CONTRACT_VERSION_CLAIM
+                            )
+                    )) {
                 return OAuth2TokenValidatorResult.failure(
                         new OAuth2Error(
                                 "invalid_token",
@@ -261,9 +267,15 @@ public class TokenService {
             throw new IllegalArgumentException("actorVersions must not be null");
         }
         Map<String, Object> actor = new LinkedHashMap<>();
-        actor.put("sub", normalizedActor);
-        actor.put("authorization_version", actorVersions.subjectVersion());
-        actor.put("tenant_authorization_version", actorVersions.tenantVersion());
+        actor.put(TokenClaimContract.SUBJECT, normalizedActor);
+        actor.put(
+                TokenClaimContract.AUTHORIZATION_VERSION,
+                actorVersions.subjectVersion()
+        );
+        actor.put(
+                TokenClaimContract.TENANT_AUTHORIZATION_VERSION,
+                actorVersions.tenantVersion()
+        );
         return issue(
                 "svc:" + normalizedClientId,
                 normalizedClientId,
@@ -302,35 +314,55 @@ public class TokenService {
                 .notBefore(now)
                 .expiresAt(now.plus(ttl))
                 .id(UUID.randomUUID().toString())
-                .claim("tenant_id", requireText(tenantId, "tenantId"))
-                .claim("scope", String.join(" ", normalize(scopes)))
-                .claim("roles", normalize(roles))
-                .claim("token_type", tokenType);
+                .claim(
+                        TokenClaimContract.CONTRACT_VERSION_CLAIM,
+                        TokenClaimContract.CURRENT_CONTRACT_VERSION
+                )
+                .claim(
+                        TokenClaimContract.TENANT_ID,
+                        requireText(tenantId, "tenantId")
+                )
+                .claim(
+                        TokenClaimContract.SCOPE,
+                        String.join(" ", normalize(scopes))
+                )
+                .claim(TokenClaimContract.ROLES, normalize(roles))
+                .claim(TokenClaimContract.TOKEN_TYPE, tokenType);
         if (authorizationVersion != null) {
             claims.claim(
-                    "authorization_version",
+                    TokenClaimContract.AUTHORIZATION_VERSION,
                     authorizationVersion.subjectVersion()
             );
             claims.claim(
-                    "tenant_authorization_version",
+                    TokenClaimContract.TENANT_AUTHORIZATION_VERSION,
                     authorizationVersion.tenantVersion()
             );
         }
-        if (delegatedActor != null) claims.claim("act", delegatedActor);
-        if (clientId != null) claims.claim("client_id", clientId);
+        if (delegatedActor != null) {
+            claims.claim(TokenClaimContract.DELEGATED_ACTOR, delegatedActor);
+        }
+        if (clientId != null) {
+            claims.claim(TokenClaimContract.CLIENT_ID, clientId);
+        }
         if (tokenContext != null) {
             if (tokenContext.sessionId() != null
                     && !tokenContext.sessionId().isBlank()) {
-                claims.claim("sid", tokenContext.sessionId());
+                claims.claim(
+                        TokenClaimContract.SESSION_ID,
+                        tokenContext.sessionId()
+                );
             }
             if (tokenContext.authenticatedAt() != null) {
                 claims.claim(
-                        "auth_time",
+                        TokenClaimContract.AUTHENTICATION_TIME,
                         tokenContext.authenticatedAt().getEpochSecond()
                 );
             }
             if (!tokenContext.authenticationMethods().isEmpty()) {
-                claims.claim("amr", tokenContext.authenticationMethods());
+                claims.claim(
+                        TokenClaimContract.AUTHENTICATION_METHODS,
+                        tokenContext.authenticationMethods()
+                );
             }
         }
         return encoder.encode(JwtEncoderParameters.from(

@@ -75,6 +75,7 @@ public class SuperAdminBootstrapService {
             "Wildcard permission: grants every scope (root/super-admin)";
 
     private final AccountService accountService;
+    private final IdentityBootstrapLockRepository bootstrapLockRepository;
     private final UserAccountRepository accountRepository;
     private final TenantRepository tenantRepository;
     private final TenantMembershipRepository membershipRepository;
@@ -118,6 +119,11 @@ public class SuperAdminBootstrapService {
     ) {
         log.info("Starting first SUPERADMIN bootstrap");
 
+        bootstrapLockRepository.findByIdForUpdate(
+                IdentityBootstrapLockEntity.SUPERADMIN_LOCK_ID
+        ).orElseThrow(() -> new IllegalStateException(
+                "Identity bootstrap lock is not initialized"
+        ));
         ensureBootstrapIsOpen();
 
         String normalizedEmail = normalizeEmail(rawEmail);

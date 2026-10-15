@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -108,8 +109,8 @@ public final class RsaJwtIssuer {
                 audience,
                 scopes
         )
-                .claim("token_type", TOKEN_TYPE_USER)
-                .claim("roles", normalizeValues(roles))
+                .claim(TokenClaimContract.TOKEN_TYPE, TOKEN_TYPE_USER)
+                .claim(TokenClaimContract.ROLES, normalizeValues(roles))
                 .build();
 
         return encode(claims);
@@ -133,9 +134,9 @@ public final class RsaJwtIssuer {
                 audience,
                 scopes
         )
-                .claim("token_type", TOKEN_TYPE_SERVICE)
-                .claim("client_id", normalizedClientId)
-                .claim("roles", List.of())
+                .claim(TokenClaimContract.TOKEN_TYPE, TOKEN_TYPE_SERVICE)
+                .claim(TokenClaimContract.CLIENT_ID, normalizedClientId)
+                .claim(TokenClaimContract.ROLES, List.of())
                 .build();
 
         return encode(claims);
@@ -195,8 +196,19 @@ public final class RsaJwtIssuer {
                 .notBefore(now)
                 .expiresAt(now.plus(lifetime))
                 .id(UUID.randomUUID().toString())
-                .claim("tenant_id", normalizedTenantId)
-                .claim("scope", String.join(" ", normalizeValues(scopes)));
+                .claim(
+                        TokenClaimContract.CONTRACT_VERSION_CLAIM,
+                        TokenClaimContract.CURRENT_CONTRACT_VERSION
+                )
+                .claim(TokenClaimContract.TENANT_ID, normalizedTenantId)
+                .claim(
+                        TokenClaimContract.SCOPE,
+                        String.join(" ", normalizeValues(scopes))
+                )
+                .claim(
+                        TokenClaimContract.CONTRACT_VERSION_CLAIM,
+                        TokenClaimContract.CURRENT_CONTRACT_VERSION
+                );
     }
 
     private String encode(JwtClaimsSet claims) {

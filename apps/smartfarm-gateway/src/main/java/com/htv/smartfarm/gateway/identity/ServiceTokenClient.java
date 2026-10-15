@@ -14,7 +14,10 @@ import com.htv.smartfarm.proto.identity.v1.TokenGrantResponse;
 import com.htv.smartfarm.security.authorization.AuthorizationVersionWatermarkStore;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
@@ -78,10 +81,13 @@ public class ServiceTokenClient {
         }
         Key key = new Key(
                 audience,
-                required(jwt.getClaimAsString("tenant_id"), "tenantId"),
+                required(jwt.getClaimAsString(TokenClaimContract.TENANT_ID), "tenantId"),
                 required(jwt.getSubject(), "actorId"),
-                requiredLongClaim(jwt, "authorization_version"),
-                requiredLongClaim(jwt, "tenant_authorization_version")
+                requiredLongClaim(jwt, TokenClaimContract.AUTHORIZATION_VERSION),
+                requiredLongClaim(
+                        jwt,
+                        TokenClaimContract.TENANT_AUTHORIZATION_VERSION
+                )
         );
         requireFresh(key);
 

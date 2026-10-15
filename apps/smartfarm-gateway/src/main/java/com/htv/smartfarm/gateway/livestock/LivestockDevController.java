@@ -6,6 +6,8 @@ import com.htv.smartfarm.proto.livestock.v1.*;
 import com.htv.smartfarm.gateway.identity.ServiceTokenClient;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 import com.htv.smartfarm.security.grpc.GrpcStatusHttpMapping;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
 
 import java.util.ArrayList;
@@ -13,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -134,7 +137,7 @@ public class LivestockDevController {
         return call("CreateTask", () -> {
             if (body == null || body.farmId() == null || body.title() == null || key.isBlank())
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = CreateTaskRequest.newBuilder().setContext(ctx(tenant, actor, key))
                     .setFarmId(body.farmId()).setTitle(body.title())
@@ -154,7 +157,7 @@ public class LivestockDevController {
         return call("AssignTask", () -> {
             if (body == null || body.assigneeId() == null || body.assigneeId().isBlank())
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "assigneeId required");
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var b = AssignTaskRequest.newBuilder().setContext(ctx(tenant, actor, null))
                     .setTaskId(id).setAssigneeId(body.assigneeId());
@@ -168,7 +171,7 @@ public class LivestockDevController {
     @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> accept(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("AcceptTask", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = AcceptTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id).build();
             return view(authed(jwt).acceptTask(req).getTask());
@@ -179,7 +182,7 @@ public class LivestockDevController {
     @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> complete(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody(required = false) Complete body) {
         return call("CompleteTask", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = CompleteTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id)
                     .setCompletionNote(body == null || body.note() == null ? "" : body.note()).build();
@@ -191,7 +194,7 @@ public class LivestockDevController {
     @PreAuthorize("(hasAuthority('SCOPE_tasks:write') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody(required = false) Cancel body) {
         return call("CancelTask", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = CancelTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id)
                     .setReason(body == null || body.reason() == null ? "" : body.reason()).build();
@@ -207,7 +210,7 @@ public class LivestockDevController {
                                           @RequestParam(required = false) String assigneeId,
                                           @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListTasks", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var b = ListTasksRequest.newBuilder().setContext(ctx(tenant, actor, null)).setFarmId(farmId)
                     .setPage(PageRequest.newBuilder().setPageSize(limit));
@@ -230,7 +233,7 @@ public class LivestockDevController {
     @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> get(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetTask", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = GetTaskRequest.newBuilder().setContext(ctx(tenant, actor, null)).setTaskId(id).build();
             return view(authed(jwt).getTask(req).getTask());

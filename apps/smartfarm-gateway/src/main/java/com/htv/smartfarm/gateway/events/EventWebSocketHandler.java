@@ -5,6 +5,9 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -50,7 +53,7 @@ public class EventWebSocketHandler implements WebSocketHandler {
         }
         return decoder.decode(decode(token))
                 .flatMap(jwt -> {
-                    String tenant = jwt.getClaimAsString("tenant_id");
+                    String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
                     if (tenant == null || tenant.isBlank()) return session.close();
                     Flux<String> events = bus.stream()
                             .filter(e -> tenant.equals(e.tenantId()))

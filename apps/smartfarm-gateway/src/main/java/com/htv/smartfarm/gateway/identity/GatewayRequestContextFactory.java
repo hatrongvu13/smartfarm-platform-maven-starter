@@ -3,6 +3,9 @@ package com.htv.smartfarm.gateway.identity;
 import java.util.UUID;
 
 import com.htv.smartfarm.proto.common.v1.RequestContext;
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +20,7 @@ public class GatewayRequestContextFactory {
     }
 
     public RequestContext create(Jwt jwt, String correlationId, String idempotencyKey) {
-        String tenant = jwt.getClaimAsString("tenant_id");
+        String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
         String actor = jwt.getSubject();
         if (tenant == null || tenant.isBlank() || actor == null || actor.isBlank()) {
             throw new IllegalArgumentException("authenticated identity is incomplete");

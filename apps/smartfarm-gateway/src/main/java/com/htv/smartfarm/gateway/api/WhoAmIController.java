@@ -2,6 +2,9 @@ package com.htv.smartfarm.gateway.api;
 
 import java.util.Map;
 
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +20,6 @@ public class WhoAmIController {
     @GetMapping(value = "/me", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("(hasAuthority('SCOPE_farm:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, String>> me(@AuthenticationPrincipal Jwt jwt) {
-        return Mono.just(Map.of("subject", jwt.getSubject(), "tenantId", jwt.getClaimAsString("tenant_id")));
+        return Mono.just(Map.of("subject", jwt.getSubject(), "tenantId", jwt.getClaimAsString(TokenClaimContract.TENANT_ID)));
     }
 }

@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
 
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,45 @@ class SmartFarmJwtValidatorTest {
     void acceptsConfiguredAudience() {
         assertThat(validator.validate(jwt(List.of("smartfarm-order"))).hasErrors())
                 .isFalse();
+    }
+
+    @Test
+    void acceptsCurrentIdentityClaimContractVersion() {
+        Jwt token = jwt(List.of("smartfarm-order"));
+        Map<String, Object> claims = new HashMap<>(token.getClaims());
+        claims.put(
+                TokenClaimContract.CONTRACT_VERSION_CLAIM,
+                TokenClaimContract.CURRENT_CONTRACT_VERSION
+        );
+
+        assertThat(validator.validate(new Jwt(
+                token.getTokenValue(),
+                token.getIssuedAt(),
+                token.getExpiresAt(),
+                token.getHeaders(),
+                claims
+        )).hasErrors()).isFalse();
+    }
+
+    @Test
+    void rejectsUnsupportedIdentityClaimContractVersion() {
+        Jwt token = jwt(List.of("smartfarm-order"));
+        Map<String, Object> claims = new HashMap<>(token.getClaims());
+        claims.put(TokenClaimContract.CONTRACT_VERSION_CLAIM, 2);
+        Jwt versioned = new Jwt(
+                token.getTokenValue(),
+                token.getIssuedAt(),
+                token.getExpiresAt(),
+                token.getHeaders(),
+                claims
+        );
+
+        var result = validator.validate(versioned);
+
+        assertThat(result.hasErrors()).isTrue();
+        assertThat(result.getErrors())
+                .anySatisfy(error -> assertThat(error.getDescription())
+                        .isEqualTo("unsupported_identity_claims_version"));
     }
 
     @Test

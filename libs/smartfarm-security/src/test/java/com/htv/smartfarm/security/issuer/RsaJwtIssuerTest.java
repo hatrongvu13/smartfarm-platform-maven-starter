@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.nimbusds.jwt.SignedJWT;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -63,6 +64,9 @@ class RsaJwtIssuerTest {
         var claims = SignedJWT.parse(token).getJWTClaimsSet();
 
         assertThat(claims.getSubject()).isEqualTo("user-001");
+        assertThat(claims.getIntegerClaim(
+                TokenClaimContract.CONTRACT_VERSION_CLAIM
+        )).isEqualTo(TokenClaimContract.CURRENT_CONTRACT_VERSION);
         assertThat(claims.getStringClaim("token_type"))
                 .isEqualTo("user");
         assertThat(claims.getStringClaim("tenant_id"))
@@ -87,6 +91,9 @@ class RsaJwtIssuerTest {
         var claims = SignedJWT.parse(token).getJWTClaimsSet();
 
         assertThat(claims.getSubject()).isEqualTo("gateway");
+        assertThat(claims.getIntegerClaim(
+                TokenClaimContract.CONTRACT_VERSION_CLAIM
+        )).isEqualTo(TokenClaimContract.CURRENT_CONTRACT_VERSION);
         assertThat(claims.getStringClaim("client_id"))
                 .isEqualTo("gateway");
         assertThat(claims.getStringClaim("token_type"))

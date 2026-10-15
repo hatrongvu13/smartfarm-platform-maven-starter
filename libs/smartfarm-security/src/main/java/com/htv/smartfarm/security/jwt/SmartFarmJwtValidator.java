@@ -2,6 +2,7 @@ package com.htv.smartfarm.security.jwt;
 
 import java.util.Set;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
 
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -50,10 +51,17 @@ public final class SmartFarmJwtValidator
             return fail("missing_expiry");
         }
 
-        String tenant = jwt.getClaimAsString("tenant_id");
+        String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
 
         if (tenant == null || tenant.isBlank()) {
             return fail("missing_tenant");
+        }
+
+        Object contractVersion = jwt.getClaims().get(
+                TokenClaimContract.CONTRACT_VERSION_CLAIM
+        );
+        if (!TokenClaimContract.supportsVersion(contractVersion)) {
+            return fail("unsupported_identity_claims_version");
         }
 
         return OAuth2TokenValidatorResult.success();

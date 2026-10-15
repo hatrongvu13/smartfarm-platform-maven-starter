@@ -3,6 +3,7 @@ package com.htv.smartfarm.identity.token;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionService;
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.token.grant.GrantType;
@@ -61,11 +62,18 @@ class TokenServiceAuthTimeTest {
         );
 
         String token = service.issue(context);
-        Object authTime = service.decoder().decode(token).getClaim("auth_time");
+        var decoded = service.decoder().decode(token);
+        Object authTime = decoded.getClaim(
+                TokenClaimContract.AUTHENTICATION_TIME
+        );
 
-        assertThat(authTime)
-                .isInstanceOf(Number.class)
-                .extracting(value -> ((Number) value).longValue())
+        assertThat(authTime).isInstanceOf(Number.class);
+        assertThat(((Number) authTime).longValue())
                 .isEqualTo(authenticatedAt.getEpochSecond());
+        assertThat(((Number) decoded.getClaim(
+                TokenClaimContract.CONTRACT_VERSION_CLAIM
+        )).intValue()).isEqualTo(
+                TokenClaimContract.CURRENT_CONTRACT_VERSION
+        );
     }
 }

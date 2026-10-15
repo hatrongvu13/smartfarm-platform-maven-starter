@@ -228,11 +228,7 @@ public class AuthService {
         this.bootstrap = bootstrap;
     }
 
-    /**
-     * One-time system super-admin registration (D1): creates the first super-admin and returns a
-     * COMPLETED token immediately. No TOTP gate; the TOTP enrollment is printed to the service
-     * console for the admin to enable later. Refuses (409) once any super-admin exists.
-     */
+    /** Creates the first super-admin and returns a completed token grant. */
     @Transactional
     public AuthenticationResponse bootstrapSuperAdmin(String rawEmail, String rawPassword) {
         password(rawPassword);

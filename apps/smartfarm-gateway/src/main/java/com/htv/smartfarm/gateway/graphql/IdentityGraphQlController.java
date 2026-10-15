@@ -14,6 +14,9 @@ import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.identity.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -709,7 +712,7 @@ public class IdentityGraphQlController {
             RequestContext context
     ) {
         String tenantId = required(
-                jwt.getClaimAsString("tenant_id"),
+                jwt.getClaimAsString(TokenClaimContract.TENANT_ID),
                 "tenantId"
         );
 

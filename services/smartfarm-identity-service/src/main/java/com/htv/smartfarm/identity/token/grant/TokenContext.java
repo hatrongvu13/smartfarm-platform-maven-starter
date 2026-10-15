@@ -4,6 +4,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import java.util.Objects;
 import java.util.Set;
 
@@ -54,9 +56,11 @@ public record TokenContext(
     public Map<String, Object> delegatedActorClaim() {
         if (grantType != GrantType.DELEGATED_SERVICE) return Map.of();
         return Map.of(
-                "sub", actorSubjectId,
-                "authorization_version", subjectAuthorizationVersion,
-                "tenant_authorization_version", tenantAuthorizationVersion
+                TokenClaimContract.SUBJECT, actorSubjectId,
+                TokenClaimContract.AUTHORIZATION_VERSION,
+                subjectAuthorizationVersion,
+                TokenClaimContract.TENANT_AUTHORIZATION_VERSION,
+                tenantAuthorizationVersion
         );
     }
 

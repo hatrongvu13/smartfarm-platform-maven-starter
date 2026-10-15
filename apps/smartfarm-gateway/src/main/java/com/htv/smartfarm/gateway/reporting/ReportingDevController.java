@@ -6,6 +6,8 @@ import com.htv.smartfarm.proto.common.v1.RequestContext;
 import com.htv.smartfarm.proto.reporting.v1.*;
 import com.htv.smartfarm.security.grpc.BearerCallCredentials;
 import com.htv.smartfarm.security.grpc.GrpcStatusHttpMapping;
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import io.grpc.StatusRuntimeException;
 
 import java.util.ArrayList;
@@ -13,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -112,7 +115,7 @@ public class ReportingDevController {
         return call("RequestExport", () -> {
             if (body == null || body.farmId() == null || key.isBlank())
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "farmId and Idempotency-Key required");
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var b = RequestExportRequest.newBuilder().setContext(ctx(tenant, actor, key))
                     .setFarmId(body.farmId()).setType(type(body.type())).setFormat(format(body.format()));
@@ -133,7 +136,7 @@ public class ReportingDevController {
     @PreAuthorize("(hasAuthority('SCOPE_report:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> get(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetExportJob", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = GetExportJobRequest.newBuilder().setContext(ctx(tenant, actor, null)).setJobId(id).build();
             return jobView(authed(jwt).getExportJob(req).getJob());
@@ -146,7 +149,7 @@ public class ReportingDevController {
                                           @RequestParam String farmId,
                                           @RequestParam(required = false, defaultValue = "50") int limit) {
         return call("ListExportJobs", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = ListExportJobsRequest.newBuilder().setContext(ctx(tenant, actor, null)).setFarmId(farmId)
                     .setPage(PageRequest.newBuilder().setPageSize(limit)).build();
@@ -161,7 +164,7 @@ public class ReportingDevController {
     @PreAuthorize("(hasAuthority('SCOPE_report:read') or hasAuthority('SCOPE_*'))")
     public Mono<Map<String, Object>> download(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         return call("GetDownloadLocation", () -> {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
             String actor = jwt.getSubject();
             var req = GetDownloadLocationRequest.newBuilder().setContext(ctx(tenant, actor, null)).setJobId(id).build();
             var loc = authed(jwt).getDownloadLocation(req);

@@ -7,20 +7,20 @@
 
 ## Current progress summary
 
-- Completed: **42**
-- Partial/scaffolded: **30**
-- Pending: **52**
+- Completed: **43**
+- Partial/scaffolded: **32**
+- Pending: **49**
 - Removed by clean-rebuild decision (N/A): **3**
 - Total checklist entries: **127**
 - Authority: implementation and tests under `services/smartfarm-identity-service`, plus the contract in `libs/smartfarm-proto/src/main/proto/smartfarm/identity/v1/identity.proto`. A contract or bean alone is not proof of secure runtime exposure or production readiness.
-- Checklist completion: **33%** marked complete (42/127; partial items are not counted as complete).
-- Runtime/source status (2026-10-15): Identity binds three dev service clients; service-token issuance is now gRPC-only. Gateway uses `ExchangeDelegatedToken` with a verified user JWT, and Order/Reporting use `IssueServiceToken` with client credentials. Unit tests cover Gateway delegation, actor/tenant matching, and token RPC policy; server-level registration and multi-service runtime flow remain unverified. Identity gRPC binds to loopback by default; cross-host TLS/mTLS is not configured.
-- Current focus: prove gRPC server registration/enforcement and cross-host transport before production; continue refresh-session, bootstrap concurrency, permission ownership, and mutation/version/outbox coverage.
+- Checklist completion: **34%** marked complete (43/127; partial items are not counted as complete).
+- Runtime/source status (2026-10-15): Identity binds three dev service clients; service-token issuance is now gRPC-only. Gateway uses `ExchangeDelegatedToken` with a verified user JWT, and Order/Reporting use `IssueServiceToken` with client credentials. All five Identity adapters are marked `@GrpcService`; a local Netty server registration test verifies all five services, all five token RPC methods, successful machine-token RPC dispatch, and rejection of unauthenticated delegated exchange. Full Spring Boot application-context/multi-service runtime flow remains unverified. Identity gRPC binds to loopback by default; cross-host TLS/mTLS is not configured. First-superadmin creation now locks a seeded singleton database row within the bootstrap transaction; a concurrent PostgreSQL integration test is present but has not been run here.
+- Current focus: verify full Spring Boot gRPC runtime wiring and cross-host transport before production; run PostgreSQL bootstrap/refresh concurrency tests; continue permission ownership and mutation/version/outbox coverage.
 
 ## Working rules
 
 - [x] REST is limited to public authentication/OAuth-facing flows, JWKS, health, and operations. Internal service-token issuance is not exposed over HTTP.
-- [x] Identity internal read/write and token-issuance operations use gRPC; server registration/runtime and cross-host transport proof remain open.
+- [x] Identity internal read/write and token-issuance operations use gRPC; all five adapters now register through Spring gRPC and local live token RPC registration is tested. Full application-context/multi-service runtime and cross-host transport proof remain open.
 - [x] MQTT is an adapter and invokes application services rather than repositories.
 - [ ] No transport adapter mutates business repositories directly. Direct role assignment paths remain.
 - [x] Current authentication and service-token application flows issue through `TokenGrantFacade`; legacy signing helpers remain on `TokenService` but have no current application callers.
@@ -64,7 +64,7 @@
 
 ### ID-02.2 Standardize claims
 
-- [ ] **P0** Publish a versioned token-claim contract.
+- [x] **P0** Publish `TokenClaimContract` version 1 in `smartfarm-common-kernel`; Identity and shared JWT issuers publish it, resource servers reject unknown versions while accepting legacy tokens without the version claim.
 - [x] **P0** Standard claims exist: `sub`, `tenant_id`, `aud`, `token_type`, `jti`, `iat`, `nbf`, `exp`.
 - [x] **P0** User token contains scopes, roles, subject version, and tenant version.
 - [x] **P0** Service token has `client_id` and rejects wildcard scope.
@@ -76,8 +76,8 @@
 
 - [x] **P0** Reject actor delegation when the client has not enabled delegation.
 - [-] **P0** `IdentityTokenService` contract merged without removing existing proto symbols.
-- [-] **P0** `IdentityTokenGrpcService` implements all five proto RPCs. Machine issue validates allowlisted client credentials; delegated exchange additionally requires a JWT-bound actor/tenant. Focused tests exist; server-level registration and multi-service proof remain open.
-- [-] **P0** Machine token issue is gRPC client-credential authenticated on a loopback listener; delegated exchange additionally requires a valid caller JWT. Cross-host TLS/mTLS and server-level reachability tests remain open.
+- [-] **P0** `IdentityTokenGrpcService` implements all five proto RPCs. Machine issue validates allowlisted client credentials; delegated exchange additionally requires a JWT-bound actor/tenant. Service, interceptor, and live-server tests cover credential rejection, delegated identity, public machine-issue policy, session authorities, registration, and issue/exchange dispatch. Full application-context and multi-service runtime proof remains open.
+- [-] **P0** Machine token issue is gRPC client-credential authenticated on a loopback listener; delegated exchange additionally requires a valid caller JWT. Local server registration/reachability is tested; cross-host TLS/mTLS remains a production gate.
 - [x] **P0** Retire duplicate HTTP service-token issuance; Gateway, Order, and Reporting now use the Identity gRPC token service.
 - [ ] **P0** Move service credentials to a secret manager and support rotation.
 - [-] **P1** Structured token audit exists; metrics and rate limits remain.
@@ -103,7 +103,7 @@
 - [x] **P1** `RevokeSession` is implemented by the gRPC adapter and session administration service.
 - [x] **P1** `RevokeAllSessions` is implemented by the gRPC adapter and session administration service.
 - [x] **P1** Session proto never exposes a raw token or token hash.
-- [-] **P1** Session RPCs and authority policies exist; add gRPC-level authorization, tenant-isolation, and server-registration tests.
+- [-] **P1** Session RPCs and authority policies exist; registration is tested, but gRPC-level tenant-isolation coverage remains.
 
 ### ID-03.3 Access-token invalidation
 
@@ -179,8 +179,8 @@
 
 ## EPIC ID-07: Bootstrap and MFA
 
-- [ ] **P0** Make first-superadmin bootstrap atomic.
-- [ ] **P0** Add concurrent PostgreSQL bootstrap test.
+- [-] **P0** Make first-superadmin bootstrap atomic with a database row lock; PostgreSQL concurrency proof remains pending.
+- [-] **P0** Add concurrent PostgreSQL bootstrap test; execution against PostgreSQL remains pending.
 - [x] **P0** Stop bootstrap TOTP URI/secret logging; bootstrap no longer generates or logs an enrollment URI.
 - [-] **P0** Use authenticated post-bootstrap MFA enrollment; document and test it.
 - [ ] **P1** Remove stale bootstrap configuration.
@@ -216,27 +216,27 @@
 
 ## EPIC ID-10: Test/release gates
 
-- [-] Existing services have method policies; token issue/exchange now require authentication and session methods require authorities, but focused gRPC-level authorization/runtime tests remain.
+- [-] Existing services have method policies; token issue/exchange and session-method enforcement are covered through `JwtServerInterceptor` tests. Local server registration/reachability is tested; full application-context multi-service runtime remains.
 - [-] Delegated-actor/correlation tests exist; add token RPC tests covering credential rejection, audience allowlisting, delegation, and method security.
 - [-] Wildcard tests exist; full grant claim-contract tests remain.
 - [ ] Permission ownership tests.
 - [ ] Proto compatibility CI.
 - [ ] Concurrent refresh rotation/replay test.
-- [ ] Concurrent bootstrap test.
+- [-] Concurrent bootstrap PostgreSQL test is present but has not been executed.
 - [ ] Concurrent authorization-version test.
 - [ ] Inbox/outbox multi-worker test.
 - [-] Fresh Flyway + Hibernate validate infrastructure exists; clean baseline must pass it.
 - [N/A] Upgrade migration test from legacy V1/V2.
 
-## Next execution plan (ranked; no application feature changes made in this documentation task)
+## Next execution plan (ranked)
 
-1. **P0 — Prove gRPC runtime registration and enforce policy.** Add identity gRPC server tests for all five `IdentityTokenService` RPCs, including issue/exchange authentication, required session authorities, fail-closed behavior, and actual server registration. Starting points: `IdentityTokenGrpcService`, `IdentityGrpcSecurityConfiguration`, `GrpcMethodPolicyTest`, and `GrpcRequestSecurityDelegatedActorTest`.
-2. **P0 — Prove and harden service-token exposure.** Keep the single gRPC issuance boundary, add server-level registration/enforcement tests, and configure TLS/mTLS before cross-host deployment. Keep listener binding private and never log credentials/tokens.
-3. **P0 — Prove bootstrap atomicity.** Bootstrap no longer generates or logs a TOTP URI; authenticated MFA enrollment is a separate challenge flow. Add concurrent PostgreSQL coverage around `createFirstSuperAdmin` and uniqueness/locking.
+1. **P0 — Complete gRPC runtime proof.** All five adapters are now Spring-discoverable and a live local Netty test proves registration plus machine issue/delegated-auth boundaries. Next verify the full Spring Boot application context and Gateway/Order/Reporting calls; do not treat mocked-dependency tests as multi-service proof. Starting points: `IdentityGrpcServerRegistrationTest`, `IdentityGrpcSecurityConfiguration`, and `GrpcRequestSecurityDelegatedActorTest`.
+2. **P0 — Prove and harden service-token exposure.** Keep the single gRPC issuance boundary and configure TLS/mTLS before cross-host deployment. Keep listener binding private and never log credentials/tokens.
+3. **P0 — Prove bootstrap atomicity.** Bootstrap now locks a seeded singleton DB row before checking for an existing super-admin; a concurrent PostgreSQL integration test covers one-winner behavior. Run that test against PostgreSQL before marking the gate complete. Bootstrap no longer generates or logs a TOTP URI; authenticated MFA enrollment is a separate challenge flow.
 4. **P1 — Verify refresh replay/session behavior end to end.** Add PostgreSQL tests for `JpaRefreshSessionAdapter.rotate`, `RefreshReplayRevocationService` commit-on-error, replay family rejection, rotation races, revoke/revoke-all, expiry cleanup, and tenant isolation. Extend `RefreshSessionTenantIsolationIT` and `RefreshSessionCleanupIT`; unit tests do not prove transaction behavior.
 5. **P1 — Close authorization mutation/version gaps.** Audit `DefaultTenantIdentityAdministrationService`, `RoleManagementService`, `PermissionCatalogMutationService`, and `AuthorizationMutationCoordinator`; test that every supported mutation updates version/outbox atomically and that permission ownership is consistently enforced.
 6. **P1/P2 — Finish contract and operations gaps.** Reconcile remaining model/RPC gaps in `identity.proto`, `IdentityProtoMapper`, and gRPC services; add proto compatibility, paging/search, and expected-version tests. Then harden production transport/configuration (gRPC TLS, secret rotation, MQTT broker ACL/TLS, Flyway/profile validation) and document completion only when source and tests prove it.
 
 ## Reconciled checklist totals
 
-Totals count checklist entries only (all epics and working rules; exclude headings and prose): **42 complete + 30 partial + 52 pending + 3 N/A = 127 entries**. Recalculate these numbers whenever a marker changes.
+Totals count checklist entries only (all epics and working rules; exclude headings and prose): **43 complete + 32 partial + 49 pending + 3 N/A = 127 entries**. Recalculate these numbers whenever a marker changes.

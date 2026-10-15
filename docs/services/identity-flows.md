@@ -168,7 +168,7 @@ sequenceDiagram
     GW-->>User: Trả status/body của Identity
 ```
 
-`GET /.well-known/jwks.json` được Identity cung cấp; Gateway cấu hình issuer, audience và JWKS URI để xác minh JWT. Bootstrap superadmin là endpoint one-time riêng; bootstrap không còn tạo hoặc ghi log TOTP enrollment URI. MFA enrollment sau đó đi qua challenge endpoints.
+`GET /.well-known/jwks.json` được Identity cung cấp; Gateway cấu hình issuer, audience và JWKS URI để xác minh JWT. Bootstrap superadmin là endpoint one-time riêng và khóa một dòng singleton trong DB trước khi kiểm tra trạng thái, tránh hai Identity instance đồng thời tạo superadmin. Bootstrap không tạo hoặc ghi log TOTP enrollment URI; MFA enrollment sau đó đi qua challenge endpoints. Test PostgreSQL đồng thời đã được thêm nhưng chưa chạy.
 
 ### Gateway cấp delegated service token hiện tại: gRPC
 

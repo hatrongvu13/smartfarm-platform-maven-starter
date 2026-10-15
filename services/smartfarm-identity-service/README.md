@@ -12,10 +12,17 @@ cd services/smartfarm-identity-service
 export IDENTITY_BOOTSTRAP_TENANT=farm-demo
 export IDENTITY_BOOTSTRAP_EMAIL=admin@example.test
 export IDENTITY_BOOTSTRAP_PASSWORD='replace-with-a-long-random-password'
+mkdir -p .local
+if [ ! -s .local/identity-mfa-encryption-key ]; then
+  (umask 077 && openssl rand -base64 32 > .local/identity-mfa-encryption-key)
+fi
+export IDENTITY_MFA_ENCRYPTION_KEY="$(cat .local/identity-mfa-encryption-key)"
 mvn clean spring-boot:run
 ```
 
 Dev DB is file-backed H2 under `.local/`; generated RSA keypair is local, ignored by Git. **Do not regenerate keys** after creating accounts unless you intentionally invalidate existing JWTs. Bootstrap creates the first admin only if the account does not already exist. Remove bootstrap environment variables after initial setup. Use `dev-tls` for any end-to-end tests. Never expose plaintext login/token endpoints outside an isolated localhost development session.
+
+The MFA encryption key is generated locally and must be kept private and stable while encrypted MFA enrollments are in use. Do not commit it or replace it casually: changing it makes existing MFA secrets unreadable. If the previously committed development key was used for MFA enrollments, reset those enrollments before switching to a new key.
 
 ## Connect the existing Gateway
 

@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 
@@ -42,7 +43,7 @@ public final class JwtAuthorities {
                     .forEach(result::add);
         }
 
-        Object roles = jwt.getClaims().get("roles");
+        Object roles = jwt.getClaims().get(TokenClaimContract.ROLES);
         if (roles instanceof Collection<?> values) {
             for (Object role : values) {
                 if (role instanceof String value && ROLE_PATTERN.matcher(value).matches()) {

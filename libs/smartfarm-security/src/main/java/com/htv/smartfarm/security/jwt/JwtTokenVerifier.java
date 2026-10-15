@@ -4,6 +4,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.htv.smartfarm.security.TokenVerifier;
 import com.htv.smartfarm.security.core.DelegatedActor;
 import com.htv.smartfarm.security.core.SecurityIdentity;
@@ -24,7 +25,7 @@ public final class JwtTokenVerifier implements TokenVerifier {
     public SecurityIdentity verify(String token) {
         Jwt jwt = decoder.decode(token);
         String clientId = firstNonBlank(
-                jwt.getClaimAsString("client_id"),
+                jwt.getClaimAsString(TokenClaimContract.CLIENT_ID),
                 jwt.getClaimAsString("azp")
         );
         TokenType tokenType = resolveTokenType(jwt, clientId);
@@ -33,18 +34,22 @@ public final class JwtTokenVerifier implements TokenVerifier {
         return new SecurityIdentity(
                 jwt.getSubject(),
                 clientId,
-                jwt.getClaimAsString("tenant_id"),
+                jwt.getClaimAsString(TokenClaimContract.TENANT_ID),
                 JwtAuthorities.authorities(jwt),
                 audienceSet(jwt),
                 tokenType,
-                longClaim(jwt, "authorization_version", false),
-                longClaim(jwt, "tenant_authorization_version", false),
+                longClaim(jwt, TokenClaimContract.AUTHORIZATION_VERSION, false),
+                longClaim(
+                        jwt,
+                        TokenClaimContract.TENANT_AUTHORIZATION_VERSION,
+                        false
+                ),
                 actor
         );
     }
 
     private DelegatedActor delegatedActor(Jwt jwt, TokenType tokenType) {
-        Object raw = jwt.getClaims().get("act");
+        Object raw = jwt.getClaims().get(TokenClaimContract.DELEGATED_ACTOR);
         if (raw == null) return null;
         if (tokenType != TokenType.SERVICE) {
             throw new IllegalArgumentException("act claim is allowed only on service tokens");
@@ -52,14 +57,20 @@ public final class JwtTokenVerifier implements TokenVerifier {
         if (!(raw instanceof Map<?, ?> values)) {
             throw new IllegalArgumentException("act claim must be an object");
         }
-        Object subject = values.get("sub");
+        Object subject = values.get(TokenClaimContract.SUBJECT);
         if (!(subject instanceof String text) || text.isBlank()) {
             throw new IllegalArgumentException("act.sub must not be blank");
         }
         return new DelegatedActor(
                 text,
-                number(values.get("authorization_version"), "act.authorization_version"),
-                number(values.get("tenant_authorization_version"), "act.tenant_authorization_version")
+                number(
+                        values.get(TokenClaimContract.AUTHORIZATION_VERSION),
+                        "act.authorization_version"
+                ),
+                number(
+                        values.get(TokenClaimContract.TENANT_AUTHORIZATION_VERSION),
+                        "act.tenant_authorization_version"
+                )
         );
     }
 
@@ -79,7 +90,9 @@ public final class JwtTokenVerifier implements TokenVerifier {
     }
 
     private TokenType resolveTokenType(Jwt jwt, String clientId) {
-        TokenType explicit = TokenType.fromClaim(jwt.getClaimAsString("token_type"));
+        TokenType explicit = TokenType.fromClaim(
+                jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE)
+        );
         if (explicit != TokenType.UNKNOWN) return explicit;
         return clientId == null ? TokenType.UNKNOWN : TokenType.SERVICE;
     }

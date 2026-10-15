@@ -2,6 +2,9 @@ package com.htv.smartfarm.gateway.api;
 
 import java.util.Map;
 
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -16,7 +19,7 @@ public class PlatformQuery {
     public Mono<Map<String, String>> platformStatus() {
         return ReactiveSecurityContextHolder.getContext().map(context -> {
             Jwt jwt = (Jwt) context.getAuthentication().getPrincipal();
-            return Map.of("name", "SmartFarm", "status", "BOOTSTRAPPED", "tenantId", jwt.getClaimAsString("tenant_id"));
+            return Map.of("name", "SmartFarm", "status", "BOOTSTRAPPED", "tenantId", jwt.getClaimAsString(TokenClaimContract.TENANT_ID));
         });
     }
 }
