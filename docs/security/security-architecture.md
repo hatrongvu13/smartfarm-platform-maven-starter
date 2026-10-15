@@ -1,6 +1,6 @@
 # Security Architecture — SmartFarm Platform
 
-> Verified from `libs/smartfarm-security`, identity service, gateway config @ HEAD `eaaa112`.
+> Reconciled 2026-10-15 from `libs/smartfarm-security`, identity service, gateway config, and current profile files.
 > Phân loại: DESIGNED / IMPLEMENTED / CONFIGURED / TESTED.
 
 ## 1. Authentication
@@ -8,7 +8,7 @@
 |-----------|--------|----------|
 | Password login | IMPLEMENTED+CONFIGURED | BCrypt, lockout sau N lần fail, timing-defense chống user-enumeration |
 | JWT access token | IMPLEMENTED | RS256, hard cap 15 phút, JWKS endpoint (`/.well-known/jwks.json`) |
-| Refresh token | IMPLEMENTED | Rotating, family-based, reuse-detection → revoke family (Redis) |
+| Refresh token | IMPLEMENTED | Rotating, family-based, reuse-detection; session/token hashes persisted with JPA in the identity database |
 | MFA (TOTP) | IMPLEMENTED | Secret mã hóa, recovery/challenge token hashed, challenge lockout |
 
 ## 2. Authorization
@@ -23,25 +23,27 @@
 | | Status | Gap |
 |-|--------|-----|
 | JWT validation (gateway) | IMPLEMENTED | issuer + audience + tenant + JWKS |
-| Service token (gateway→service) | IMPLEMENTED | per-audience token |
+| Service token issuance | IMPLEMENTED, transport risk open | HTTP requires a dedicated shared internal header plus client credentials; gRPC issue/exchange require caller JWT plus client credentials; duplicate transports and TLS/mTLS remain open |
 | gRPC TLS | DESIGNED | **off by default** — plaintext nội bộ |
 | MQTT auth/ACL/mTLS | DESIGNED only | broker `allow_anonymous true`; ACL/mTLS = sample config (`docs/security/mqtt-acl-mtls.md`) |
-| MQTT message HMAC envelope | IMPLEMENTED + LIVE-VERIFIED | Signed envelope is wired to producers/consumers; production rollout remains operator-controlled |
+| MQTT message HMAC envelope | IMPLEMENTED; profile-configured | HMAC code exists; dev profiles enable signing/verification and prod profiles default off. Verify each deployed publisher/consumer and rollout state independently. |
 
 ## 4. Secrets
-- Dev: default password trong `application-dev.yml` (postgres/root) — ISSUE-16, dev-only.
+- Dev: identity local PostgreSQL defaults include `postgres/root`; development HMAC and MFA keys are profile defaults and must not be reused in production.
 - Prod: env (`SMARTFARM_JWT_ISSUER`, `GATEWAY_SERVICE_CLIENT_SECRET`, `IDENTITY_DB_*`...). `.env.production.example` làm template.
-- **Không có secret thật trong repo/tài liệu.**
+- Bootstrap no longer generates or logs a TOTP enrollment URI. MFA enrollment uses the separate challenge-token flow.
+- Development-only secret/key defaults and local signing-key material exist in source/configuration; they are not production credentials and must never be reused in production. Production secrets must be supplied via an external secret-management mechanism.
 
 ## 5. Logging & audit
 - Correlation ID xuyên gateway→service (`x-correlation-id`).
 - gRPC audit (`audit-enabled`, default off ở gateway).
 
-## 6. Known security gaps (→ `docs/audit/unresolved-items.md`)
-- gRPC TLS off (DESIGNED).
+## 6. Known security gaps
+- gRPC TLS off by default; private/loopback binding is not a substitute for authenticated transport.
+- HTTP `POST /internal/service-token` requires `IDENTITY_INTERNAL_API_SECRET` in a dedicated header but still passes the bearer-token filter chain; gRPC issue/exchange require a caller JWT. Consolidate the duplicate transports and enable TLS/mTLS; a shared header is not encryption.
+- No dedicated server-level test currently proves registration and enforcement of the five identity token/session RPC handlers.
 - MQTT broker chưa auth/TLS/ACL (ISSUE-02 + RISK-BROKER-01).
-- Production broker authentication/TLS/ACL is not enabled; app-level HMAC is implemented and live-verified.
-- 3 placeholder class rỗng (xác định trong scan security).
+- App-level HMAC signing/verification is configured on in development and off by default in production; production broker authentication/TLS/ACL is not enabled by these settings.
 - Super-admin SCOPE_* bypass chưa audit-log (ISSUE-12).
 
 ## 7. Security checklist
@@ -50,13 +52,15 @@
 - [x] TOTP MFA + lockout
 - [x] DB RBAC + gRPC fail-closed authz
 - [x] Correlation propagation
+- [-] Protect service-token issuance with caller authentication and a shared internal header; TLS/mTLS and duplicate-path removal remain
+- [x] Stop bootstrap from generating/logging TOTP enrollment secret
 - [ ] gRPC TLS enabled
 - [ ] MQTT broker auth + TLS + ACL
-- [x] MQTT message HMAC wired and live-verified; production flags remain rollout-controlled
+- [x] MQTT message HMAC configured on in dev; production defaults off and rollout remains operator-controlled
 - [ ] Super-admin bypass audit-logged
 - [ ] Dependency/container scanning (CI có SBOM/provenance; chưa thấy scan gate)
 
-← [Documentation Index](../index.md) · [threat-model.md](threat-model.md)
+← [Documentation Index](../index.md) · [threat-model.md](threat-model.md) · [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)
 
 ## 8. Delegated actor contract
 

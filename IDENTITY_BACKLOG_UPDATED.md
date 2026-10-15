@@ -1,25 +1,29 @@
 # Identity Service Unification Backlog
 
 > Scope: SmartFarm Identity Service  
-> Updated: 2026-10-13  
+> Updated: 2026-10-15
 > Strategy: clean rebuild, no legacy schema compatibility  
 > Progress legend: `[x]` complete, `[-]` partial/scaffolded, `[ ]` pending, `[N/A]` removed by architecture decision
 
 ## Current progress summary
 
-- Completed: 16 items
-- Partial/scaffolded: 18 items
-- Pending: 55 items
-- Removed by clean-rebuild decision: 3 items
-- Current focus: wire `IdentityTokenService` into the gRPC runtime and security policy, then implement refresh-session persistence.
+- Completed: **38**
+- Partial/scaffolded: **33**
+- Pending: **53**
+- Removed by clean-rebuild decision (N/A): **3**
+- Total checklist entries: **127**
+- Authority: implementation and tests under `services/smartfarm-identity-service`, plus the contract in `libs/smartfarm-proto/src/main/proto/smartfarm/identity/v1/identity.proto`. A contract or bean alone is not proof of secure runtime exposure or production readiness.
+- Checklist completion: **30%** marked complete (38/127; partial items are not counted as complete).
+- Runtime status (2026-10-15): Identity and Gateway health checks passed during local startup, and the internal HTTP endpoint rejected missing/wrong shared-secret headers. With the correct header, token issuance still returned 401 because Identity logged `clientCount=0` and `bad_credentials`. The dev YAML contains a gateway client allowlist, but successful runtime binding and end-to-end token issuance are unverified; the cause is unresolved.
+- Current focus: make the dev service-client allowlist bind at runtime, prove token issuance end-to-end, then close the transport/security gap and add runtime policy/RPC coverage before hardening refresh-session and bootstrap concurrency.
 
 ## Working rules
 
 - [-] REST is limited to public authentication flows. Public auth is REST, but the legacy internal service-token endpoint still exists.
-- [-] Internal read/write operations use Identity gRPC. Most administration is gRPC; session implementation remains pending.
+- [-] Internal read/write operations use Identity gRPC. Administration and session RPC implementations exist; token issuance transport security and runtime-level proof remain open.
 - [x] MQTT is an adapter and invokes application services rather than repositories.
 - [ ] No transport adapter mutates business repositories directly. Direct role assignment paths remain.
-- [-] All token grants pass through one token facade. Facade exists but legacy callers still issue tokens directly.
+- [x] Current authentication and service-token application flows issue through `TokenGrantFacade`; legacy signing helpers remain on `TokenService` but have no current application callers.
 - [-] Authorization mutations update versions and outbox atomically. Coverage is incomplete for update/delete paths.
 - [x] Proto additions preserve existing services, messages, field numbers, package, and `IdentityProto` outer classname.
 
@@ -49,14 +53,14 @@
 
 ### ID-02.1 Single token grant facade
 
-- [-] **P0** `TokenGrantFacade` introduced as a scaffold.
+- [x] **P0** `TokenGrantFacade` is the active issuance facade for current user and service-token flows.
 - [x] **P0** Grant types defined: user login, MFA, refresh, bootstrap, service client, delegated service.
-- [-] **P0** Validated `TokenContext` introduced.
-- [ ] **P0** Route `AuthService` issuance through `TokenGrantFacade`.
-- [ ] **P0** Route `ServiceTokenService` issuance through `TokenGrantFacade`.
+- [x] **P0** Validated `TokenContext` is used by the grant facade.
+- [x] **P0** Route `AuthService` issuance and refresh rotation through `TokenGrantFacade`.
+- [x] **P0** Route `ServiceTokenService` issuance through `TokenGrantFacade`.
 - [ ] **P1** Restrict `TokenService` to signing, JWKS, decoding, and claim serialization.
 - [ ] **P1** Move grant policy and repository access out of `TokenService`.
-- [ ] **P0** Prove no class except the facade reaches the signer.
+- [x] **P0** Architecture guard rejects business-service calls to legacy issue methods; `TokenGrantFacade` is the only current `TokenSigner` caller.
 
 ### ID-02.2 Standardize claims
 
@@ -65,16 +69,16 @@
 - [x] **P0** User token contains scopes, roles, subject version, and tenant version.
 - [x] **P0** Service token has `client_id` and rejects wildcard scope.
 - [x] **P0** Delegated service token has signed `act` and actor versions.
-- [ ] **P1** Add `sid`, `auth_time`, and `amr` to user tokens.
+- [x] **P1** Add `sid`, `auth_time`, and `amr` to user token claims when present in `TokenContext`.
 - [ ] **P1** Enforce token type at downstream service boundaries.
 
 ### ID-02.3 Service-token issuance
 
 - [x] **P0** Reject actor delegation when the client has not enabled delegation.
 - [-] **P0** `IdentityTokenService` contract merged without removing existing proto symbols.
-- [ ] **P0** Implement and register `IdentityTokenServiceGrpc` runtime adapter.
-- [ ] **P0** Protect token issuance with authenticated private gRPC/mTLS.
-- [ ] **P0** Retire HTTP `permitAll` service-token issuance.
+- [-] **P0** `IdentityTokenGrpcService` implements all five proto RPCs as a Spring service bean. Issue/exchange require a valid caller JWT; the HTTP path requires a separate shared internal secret. TLS/mTLS and server-level reachability tests remain open.
+- [-] **P0** Token issuance requires a caller JWT on gRPC and a separate shared internal secret on the current HTTP path; require TLS/mTLS and server-level exposure tests before production.
+- [-] **P0** HTTP service-token issuance has an application-level internal-secret check but remains a duplicate path; retire it or prove private TLS/mTLS exposure. Although the dev YAML declares a gateway allowlist, a live startup logged `clientCount=0`; successful binding and issuance remain unverified.
 - [ ] **P0** Move service credentials to a secret manager and support rotation.
 - [-] **P1** Structured token audit exists; metrics and rate limits remain.
 
@@ -87,19 +91,19 @@
 - [-] **P0** Clean schema includes `sf_refresh_session` and `sf_refresh_token`.
 - [-] **P1** Clean schema contains lifecycle timestamps and replacement link.
 - [ ] **P1** Add client/device metadata.
-- [ ] **P0** Implement JPA entities and repositories.
-- [ ] **P0** Implement `RefreshSessionPort`.
-- [ ] **P0** Distinguish replay from administrative revocation.
-- [ ] **P0** Revoke the family in a transaction that commits when replay returns 401.
+- [x] **P0** Implement JPA entities and repositories for refresh sessions and token hashes.
+- [x] **P0** Implement `RefreshSessionPort` with JPA persistence and rotation.
+- [x] **P0** Distinguish replay (`REFRESH_TOKEN_REUSE`) from administrative revocation reasons.
+- [-] **P0** Replay revocation uses a `REQUIRES_NEW` transaction before returning an error; add PostgreSQL integration coverage proving the revoked session and unusable refresh-token family remain committed after the request fails.
 - [-] **P1** Expiry indexes exist; cleanup job remains.
 
 ### ID-03.2 Session gRPC
 
-- [-] **P1** `ListSessions` exists in proto only.
-- [-] **P1** `RevokeSession` exists in proto only.
-- [-] **P1** `RevokeAllSessions` exists in proto only.
+- [x] **P1** `ListSessions` is implemented by the gRPC adapter and session administration service.
+- [x] **P1** `RevokeSession` is implemented by the gRPC adapter and session administration service.
+- [x] **P1** `RevokeAllSessions` is implemented by the gRPC adapter and session administration service.
 - [x] **P1** Session proto never exposes a raw token or token hash.
-- [ ] **P1** Implement session RPCs after persistence is complete.
+- [-] **P1** Session RPCs and authority policies exist; add gRPC-level authorization, tenant-isolation, and server-registration tests.
 
 ### ID-03.3 Access-token invalidation
 
@@ -131,8 +135,8 @@
 - [ ] `GrantFarmAccess`, `RevokeFarmAccess`, `ListFarmScopes`
 - [ ] `GetPermission`
 - [ ] `ResetUserPassword`
-- [-] `IdentityTokenService.ListSessions`, `RevokeSession`, `RevokeAllSessions`: contract only.
-- [-] Internal token issue/exchange RPCs: contract complete, runtime pending.
+- [x] `IdentityTokenService.ListSessions`, `RevokeSession`, `RevokeAllSessions`: adapter and application implementation exist.
+- [-] Internal token issue/exchange RPCs: adapter and client-secret validation exist; issue/exchange require an authenticated caller JWT, but dedicated server-level registration/enforcement tests are absent.
 - [ ] Platform permission CRUD.
 
 ---
@@ -177,7 +181,7 @@
 
 - [ ] **P0** Make first-superadmin bootstrap atomic.
 - [ ] **P0** Add concurrent PostgreSQL bootstrap test.
-- [x] **P0** Stop automatic bootstrap TOTP URI/secret logging.
+- [x] **P0** Stop bootstrap TOTP URI/secret logging; bootstrap no longer generates or logs an enrollment URI.
 - [-] **P0** Use authenticated post-bootstrap MFA enrollment; document and test it.
 - [ ] **P1** Remove stale bootstrap configuration.
 - [ ] **P1** Persist pending enrollment expiry or bind it to a challenge.
@@ -201,20 +205,19 @@
 
 ## EPIC ID-09: Documentation
 
-- [ ] Rewrite README to match implementation.
-- [ ] Remove nonexistent REST administration endpoints.
-- [ ] Correct MFA/gRPC/outbox/PostgreSQL statements.
-- [ ] Correct development database documentation.
-- [-] TLS configuration is fixed; README instructions remain.
-- [ ] Document claims, sessions, rotation, replay, and revocation.
-- [-] Proto documents internal token service; architecture documentation remains.
+- [x] Rewrite README to match implementation (reconciled 2026-10-15; source-specific gaps remain tracked below).
+- [x] Remove nonexistent REST administration endpoints from the REST API guide.
+- [-] Correct MFA/gRPC/outbox/PostgreSQL statements across the service, security, API, and operations guides; continue source-by-source review of remaining project docs.
+- [x] Correct identity development database and profile behavior in operations docs.
+- [x] Document token claims, session persistence, rotation, replay, and revocation in identity/API docs.
+- [-] Proto contract and gRPC adapter documented; secure transport and runtime-level test evidence remain outstanding.
 
 ---
 
 ## EPIC ID-10: Test/release gates
 
-- [-] Existing gRPC services have policies; new token/session RPC policies remain.
-- [-] Existing delegated actor/correlation tests exist; token RPC tests remain.
+- [-] Existing services have method policies; token issue/exchange now require authentication and session methods require authorities, but focused gRPC-level authorization/runtime tests remain.
+- [-] Delegated-actor/correlation tests exist; add token RPC tests covering credential rejection, audience allowlisting, delegation, and method security.
 - [-] Wildcard tests exist; full grant claim-contract tests remain.
 - [ ] Permission ownership tests.
 - [ ] Proto compatibility CI.
@@ -225,11 +228,16 @@
 - [-] Fresh Flyway + Hibernate validate infrastructure exists; clean baseline must pass it.
 - [N/A] Upgrade migration test from legacy V1/V2.
 
-## Next execution phase
+## Next execution plan (ranked; no application feature changes made in this documentation task)
 
-1. Implement `IdentityTokenGrpcService` for service-token and delegated-token issuance.
-2. Register method policies for all five `IdentityTokenService` RPCs.
-3. Add token/session authority constants.
-4. Explicitly return `UNIMPLEMENTED` for session RPCs until session persistence is ready, rather than silently inheriting default behavior.
-5. Build and test.
-6. Next phase: implement refresh-session JPA, `RefreshSessionPort`, and session RPCs.
+1. **P0 — Restore and prove local service-client configuration.** The dev profile declares a `gateway` client, but the latest live process logged `clientCount=0` and rejected correct-header issuance with `bad_credentials`. Reproduce and fix the configuration binding/profile issue before claiming local token issuance works; add a context test that loads the actual dev profile and asserts the registered client. Do not assume removing the empty base `clients` map resolved this runtime symptom.
+2. **P0 — Close remaining service-token exposure.** Choose one private issuance boundary, retire the duplicate HTTP issuance path if gRPC is retained, and add TLS/mTLS in addition to caller authentication and client-secret validation. Keep listener binding private and never log credentials/tokens.
+3. **P0 — Prove runtime registration and enforce policy.** Add identity gRPC server tests for all five `IdentityTokenService` RPCs, including issue/exchange authentication, required session authorities, fail-closed behavior, and actual server registration. Starting points: `IdentityTokenGrpcService`, `IdentityGrpcSecurityConfiguration`, `GrpcMethodPolicyTest`, and `GrpcRequestSecurityDelegatedActorTest`.
+4. **P0 — Prove bootstrap atomicity.** Bootstrap no longer generates or logs a TOTP URI; authenticated MFA enrollment is a separate challenge flow. Add concurrent PostgreSQL coverage around `createFirstSuperAdmin` and uniqueness/locking.
+5. **P1 — Verify refresh replay/session behavior end to end.** Add PostgreSQL tests for `JpaRefreshSessionAdapter.rotate`, `RefreshReplayRevocationService` commit-on-error, replay family rejection, rotation races, revoke/revoke-all, expiry cleanup, and tenant isolation. Extend `RefreshSessionTenantIsolationIT` and `RefreshSessionCleanupIT`; unit tests do not prove transaction behavior.
+6. **P1 — Close authorization mutation/version gaps.** Audit `DefaultTenantIdentityAdministrationService`, `RoleManagementService`, `PermissionCatalogMutationService`, and `AuthorizationMutationCoordinator`; test that every supported mutation updates version/outbox atomically and that permission ownership is consistently enforced.
+7. **P1/P2 — Finish contract and operations gaps.** Reconcile remaining model/RPC gaps in `identity.proto`, `IdentityProtoMapper`, and gRPC services; add proto compatibility, paging/search, and expected-version tests. Then harden production transport/configuration (gRPC TLS, secret rotation, MQTT broker ACL/TLS, Flyway/profile validation) and document completion only when source and tests prove it.
+
+## Reconciled checklist totals
+
+Totals count checklist entries only (all epics and working rules; exclude headings and prose): **38 complete + 33 partial + 53 pending + 3 N/A = 127 entries**. Recalculate these numbers whenever a marker changes.

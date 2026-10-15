@@ -9,12 +9,12 @@
 **Fix**: dùng nested form (xem [configuration.md](configuration.md)).
 
 ## Event identity không tới browser (WS)
-**Trạng thái**: EVT-01/02 đã resolved và live-verified. Nếu tái diễn, kiểm tra HMAC verification, topic filter và protobuf `DomainEvent`.
+**Source status**: the identity publisher constructs a protobuf `DomainEvent` and the normalized topic. If the problem recurs, inspect deployed publisher configuration, broker topic filter, gateway subscriber, and HMAC key/verification settings; source implementation alone does not establish delivery.
 
 ## Health service không gọi được từ gateway
 **Trạng thái**: GW-01 đã resolved. Kiểm tra `HEALTH_GRPC_HOST`, `HEALTH_GRPC_PORT=9097`, service token audience và deadline cấu hình Gateway.
 
 ## MQTT không nhận event
-Kiểm tra `SMARTFARM_MQTT_EVENTS_ENABLED` (default `false` ở gateway) và broker `tcp://localhost:1883` chạy (`docker compose up -d mqtt`).
+Kiểm tra `SMARTFARM_MQTT_EVENTS_ENABLED` (gateway configuration defaults to `true`), broker URL/credentials, and broker reachability (`docker compose up -d mqtt`). App-level HMAC defaults are profile-specific: enabled with a development key in dev and disabled by default in prod. Broker auth/ACL/TLS are separate from message signing.
 
-← [Configuration](configuration.md) · [Unresolved Items](../audit/unresolved-items.md)
+← [Configuration](configuration.md) · [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)

@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 # run-all.sh — SmartFarm unified test runner.
 #
-# Order (per the suite design):
-#   1. dependency check   2. load config      3. health
-#   4. acquire token      5. smoke            6. REST
-#   7. GraphQL schema + introspection          8. GraphQL queries
-#   9. safe mutations (gated)                 10. aggregate result
+# Available phases: health and smoke. REST/GraphQL operation suites are not
+# present in this checkout.
 #
 # Exit code 0 iff every executed test passed; non-zero if any failed. Steps that
 # cannot run (service down, no creds) are SKIPPED, not failed.
@@ -13,7 +10,7 @@
 # Usage:
 #   scripts/run-all.sh                 # full suite, config from scripts/config/test.env
 #   scripts/run-all.sh path/to.env     # explicit env file
-#   ONLY=health scripts/run-all.sh     # one phase: health|smoke|rest|graphql
+#   ONLY=health scripts/run-all.sh     # one phase: health|smoke
 set -o errexit -o nounset -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,6 +24,12 @@ require_cmd bash curl jq
 log_success "dependencies present (bash, curl, jq)"
 
 load_env "$ENV_ARG"
+
+# Reject typos instead of reporting a zero-phase run as a pass.
+if [ -n "${ONLY:-}" ] && [ "$ONLY" != "health" ] && [ "$ONLY" != "smoke" ]; then
+  log_error "unknown ONLY phase '$ONLY' (available: health, smoke)"
+  exit "$EXIT_USAGE"
+fi
 
 # Phase runner: run a sub-suite, accumulate pass/fail/skip from its exit code.
 RUN=0; FAILED_PHASES=(); SKIPPED_PHASES=()
@@ -47,8 +50,6 @@ run_phase() {
 
 run_phase health   "$SCRIPT_DIR/health/test-health.sh"
 run_phase smoke    "$SCRIPT_DIR/smoke/smoke-test.sh"
-run_phase rest     "$SCRIPT_DIR/rest/test-all-rest.sh"
-run_phase graphql  "$SCRIPT_DIR/graphql/test-all-graphql.sh"
 
 ELAPSED=$(( $(date +%s) - START_TS ))
 
@@ -58,9 +59,6 @@ printf '  phases failed: %d%s\n' "${#FAILED_PHASES[@]}" \
   "$( [ "${#FAILED_PHASES[@]}" -gt 0 ] && printf ' (%s)' "${FAILED_PHASES[*]}" || true )" >&2
 printf '  elapsed:       %ds\n' "$ELAPSED" >&2
 printf '  config:        API_GATEWAY_URL=%s  GRAPHQL_URL=%s\n' "$API_GATEWAY_URL" "$GRAPHQL_URL" >&2
-printf '  flags:         ALLOW_DESTRUCTIVE_TESTS=%s  GRAPHQL_INTROSPECTION_ENABLED=%s\n' \
-  "$ALLOW_DESTRUCTIVE_TESTS" "$GRAPHQL_INTROSPECTION_ENABLED" >&2
-
 if [ "${#FAILED_PHASES[@]}" -gt 0 ]; then
   log_error "SUITE FAILED"
   exit "$EXIT_FAILURES"

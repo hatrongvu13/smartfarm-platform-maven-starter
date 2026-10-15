@@ -1,7 +1,6 @@
 # gRPC API — SmartFarm Platform
 
-> Verified from `libs/smartfarm-proto` (12 `.proto`) + server impls + gateway/saga callers @ HEAD (updated 2026-10-07, GW-01 health caller).
-> 9 proto có service, 3 message-only (`common`, `events`, `telemetry`). Legend: 🟢 impl+caller · 🟡 impl, no caller · 🔴 proto only, no impl.
+> Reconciled 2026-10-15 from `libs/smartfarm-proto/src/main/proto` and current server implementations. There are 14 declared gRPC services and 127 RPC methods; 116 have server handlers, while 11 are not implemented (5 `FarmDirectoryService`, 6 `AnimalHealthService`). Having a proto method or Java bean does not alone prove runtime registration, gateway caller coverage, or production security.
 
 ## Traceability (impl vs caller vs test)
 | Proto service | RPC | Impl | Caller | Status |
@@ -13,10 +12,10 @@
 | **IdentityAdministrationService** | ListRoles,GetRole,ListPermissions,ListUsers,GetUserAuthorization,CreateUser,AssignRole,RevokeRole,Disable/Enable/SuspendMembership | ✅ | 7 có caller GraphQL identity admin; phần còn lại 🟡 | 🟢/🟡 |
 | **PlatformAuthorizationAdministrationService** | ListPlatformRoles,CreatePlatformRole,Grant/RevokePlatformPermission | ✅ | 🟡 no gateway caller (4) | 🟡 |
 | **IdentityCredentialService** | GetSecurityProfile,BeginTotpEnrollment,ConfirmTotpEnrollment,DisableOwnMfa,RegenerateRecoveryCodes,ResetUserMfa,ChangeOwnPassword | ✅ | gateway GraphQL MFA mutations | 🟢 |
+| **IdentityTokenService** | IssueServiceToken,ExchangeDelegatedToken,ListSessions,RevokeSession,RevokeAllSessions | ✅ | no current gateway caller documented | 🟡 handlers exist; issue/exchange require an authenticated caller JWT, session methods require authorities; no dedicated server-level registration/policy test |
 | **FarmOrderService** | PlaceOrder,GetOrder,ListOrders,CancelOrder,CreateDraftOrder,UpdateDraftOrder,DeleteDraftOrder,SubmitDraftOrder | ✅ | gateway OrderRestController + GraphQL | 🟢 |
 | **OrderSagaAdministrationService** | GetOrderSaga,RetryOrderSagaStep,ResumeOrderSaga,ForceCompensate/Cancel/CompleteOrder,MarkOrderSagaResolved | ✅ | gateway saga admin REST+GraphQL | 🟢 |
-| **InventoryService** | CreateItem,ReceiveStock,IssueStock,ReserveStock,ReleaseReservation,CommitReservation,GetStockBalance,ListLowStock | ✅ | order saga (reserve/commit/release) + dev gateway | 🟢 |
-| | **AdjustStock, TraceLot** | 🔴 | — | 🔴 impl missing |
+| **InventoryService** | All 20 proto methods, including AdjustStock, TraceLot, item and warehouse CRUD/status | ✅ | order saga + dev gateway | 🟢/🟡 caller coverage varies |
 | **FarmFinanceService** | RecordExpense,ReverseExpense | ✅ | order saga | 🟢 |
 | | RecordIncome,GetTransaction,ListTransactions,RecordPayable,RecordReceivable,SettleDebt,GetBatchCost,GetCashFlow | ✅ | 🟡 no caller (hoặc chỉ dev GraphQL batchCost/cashFlow) | 🟡 |
 | **LivestockTaskService** | CreateTask,GetTask,ListTasks,AssignTask,AcceptTask,CompleteTask,CancelTask,CreateSchedule,ListSchedules,RegisterAnimal,GetAnimal,ListAnimals | ✅ | gateway dev controllers | 🟡 dev-only caller |
@@ -28,19 +27,20 @@
 | **FarmDirectoryService** (farm.proto) | all 5 | 🔴 | — | 🔴 entirely unimplemented (PLANNED) |
 | telemetry.proto | — | — | — | message-only (PLANNED V3) |
 
-## Tổng kết (verified)
-- **95 RPC** định nghĩa (9 service + 3 message-only proto).
-- **82 implemented** server-side; **13 missing** (5 FarmDirectory + 2 inventory + 6 health).
-- **~54 RPC** có ít nhất 1 caller; **~28 implemented RPC không có caller**.
-- **5 cross-service saga gRPC call**: order→inventory (3), order→finance (2).
-- **Chỉ 1 RPC** đủ proto+impl+caller+test (`GetPrincipal`); chỉ 4 RPC có gRPC-layer test.
+## Tổng kết (verified from current source)
+- **127 RPC** across 14 declared services; `common`, `events`, and `telemetry` are message-only proto files.
+- **116 server handlers** exist. Missing implementations are five `FarmDirectoryService` methods and six `AnimalHealthService` methods.
+- The older inventory claim that `AdjustStock` and `TraceLot` are missing is stale: both have handlers in `InventoryGrpcService`.
+- Caller and test coverage is not inferred from implementation; follow the service-specific source/test links before relying on an operation.
+- **5 cross-service saga gRPC calls** are visible in source: order→inventory (3) and order→finance (2).
 
-## Port map (verified from source @ 2026-10-07)
+## Port map (current configured ports)
 
-Each service binds its gRPC server to the port below (`spring.grpc.server.port`, or
-`spring.grpc.server.port` nested); the gateway dials these via `smartfarm.<svc>.grpc-port`
-(env-overridable `*_GRPC_PORT`). HTTP ports shown for reference. All bind `127.0.0.1` by default —
-the gateway (:8080) is the sole public ingress.
+The gateway dials the configured ports via `smartfarm.<svc>.grpc-port`
+(env-overridable `*_GRPC_PORT`). HTTP ports are shown for reference. Bind addresses are
+profile-specific; inspect the active service configuration before assuming network isolation.
+Identity production explicitly defaults to loopback. Identity dev config sets its gRPC port but
+does not set an explicit gRPC bind address.
 
 | Service   | gRPC port | HTTP port | Gateway property      |
 |-----------|:---------:|:---------:|-----------------------|
@@ -53,10 +53,18 @@ the gateway (:8080) is the sole public ingress.
 | reporting | **9096**  | 8086      | `smartfarm.reporting.grpc-port` |
 | health    | **9097**  | 8087      | `smartfarm.health.grpc-port`    |
 
-> Historical note: the gateway briefly had `finance.grpc-port=9097` (health's port) — corrected to
-> `9094` (part 4, 2026-10-07). The table above is the current, verified routing.
+> Recheck gateway routing properties whenever service ports or profiles change.
 
-## Service-token flow (`POST /internal/service-token`)
+## Service-token issuance and security
+
+Identity contains two issuance transports in the current source:
+
+1. HTTP `POST /internal/service-token`, which requires the dedicated `X-Identity-Internal-Secret` header as well as client-secret validation in `ServiceTokenService`.
+2. gRPC `IdentityTokenService.IssueServiceToken` and `ExchangeDelegatedToken`, implemented by `IdentityTokenGrpcService`; both require an authenticated caller JWT and configured client credentials.
+
+gRPC TLS remains disabled by default. Identity production defaults its gRPC bind to loopback; dev does not explicitly set the gRPC bind address. The HTTP issuance route remains a duplicate path; its shared header is an application authentication check, not transport encryption. Session-management RPCs require session authorities. Unit policy coverage exists; dedicated server-level registration and enforcement tests remain necessary before production use.
+
+### HTTP service-token flow (`POST /internal/service-token`)
 
 Inter-service gRPC calls carry a short-lived, per-audience service JWT, not the end-user token. The
 mint flow:
@@ -66,20 +74,21 @@ mint flow:
    **`POST /internal/service-token`** with a JSON body
    `{clientId, secret, audience, tenantId, actorId}`.
 2. Authentication is the **client secret in the body**, NOT a Bearer token — so the path is
-   `permitAll` in the resource-server chain (`ServletResourceSecurity` + `IdentityConfiguration`).
+   The bearer-token filter permits the route, but the controller first validates the dedicated
+   `X-Identity-Internal-Secret` header before checking these client credentials.
    `InternalServiceTokenController` → `ServiceTokenService.issue(...)` mints a JWT scoped to the
    requested `audience` and returns a **`Grant` `{accessToken, tokenType, expiresInSeconds, audience}`**
    with HTTP **200**. Bad secret / disallowed audience → **401** (does not leak which); malformed →
    **400**.
 3. The caller caches the token per `(audience, tenantId)` until ~75% of its lifetime, then attaches
    it to the downstream gRPC call via `BearerCallCredentials`. The receiving service's
-   `JwtServerInterceptor` authenticates it. (Per-service **audience enforcement** on the gRPC side is
-   not yet on — see `../audit/outstanding-issues.md` ISSUE-11.)
+   `JwtServerInterceptor` authenticates it. Token audience and authorization enforcement must also
+   be checked against the receiving service's current configuration and tests.
 
-> This endpoint previously **did not exist**: the gateway POSTed it, no handler matched, Spring
-> forwarded to `/error`, and the resource-server re-challenged with a misleading `401` — the root
-> cause of the gateway's `UNAUTHENTICATED: Unable to apply gRPC credentials`. The controller now
-> exists and the flow returns 200 end to end.
+The HTTP endpoint currently exists in source, but remains a duplicate machine-token issuance path.
+The dedicated shared header is an application authentication check, not transport encryption; use
+TLS/mTLS and keep the listener private. See [Identity service](../services/identity.md) and
+[Security architecture](../security/security-architecture.md).
 
 ## Standardized error codes (gRPC → HTTP, since 2026-10-07)
 

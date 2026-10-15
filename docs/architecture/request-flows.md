@@ -1,6 +1,6 @@
 # Request Flows — SmartFarm Platform
 
-> Verified from source @ HEAD (updated 2026-10-07). Chỉ vẽ flow có **lời gọi thực tế trong source** — không vẽ dependency suy đoán.
+> Reconciled 2026-10-15 from source. Diagrams describe code paths; they do not claim a currently running broker or successful deployment.
 
 ## 1. Login
 
@@ -152,6 +152,6 @@ flowchart LR
   broker --> IC & OC & WS
 ```
 
-**Verified** (2026-10-07): mọi publisher protobuf + ký HMAC `SFM1`; identity events giờ tới được WS bridge (EVT-01/02 live-verified); health có đường event all-profile (EVT-03). Broker ACL+mTLS vẫn sample-only. Còn OPEN: inventory sub hẹp (`task-changed/v1`), ISSUE-10/13 (client-id/session, consumer timeout).
+Source contains protobuf event publishers and the `SFM1` HMAC implementation; profile files configure HMAC on in dev and off by default in prod for configured services. This does not assert live broker delivery. Broker ACL/TLS is not enabled by repository configuration. Inventory's `TaskMqttSubscriber` subscribes to `task-changed/v1`; review its scope and consumer lifecycle before expanding it.
 
 ← [System Overview](./system-overview.md) · [Gateway Mapping](./gateway-mapping.md) · [Documentation Index](../index.md)

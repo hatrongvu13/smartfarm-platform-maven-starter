@@ -1,9 +1,6 @@
 # MQTT Security — Signed Envelope + (chưa bật) ACL & mTLS
 
-> Trạng thái hiện tại (FACT): `infra/mosquitto.conf` đặt `allow_anonymous true`, **không ACL, không TLS**;
-> `MqttSecurityVerifier`/`MqttSecurityEnvelope` trước đây là class rỗng (ISSUE-02).
-> Tài liệu này mô tả: (1) lớp bảo mật app-level **đã triển khai** (signed envelope, mặc định TẮT);
-> (2) cấu hình broker-level **ACL + mTLS dạng mẫu, CHƯA bật** — áp khi có hạ tầng thật.
+> Reconciled 2026-10-15: `infra/mosquitto.conf` allows anonymous connections and does not configure ACL/TLS. `MqttSecurityVerifier` and `MqttSecurityEnvelope` are implemented. App-level HMAC is enabled by current dev profile files and defaults off in production profile files; broker-level ACL/TLS remains a separate, unenabled control.
 
 Hai lớp này độc lập và bổ sung cho nhau. Khuyến nghị production: bật **cả hai**.
 mTLS + ACL chặn client lạ kết nối broker; signed envelope đảm bảo toàn vẹn/ nguồn gốc message
@@ -11,12 +8,12 @@ kể cả khi một service hợp lệ bị chiếm hoặc khi broker bị bỏ 
 
 ---
 
-## 1) Signed Envelope (app-level) — ĐÃ TRIỂN KHAI, mặc định TẮT
+## 1) Signed Envelope (app-level) — ĐÃ TRIỂN KHAI, profile-dependent
 
 Thành phần (trong `libs/smartfarm-security`):
 - `com.htv.smartfarm.security.mqtt.MqttSecurityEnvelope` — frame tự mô tả, magic `SFM1`, HMAC-SHA256 over `topic ‖ metadata ‖ payload`.
 - `com.htv.smartfarm.security.mqtt.MqttSecurityVerifier` — `sign(topic,payload)` / `verify(topic,frame)`; so sánh chữ ký constant-time; chữ ký ràng buộc cả topic (frame ký cho topic A bị từ chối ở topic B).
-- `com.htv.smartfarm.security.mqtt.MqttSecurityProperties` — prefix `smartfarm.security.mqtt`, **mọi cờ mặc định false**.
+- `com.htv.smartfarm.security.mqtt.MqttSecurityProperties` — prefix `smartfarm.security.mqtt`; property defaults are false, while service profile files override dev to true and prod to false.
 
 ### Cấu hình
 
@@ -24,11 +21,11 @@ Thành phần (trong `libs/smartfarm-security`):
 smartfarm:
   security:
     mqtt:
-      sign-enabled: ${SMARTFARM_MQTT_SIGN_ENABLED:false}     # producer ký message
-      verify-enabled: ${SMARTFARM_MQTT_VERIFY_ENABLED:false}  # consumer bắt buộc chữ ký hợp lệ
-      hmac-secret: ${SMARTFARM_MQTT_HMAC_SECRET:}             # bí mật dùng chung giữa các service
-      key-id: ${SMARTFARM_MQTT_KEY_ID:default}               # định danh khóa (phục vụ xoay khóa)
-      max-clock-skew-millis: ${SMARTFARM_MQTT_MAX_SKEW_MS:0}  # 0 = tắt kiểm tra độ tươi
+      sign-enabled: ${MQTT_SIGN_ENABLED:false}     # producer ký message
+      verify-enabled: ${MQTT_VERIFY_ENABLED:false}  # consumer bắt buộc chữ ký hợp lệ
+      hmac-secret: ${MQTT_HMAC_SECRET:}             # bí mật dùng chung giữa các service
+      key-id: ${MQTT_HMAC_KEY_ID:default}           # định danh khóa (phục vụ xoay khóa)
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}  # 0 = tắt kiểm tra độ tươi
 ```
 
 ### Ngữ nghĩa (backward-compatible)

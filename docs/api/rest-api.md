@@ -1,45 +1,26 @@
 # REST API — SmartFarm Platform
 
-> Verified từ gateway controllers @ HEAD `eaaa112`. Tất cả qua gateway :8080. Chi tiết route + auth: [gateway-mapping.md](../architecture/gateway-mapping.md).
+> Reconciled 2026-10-15 against current gateway controllers/security and the identity service. Gateway ingress defaults to `:8080`; identity listens on `:8092` and binds loopback by default.
 
-## Public (permitAll)
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login` → `AuthenticationResponse` (`authenticationStatus`: `COMPLETED | MFA_REQUIRED | MFA_ENROLLMENT_REQUIRED | TENANT_SELECTION_REQUIRED`)
-- `POST /api/v1/auth/bootstrap-superadmin` (409 nếu đã có super-admin)
-- `POST /api/v1/auth/mfa/verify`
-- `POST /api/v1/auth/mfa/enrollment/begin`, `POST /api/v1/auth/mfa/enrollment/confirm`
-- `POST /api/v1/auth/refresh`
-- `POST /api/v1/auth/logout`
-- `GET /api/v1/platform/deployment-state` → `{initialized, superAdminExists, bootstrapRequired}`
-- `GET /actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`
-- `/v3/api-docs/**`, swagger, `/ws/**`
+## Gateway routes
 
-## Authenticated (Bearer JWT)
-- `GET /api/v1/me` — scope `farm:read` (`SCOPE_farm:read`). **THIN**: trả về `{subject, tenantId}` ONLY. Đây **KHÔNG** phải hồ sơ; lấy profile/membership qua GraphQL `me` (xem [gRPC/GraphQL](grpc-api.md)).
-- `POST /api/v1/orders` (+ `/drafts`, `/drafts/{id}` PUT, `/drafts/{id}` DELETE `?expectedVersion=<long>` qua query, `/drafts/{id}/submit`, `/{id}` GET, `/` GET, `/{id}/cancel`) — scope `orders:read`/`orders:write`
-- `GET|POST /api/v1/order-sagas/{id}[/...]` — scope `orders:saga:admin`
+The gateway exposes auth proxy routes under `/api/v1/auth/**`, `GET /api/v1/me`, order and order-saga REST routes, and development-profile facades for livestock, inventory, health, and reporting. Exact route-to-controller mappings and authorization annotations are maintained in [`gateway-mapping.md`](../architecture/gateway-mapping.md); do not infer a route from a proto RPC.
 
-## Service-to-service (machine-to-machine, no end-user Bearer)
-- `POST /internal/service-token` (identity, served at identity :8092; reached by the gateway's
-  `ServiceTokenClient`) — mints a short-lived per-audience service JWT. Auth is the **client secret
-  in the body** `{clientId, secret, audience, tenantId, actorId}`, so it is `permitAll` in the
-  resource-server chain (a Bearer token is NOT required/used). Returns `200` with
-  `{accessToken, tokenType, expiresInSeconds, audience}`; `401` on bad secret / disallowed audience
-  (does not leak which); `400` on malformed body. Full flow + the former missing-handler 401 root
-  cause: see [grpc-api.md → Service-token flow](grpc-api.md#service-token-flow-post-internalservice-token).
+Identity auth operations include login, register (when enabled), refresh, logout, bootstrap-superadmin, and MFA endpoints. Login accepts email/password and optional `tenantId`; identity resolves a single active tenant automatically or returns tenant-selection state when the account has multiple active memberships.
 
-## Dev-only (`@Profile dev&!prod`)
-- `/api/v1/livestock/animals*`, `/schedules*` — scope `tasks:write` (write) / `farm:read` (read); `/api/v1/livestock/tasks*`
-- `/api/v1/inventory/items`, `/receipts` — scope `inventory:write`. **Không có route LIST/read REST**: tồn kho đọc qua GraphQL `warehouseInventory(itemId,warehouseId)` / `lowStock(farmId,limit)`.
-- `/api/v1/reports` + `/{id}`, `/`, `/{id}/download` — scope `report:write` (tạo) / `report:read` (đọc) — **số ít** `report`, KHÔNG phải `reports`.
-- `/api/v1/health/{observations,vaccinations,alerts}` — scope `health:read` (GW-01).
+`GET /api/v1/me` is a thin identity (`subject`, `tenantId`) response, not the full profile or membership representation. The full principal/profile path is GraphQL/gRPC-backed.
 
-## Headers
-- `Authorization: Bearer <access>` — mọi route authenticated.
-- `Idempotency-Key` — **bắt buộc** cho các write: `POST /api/v1/orders`, `/orders/drafts`, `/inventory/items`, `/inventory/receipts`, `/reports`, `POST /livestock/tasks`.
-- `X-Correlation-Id` — optional, echo trong response.
+## Internal service-token HTTP endpoint
 
-## OpenAPI / Swagger
-Gateway expose `/v3/api-docs/**` + swagger (`OpenApiConfig`). GraphiQL `/graphiql` default **off**.
+Identity also has `POST /internal/service-token`. The HTTP resource-server configuration permits the route through its bearer-token filter, but the controller additionally requires the dedicated `X-Identity-Internal-Secret` header. The request body carries `clientId`, `secret`, `audience`, and `tenantId`, with optional `actorId`. `ServiceTokenService` validates the client secret, audience allowlist, scopes, and whether delegation is enabled.
 
-← [gRPC API](grpc-api.md) · [Events](events.md)
+The separate shared header secret adds an application authentication check; it does not encrypt the request. Identity binds to loopback by default, and the header secret must be independently provisioned through `IDENTITY_INTERNAL_API_SECRET` in both gateway and identity. Use TLS/mTLS for any network boundary and retire this HTTP path if it cannot be kept private. See [gRPC API](grpc-api.md#service-token-flow-post-internalservice-token) and [Identity service](../services/identity.md).
+
+## Security and environments
+
+- Gateway routes enforce JWT/scope policy as configured in gateway source; development-only service facades should not be described as production API.
+- Identity's internal service-token route passes the bearer filter chain but requires the dedicated internal header and client credentials in the handler.
+- gRPC TLS is disabled by default. Production identity HTTP/gRPC bind addresses default to loopback and are configurable; network exposure requires an authenticated transport boundary.
+- OpenAPI exposure is controlled by the gateway configuration. Check the live profile/configuration rather than assuming `/v3/api-docs` is enabled in every deployment.
+
+← [gRPC API](grpc-api.md) · [Events](events.md) · [Gateway mapping](../architecture/gateway-mapping.md)

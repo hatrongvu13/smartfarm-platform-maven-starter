@@ -1,17 +1,20 @@
 # Documentation Index — SmartFarm Platform
 
-> Cổng điều hướng tài liệu. Verified @ HEAD `eaaa112` (2026-10-06). Nguồn sự thật: **source code** (xem từng doc để biết bằng chứng).
+> Cổng điều hướng các tài liệu hiện có trong checkout. Reconciled 2026-10-15; implementation and configuration in source code are authoritative. Verify test/runtime claims separately.
 
 ## Bắt đầu
 - [README (project overview + quick start)](../README.md)
 - [Roadmap theo version](roadmap.md)
-- [PROJECT STATUS (completion matrix)](PROJECT-STATUS.md)
+- [Identity implementation backlog](../IDENTITY_BACKLOG_UPDATED.md)
 
 ## Kiến trúc
 - [System Overview + 8 sơ đồ Mermaid](architecture/system-overview.md)
 - [Gateway Mapping (route table + gaps)](architecture/gateway-mapping.md)
 - [Request Flows (login/register/refresh/saga/event)](architecture/request-flows.md)
+- [Service Communications matrix](architecture/service-communications.md)
+- [Project Structure Baseline](architecture/project-structure-baseline.md)
 - [Order Saga](architecture/order-saga.md)
+- [Dynamic Authorization design](architecture/dynamic-authorization/README.md)
 
 ## API
 - [REST API](api/rest-api.md)
@@ -35,18 +38,7 @@
 - [MQTT ACL/mTLS (sample)](security/mqtt-acl-mtls.md)
 - [SECURITY.md (policy)](../SECURITY.md) · [LICENSE (PolyForm Strict 1.0.0)](../LICENSE) · [COPYRIGHT](../COPYRIGHT)
 
-## Audit (đợt 2026-10-06)
-- [Documentation Audit](audit/documentation-audit.md)
-- [Unresolved Items (active issues + bằng chứng)](audit/unresolved-items.md)
-- [Outstanding Issues (LARGE — need confirmation, code untouched)](audit/outstanding-issues.md)
-- [Removed / Archived Files](audit/removed-or-archived-files.md)
-- [Runtime Readiness](07-runtime-readiness.md)
-- [Implementation Roadmap](10-implementation-roadmap.md) · [Task Dependency Graph](11-task-dependency-graph.md)
-- Trước đó: [audit/00-08](audit/00-executive-summary.md), [cleanup/00-12](cleanup/00-executive-summary.md), [issue register](audit/04-issue-register.md), [graphify](audit/graphify/snapshot-v0.md)
-
-## History
-- [Resolved Issues](history/resolved-issues.md)
-- [Deprecated Documentation](history/deprecated-documentation.md)
-
-## Backlog
-- [Backlog README](../backlog/README.md) · [V1](../backlog/V1-Core-Platform/00-README.md) · [V2](../backlog/V2-Warehouse-Operations/00-README.md) · [V3](../backlog/V3-Connected-Farm/00-README.md)
+## Source of truth
+- Runtime behavior, configuration, and implemented capabilities: current application source and tests.
+- Identity work items and ranked next changes: [Identity implementation backlog](../IDENTITY_BACKLOG_UPDATED.md).
+- Historical audit/backlog snapshots referenced by older revisions are not present in this checkout and are intentionally not linked here.

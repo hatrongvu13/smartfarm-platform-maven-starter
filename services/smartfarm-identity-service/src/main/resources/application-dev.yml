@@ -40,6 +40,8 @@ smartfarm:
       max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
 
   identity:
+    internal-api:
+      secret: ${IDENTITY_INTERNAL_API_SECRET:dev-identity-internal-api-secret}
     mqtt:
       enabled: ${IDENTITY_MQTT_ENABLED:true}
     issuer: ${IDENTITY_ISSUER:http://localhost:8092}

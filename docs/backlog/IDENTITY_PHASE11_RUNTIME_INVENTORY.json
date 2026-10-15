@@ -62,9 +62,7 @@
     "permission_repository": {
       "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/bootstrap/SuperAdminBootstrapService.java": [
         "BootstrapResult",
-        "afterCommit",
         "createFirstSuperAdmin",
-        "printTotpEnrollmentToConsole",
         "superAdminExists"
       ],
       "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/oauth2/AuthService.java": [
@@ -179,9 +177,7 @@
     "permission_application": {
       "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/bootstrap/SuperAdminBootstrapService.java": [
         "BootstrapResult",
-        "afterCommit",
         "createFirstSuperAdmin",
-        "printTotpEnrollmentToConsole",
         "superAdminExists"
       ],
       "services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/grpc/IdentityAdministrationGrpcService.java": [

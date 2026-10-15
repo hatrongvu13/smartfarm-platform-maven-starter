@@ -1,6 +1,6 @@
 # Deployment — SmartFarm Platform
 
-> Verified từ Dockerfile, `.github/workflows/build-push.yml`, `deploy/kubernetes/`, `compose.yaml` @ HEAD `eaaa112`.
+> Reconciled 2026-10-15 against Dockerfile, `.github/workflows/build-push.yml`, `deploy/kubernetes/`, and `compose.yaml`.
 
 ## Container
 - Root `Dockerfile` — hardened, non-root, parameterized (build 1 image/module theo arg).
@@ -21,4 +21,4 @@
 - Observability cluster-wide + tracing.
 - `.env.production.example` → inject secret thật.
 
-← [runtime-readiness](../07-runtime-readiness.md) · [observability](observability.md)
+← [Roadmap](../roadmap.md) · [Observability](observability.md)

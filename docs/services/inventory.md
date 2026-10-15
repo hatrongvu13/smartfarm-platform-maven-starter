@@ -1,29 +1,24 @@
 # Service: Inventory (`services/smartfarm-inventory-service`)
 
-> Verified @ HEAD `eaaa112`. gRPC :9093. ← [System Overview](../architecture/system-overview.md)
+> Reconciled 2026-10-15 from the proto and `InventoryGrpcService`.
 
-## Trách nhiệm
-Quản lý item/stock, reservation (phục vụ order saga), low-stock, lot trace.
+## Responsibility and interfaces
 
-## Inbound — gRPC `InventoryService`
-CreateItem, ReceiveStock, IssueStock, **AdjustStock (🔴 chưa impl)**, ReserveStock, ReleaseReservation, CommitReservation, GetStockBalance, ListLowStock, **TraceLot (🔴 chưa impl)**.
+Inventory manages items, warehouses, stock movements/balances, reservations, low-stock queries, and lot tracing. Its gRPC server is configured at port `9093`.
 
-→ ReserveStock/CommitReservation/ReleaseReservation là **downstream của order saga** (verified).
+All 20 methods declared by `InventoryService` have handlers, including `AdjustStock`, `TraceLot`, item and warehouse CRUD/status methods. Earlier documentation claiming `AdjustStock` and `TraceLot` were absent is stale. Handler presence does not imply every method has a gateway caller or production REST route.
 
-## Inbound — MQTT
-`TaskMqttSubscriber` sub **chỉ** `task-changed/v1` (6 leaf lifecycle khác không consume — EVT scope hẹp).
+- Order saga calls `ReserveStock`, `CommitReservation`, and `ReleaseReservation`.
+- The gateway inventory REST facade is development-profile-only and covers only the routes declared by its controllers.
+- `TaskMqttSubscriber` subscribes to `task-changed/v1`; it is not a general consumer for every livestock lifecycle event.
 
-## Inbound — REST (gateway, dev-only)
-`/api/v1/inventory/items`, `/receipts` (`@Profile dev&!prod`).
+## Persistence
 
-## Database
-`V1__inventory_baseline.sql`, `V2__inventory_reorder_threshold.sql` (2 migrations).
+Inventory owns relational persistence and the migrations under `services/smartfarm-inventory-service/src/main/resources/db/migration/`. Check that directory and its active profile configuration for exact schema/database behavior.
 
-## Known limitations
-- AdjustStock, TraceLot: proto-defined, **implementation missing** (PARTIAL).
-- MQTT subscriber phạm vi hẹp.
+## Remaining work
 
-## TODO
-- [ ] Impl AdjustStock, TraceLot.
+- [ ] Verify callers, authorization, and tests for every stock adjustment/lot-trace operation.
+- [ ] Decide whether to widen the MQTT subscription beyond task events and add corresponding idempotency/consumer tests.
 
-← [Order saga flow](../architecture/request-flows.md#4-placeorder--cross-service-saga-gateway--order--inventory--finance)
+[gRPC API](../api/grpc-api.md) · [Order saga](../architecture/order-saga.md) · [System overview](../architecture/system-overview.md)

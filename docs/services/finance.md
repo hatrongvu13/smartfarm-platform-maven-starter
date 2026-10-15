@@ -1,6 +1,6 @@
 # Service: Finance (`services/smartfarm-finance-service`)
 
-> Verified @ HEAD `eaaa112`. gRPC :9094. Status: **PARTIAL** (ít đường expose). ← [System Overview](../architecture/system-overview.md)
+> Implementation summary; gRPC :9094. Status: **PARTIAL** (ít đường expose). ← [System Overview](../architecture/system-overview.md)
 
 ## Trách nhiệm
 Ledger thật: expense/income, payable/receivable/debt, batch cost, cash flow.

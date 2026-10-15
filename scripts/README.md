@@ -1,199 +1,55 @@
-# SmartFarm — Unified Test Scripts
+# Repository scripts
 
-Shell-based health, smoke, REST and GraphQL tests for the SmartFarm platform,
-driven entirely from configuration and the real API surface. Compatible with
-Linux and macOS Bash. Uses `curl` and `jq`.
+> Inventory reconciled 2026-10-15 against the files currently present under `scripts/`. The restored shell test runner contains health and smoke checks only; it does not include the REST/GraphQL suites described by older revisions of this file.
 
-> These tests exercise the running system over HTTP. They do **not** touch
-> business logic, do **not** add JUnit/integration tests to the source tree, and
-> do **not** start or stop services. Everything is read-only unless you opt in to
-> destructive tests (see below).
+## Available scripts
 
-## Layout
+| Script | Purpose |
+|---|---|
+| `doctor.sh` | Check Java/Maven and confirm every reactor module declared in the root POM has a `pom.xml`. |
+| `build-all.sh` | Run `mvn -B clean verify` from the repository root; forwards command-line arguments to Maven. |
+| `bootstrap.sh` | Check Java/Maven and run `mvn -B clean install`; `--skip-build` checks tools only. |
+| `run-all.sh` | Run the available `health` and `smoke` HTTP checks, or one phase using `ONLY=health` / `ONLY=smoke`. |
+| `health/test-health.sh` | Probe gateway health; direct service probes run only when the corresponding `*_HEALTH_URL` variable is set. |
+| `smoke/smoke-test.sh` | Probe gateway health, GraphQL availability, optional OpenAPI docs, and `/api/v1/me` if configured credentials can authenticate. It performs no business-data mutation. |
+| `config-forward.sh` | Forward the listed local TCP ports to a connected Android device using `adb`; this is an interactive/dev utility, not a platform test. |
+| `dev/rebuild-restart.sh` | Dev helper; review its environment assumptions and target process before running. |
+| `lib/*.sh` | Shared configuration, HTTP, authentication, assertions, and result helpers. |
 
-```
-scripts/
-├── README.md                      # this file
-├── run-all.sh                     # top-level runner (health → smoke → REST → GraphQL)
-├── config/
-│   └── test.env.example           # copy to test.env and fill in (test.env is gitignored)
-├── lib/
-│   ├── common.sh                  # logging, deps, env loading, tally, exit codes
-│   ├── http.sh                    # curl wrapper (status/body split, timeout, token masking)
-│   ├── assertions.sh              # HTTP + GraphQL (data/errors) assertions
-│   └── auth.sh                    # login (handles COMPLETED / MFA_REQUIRED)
-├── health/test-health.sh          # gateway + per-service /actuator/health
-├── smoke/smoke-test.sh            # fast "is the platform wired up?" check
-├── rest/
-│   ├── test-all-rest.sh
-│   ├── identity/test-rest.sh      # /api/v1/auth/*, /api/v1/me
-│   ├── livestock/test-rest.sh     # /api/v1/livestock/*
-│   ├── inventory/test-rest.sh     # /api/v1/inventory/*
-│   ├── order/test-rest.sh         # /api/v1/orders/*, /api/v1/order-sagas/*
-│   └── reporting/test-rest.sh     # /api/v1/reports/*
-├── graphql/
-│   ├── test-all-graphql.sh
-│   ├── test-introspection.sh
-│   ├── test-schema.sh
-│   └── gateway/
-│       ├── queries/*.graphql      # one operation per file
-│       ├── mutations/*.graphql
-│       └── test-graphql.sh
-└── legacy/                        # quarantine for superseded scripts (currently empty)
-```
+No REST CRUD or GraphQL operation-suite scripts are present under `scripts/` in this checkout. Do not infer that a documented script exists from an older README.
 
-The **gateway (`:8080`) is the single ingress**: REST under `/api/v1/*`, GraphQL at
-`/graphql`, auth proxied at `/api/v1/auth/*`. The suite targets the gateway by
-default because that is the platform's primary access path. Domain services
-(livestock, finance, reporting, health) are gRPC-internal and are reached through
-the gateway, not tested directly over REST.
+## Requirements and configuration
 
-## Dependencies
+The health/smoke runner requires Bash, `curl`, and `jq`. The build/doctor scripts require Java and Maven; `doctor.sh` also uses Python 3. Tests talk to an already-running gateway and do not start/stop the application.
 
-- `bash` (4+ recommended; works on macOS `bash` 3.2 too)
-- `curl`
-- `jq`
-
-`run-all.sh` checks these first and exits with code `3` if any is missing.
-
-## Configuration
+Copy the example configuration if desired:
 
 ```bash
 cp scripts/config/test.env.example scripts/config/test.env
-# edit scripts/config/test.env
 ```
 
-`test.env` is gitignored — **never commit real credentials**. All variables:
+`scripts/config/test.env` is ignored by Git. Never add real credentials or secrets to the example or repository. Defaults in `lib/common.sh` point to `http://localhost:8080`, with GraphQL at `/graphql`; `AUTH_BASE_URL` defaults to the gateway. `TEST_USERNAME` and `TEST_PASSWORD` enable the authenticated smoke probe. `TEST_TENANT_ID` is optional and is only needed to select among multiple active tenant memberships. `TEST_TOTP_CODE` can complete an MFA challenge; without it, authenticated smoke is skipped when MFA is required.
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `API_GATEWAY_URL` | Gateway ingress base | `http://localhost:8080` |
-| `GRAPHQL_URL` | GraphQL endpoint | `$API_GATEWAY_URL/graphql` |
-| `AUTH_BASE_URL` | Auth base (proxied via gateway) | `$API_GATEWAY_URL` |
-| `TEST_TENANT_ID` / `TEST_USERNAME` / `TEST_PASSWORD` | Login (`{tenantId,email,password}`) | *(blank → auth tests skipped)* |
-| `TEST_TOTP_CODE` | Completes an `MFA_REQUIRED` login | *(blank → MFA accounts skipped)* |
-| `TEST_FARM_ID` | Farm id for farm-scoped ops | `farm-1` |
-| `TEST_ITEM_ID` / `TEST_WAREHOUSE_ID` / `TEST_BATCH_ID` | Ids for deeper probes | *(blank → those steps skip)* |
-| `REQUEST_TIMEOUT_SECONDS` | Per-request curl timeout | `30` |
-| `GRAPHQL_INTROSPECTION_ENABLED` | `false` → introspection-blocked is expected | `true` |
-| `ALLOW_DESTRUCTIVE_TESTS` | `true` → run data-mutating tests | `false` |
-| `*_HEALTH_URL` | Direct per-service health probes | per service port |
+Optional `*_HEALTH_URL` values enable best-effort direct `/actuator/health` probes. The checked-in example provides local URLs for identity, livestock, inventory, finance, order, reporting, health, and readiness; omit a URL to skip that direct probe. The gateway probe remains required.
 
-## Running
+## Run
 
 ```bash
-# Everything (health → smoke → REST → GraphQL)
-scripts/run-all.sh
-
-# A specific env file
-scripts/run-all.sh /path/to/custom.env
-
-# One phase only
-ONLY=health  scripts/run-all.sh
-ONLY=smoke   scripts/run-all.sh
-ONLY=rest    scripts/run-all.sh
-ONLY=graphql scripts/run-all.sh
+./scripts/doctor.sh
+./scripts/build-all.sh
+./scripts/run-all.sh
+ONLY=health ./scripts/run-all.sh
+ONLY=smoke ./scripts/run-all.sh
+./scripts/health/test-health.sh
+./scripts/smoke/smoke-test.sh
 ```
 
-Run a single sub-suite or test directly (each is self-contained):
+The shell runner currently contains only health and smoke. It does not implement REST CRUD coverage, GraphQL schema/introspection suites, destructive-test gates, or automatic service lifecycle management. The smoke phase sends a read-only `platformStatus` GraphQL request and optionally GETs `/api/v1/me`.
 
-```bash
-scripts/health/test-health.sh
-scripts/rest/test-all-rest.sh
-scripts/rest/order/test-rest.sh
-scripts/graphql/test-all-graphql.sh
-scripts/graphql/gateway/test-graphql.sh
-```
+`run-all.sh` uses exit status `0` for passing available phases, `1` for one or more phase failures, and `3` when a required dependency is missing. A missing/unusable config file is non-fatal; exported variables and defaults are used. `health/test-health.sh` returns the shared assertion summary. Consult script source for the exact distinctions between failure and skip.
 
-### REST vs GraphQL only
+## Safety
 
-```bash
-ONLY=rest    scripts/run-all.sh      # REST only
-ONLY=graphql scripts/run-all.sh      # GraphQL only (introspection + schema + ops)
-```
-
-### Enabling destructive tests
-
-Data-mutating tests (create order draft, register animal, create inventory item,
-GraphQL mutations) are **off by default**. Enable only against a disposable test
-tenant:
-
-```bash
-ALLOW_DESTRUCTIVE_TESTS=true \
-TEST_ITEM_ID=item-1 TEST_WAREHOUSE_ID=wh-A \
-scripts/run-all.sh
-```
-
-Created data uses a unique identifier (`idempotencyKey` / unique `tagCode` / unique
-`itemId`) per run; draft orders are deleted again as cleanup. Entities with no
-delete endpoint (animals, items) are isolated by their unique id and left in the
-test tenant.
-
-## Reading results & exit codes
-
-Each sub-suite prints a tally:
-
-```
----- graphql-gateway ----
-  total=9  pass=8  fail=1  skip=0
-  failed:
-    - dashboard (GraphQL errors present)
-```
-
-`run-all.sh` prints a final `RESULT` block and exits:
-
-| Exit code | Meaning |
-|---|---|
-| `0` | every executed test passed |
-| `1` | one or more tests failed |
-| `2` | usage / missing config |
-| `3` | a required dependency is missing |
-| `4` | precondition failed (e.g. gateway unreachable) |
-
-Skipped tests (service down, no creds, destructive gate off) do **not** fail the
-suite — they are reported as `SKIP`.
-
-**GraphQL assertions check the full envelope** — HTTP 200 **and** valid JSON **and**
-`.data` present **and** no `.errors`. The gateway can return HTTP 200 with an
-`errors` array for a failed operation, so status alone is never trusted.
-
-## Adding a test
-
-**New GraphQL operation:** drop a `.graphql` file in `graphql/gateway/queries/`
-(or `mutations/`), then add one `gql_file "<name>" "$QDIR/<file>.graphql" "<vars-json>"`
-line in `graphql/gateway/test-graphql.sh`.
-
-**New REST test:** add a `rest/<service>/test-rest.sh` that sources the four libs,
-calls `load_env`, uses `http_get/http_post/...` + the `assert_*` helpers, ends with
-`summary "<label>"`, then list it in `rest/test-all-rest.sh`.
-
-Conventions: `set -o errexit -o nounset -o pipefail`; assertions never abort the
-file (they record pass/fail and `summary` sets the exit code); never print tokens
-or secrets (the libs mask them automatically).
-
-## Tests that cannot run without a live platform
-
-Health, smoke, REST and GraphQL **operation** tests require the gateway (and the
-relevant services) to be running — the suite reports them as failures/skips when
-the gateway is unreachable, it does not fabricate passes. To bring the platform up
-see the repository `README.md` and the existing `scripts/release/v1/` suite.
-
-## Relationship to the existing `scripts/release/v1/` suite
-
-This unified suite sits **alongside** the existing `scripts/release/v1/*` release
-validation suite and the `scripts/*-test.sh` dev harnesses — it does not replace
-or remove them. See the "Script classification" note below.
-
-## Script classification (existing scripts review)
-
-Reviewed against current source + `docs/cleanup/08-script-register.md`:
-
-| Scripts | Decision |
-|---|---|
-| `release/v1/*`, `release/production/validate-order-release.sh` | **KEEP** — the real release validation path |
-| `bootstrap.sh`, `doctor.sh`, `build-all.sh`, `config-forward.sh` | **KEEP** — build/env entry points |
-| `livestock-*-test.sh`, `phase2/phase3-curl-test.sh`, `dev/curl-*`, `dev/rebuild-restart.sh` | **KEEP in place** — active dev harnesses; dev-only secret *placeholders* are env-overridable |
-| *(none)* | **REMOVE / move to legacy** — no script is unreferenced, duplicated, or targets a removed endpoint |
-
-No existing script was deleted or moved. `legacy/` is an empty convention location
-for future demotions (see `legacy/README.md`).
+- Keep `ALLOW_DESTRUCTIVE_TESTS` and data-mutating test claims out of the docs: there are no such restored test suites in the current tree.
+- Scripts do not guarantee production safety; use only local/dev targets unless a release procedure explicitly authorizes another environment.
+- Do not print bearer tokens, client secrets, passwords, or TOTP values. The HTTP helper masks the in-memory bearer token in its own logs, but callers remain responsible for not echoing secrets.

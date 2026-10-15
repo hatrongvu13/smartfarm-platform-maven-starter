@@ -1,6 +1,6 @@
 # Service: Reporting (`services/smartfarm-reporting-service`)
 
-> Verified @ HEAD `eaaa112`. gRPC :9096. Status: **PARTIAL**. ← [System Overview](../architecture/system-overview.md)
+> Implementation summary; gRPC :9096. Status: **PARTIAL**. ← [System Overview](../architecture/system-overview.md)
 
 ## Trách nhiệm
 Sinh report (render + download). Livestock report type hoạt động; non-livestock type chưa đủ.

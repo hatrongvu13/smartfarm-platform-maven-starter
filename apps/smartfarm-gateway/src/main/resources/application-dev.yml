@@ -24,6 +24,7 @@ smartfarm:
     grpc-host: ${IDENTITY_GRPC_HOST:127.0.0.1}
     grpc-port: ${IDENTITY_GRPC_PORT:9092}
     grpc-audience: smartfarm-identity
+    internal-api-secret: ${IDENTITY_INTERNAL_API_SECRET:dev-identity-internal-api-secret}
 
   gateway:
     service-client:

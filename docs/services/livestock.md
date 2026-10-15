@@ -1,6 +1,6 @@
 # Service: Livestock (`services/smartfarm-livestock-service`)
 
-> Verified @ HEAD `eaaa112`. :8081 / gRPC :9091. ← [System Overview](../architecture/system-overview.md)
+> Implementation summary; :8081 / gRPC :9091. ← [System Overview](../architecture/system-overview.md)
 
 ## Trách nhiệm
 Animal registry, task lifecycle (create/assign/accept/complete/cancel), schedule.

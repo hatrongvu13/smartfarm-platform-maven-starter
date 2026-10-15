@@ -368,25 +368,17 @@ public class IdentityGrpcSecurityConfiguration {
         );
     }
 
-    /**
-     * Configures internal token issuance and session administration.
-     *
-     * Token issuance currently authenticates the configured client secret in
-     * the application service. Restrict the gRPC listener to a private network
-     * or mTLS before exposing these methods outside the trusted service plane.
-     */
+    /** Configures authenticated token issuance and session administration. */
     private void configureTokenPolicy(
             GrpcMethodPolicy.Builder builder
     ) {
-        builder.permitAll(
-                IdentityTokenServiceGrpc
-                        .getIssueServiceTokenMethod()
-                        .getFullMethodName()
+        requireAuthenticated(
+                builder,
+                IdentityTokenServiceGrpc.getIssueServiceTokenMethod()
         );
-        builder.permitAll(
-                IdentityTokenServiceGrpc
-                        .getExchangeDelegatedTokenMethod()
-                        .getFullMethodName()
+        requireAuthenticated(
+                builder,
+                IdentityTokenServiceGrpc.getExchangeDelegatedTokenMethod()
         );
         requireAuthority(
                 builder,

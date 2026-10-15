@@ -1,13 +1,13 @@
 # Roadmap — SmartFarm Platform
 
-> Verified @ HEAD (updated 2026-10-07, post EVT-01/02 + ISSUE-02 + GW-01 + EVT-03 + ISSUE-06). Versioning theo backlog hiện có: V1 Core Platform / V2 Warehouse / V3 Connected Farm. Checklist: `[x]` done+evidence · `[ ]` chưa · `[~]` partial · `[?]` needs-verification.
+> Reconciled 2026-10-15 against the current source tree and runtime profiles. Versioning follows the existing backlog: V1 Core Platform / V2 Warehouse / V3 Connected Farm. Do not treat old dated validation notes as current test results.
 
 ## Milestone map
 
 ```mermaid
 flowchart LR
   V0["Foundation<br/>build+boot+config<br/> DONE"]:::done
-  V1["V1 Core Platform<br/>identity/order/saga/domain<br/>event-integrity LOCKED ~85%"]:::current
+  V1["V1 Core Platform<br/>identity/order/saga/domain<br/>implementation in progress"]:::current
   V2["V2 Warehouse Ops<br/>storage/QR/classification<br/>NOT STARTED"]:::todo
   V3["V3 Connected Farm<br/>IoT/MQTT telemetry/actuator<br/>NOT STARTED"]:::todo
   V0 --> V1 --> V2 --> V3
@@ -16,12 +16,12 @@ flowchart LR
   classDef todo fill:#424242,color:#fff;
 ```
 
-**Hiện tại: cuối Foundation / giữa V1 (~85%).** Build+boot+config đã ổn định (profile fix, security key fix). Core domain + saga + security hoàn chỉnh; event-integrity đã khoá (HMAC + protobuf, live-verified) và gateway đã nối health. Còn lại: finance prod path (GW-02), inventory AdjustStock/TraceLot, broker ACL/mTLS bật thật, prodize các facade dev-only.
+**Hiện tại: V1 in progress; no percent-complete claim.** The source has gateway/service APIs, order saga integrations, identity token/session code, and MQTT event infrastructure. Production readiness is not established by code presence. Remaining work includes choosing and hardening a single identity token-issuance boundary with TLS/mTLS, adding database/server-level concurrency and authorization tests, broker ACL/TLS, and completing missing RPCs and production paths.
 
 ## V0 — Foundation (✅ DONE)
 - **Mục tiêu**: build → boot → config nhất quán.
-- [x] 14 module reactor build (bằng chứng: reactor pom; **chưa chạy build lần này** — Maven không có PATH, `[?]` cho log)
-- [x] Profile mặc định `dev` + env override (commit `eaaa112`)
+- [x] 14 module reactor declared in root `pom.xml` (declaration only; validate builds with `./scripts/build-all.sh`)
+- [x] Profile mặc định `dev` + env override (verified in current configuration)
 - [x] Security key nested fix (ISSUE-01, CFG-01 resolved)
 - **Điều kiện chuyển V1**: service boot được ở dev. ✅
 
@@ -31,38 +31,39 @@ flowchart LR
 - [x] Order persistent saga + outbox + CQRS (verified)
 - [x] inventory/finance saga integration (5 cross-service RPC)
 - [x] gateway REST+GraphQL edge
-- [x] MQTT event bus: identity → protobuf `DomainEvent` (EVT-01) + topic schema chuẩn (EVT-02), live-verified qua WS bridge
-- [x] MQTT security: HMAC `SFM1` app-level ký+verify, live-verified 5/5 enforcement control (ISSUE-02). Broker auth/TLS/ACL vẫn sample-only (chưa bật — ISSUE-15/16)
-- [x] health service: nối gateway qua dev REST facade (GW-01) + prod event path all-profile signed (EVT-03). Còn 6/10 RPC chưa impl
+- [x] MQTT source implementation: identity emits protobuf `DomainEvent` on the normalized topic; live broker/WS delivery is not asserted here.
+- [x] HMAC `SFM1` implementation and dev profile configuration exist; production defaults are off. Broker authentication/TLS/ACL are not enabled.
+- [x] Health has a development gateway facade and publisher/configuration source; six of ten declared health RPCs have no handlers.
 - [x] identity `command.result`: reclassified by-design, command-ack qua WS (ISSUE-06)
 - [~] finance/reporting: expose prod còn thiếu (GW-02)
-- [~] inventory: AdjustStock/TraceLot chưa impl
-- [ ] broker hardening: allow_anonymous=false + ACL + TLS bật thật (ISSUE-15/16)
+- [x] Inventory `AdjustStock` and `TraceLot` have server handlers; caller, security, and test coverage still need to be verified per method.
+- [ ] broker hardening: allow_anonymous=false + ACL + TLS bật thật
 - [ ] gRPC TLS prod
-- [?] Build/test xanh toàn reactor (health 5/5 + gateway compile xanh lần này; chưa chạy full suite)
-- **Rủi ro còn lại**: finance orphan prod (GW-02), inventory RPC thiếu, broker chưa hardened ở prod.
-- **Điều kiện hoàn thành V1**: xem `backlog/V1-Core-Platform/06-gate.md`.
+- [ ] Build/test results must be recorded from the current checkout; this documentation update does not claim a successful full reactor run.
+- **Rủi ro còn lại**: token issuance transport/TLS hardening, bootstrap concurrency, incomplete RPCs (FarmDirectory and health), profile-limited REST facades, and production transport hardening.
+- **Điều kiện hoàn thành V1**: define and verify release gates from current source and tests; no V1 gate document is present in this checkout.
 
 ## V2 — Warehouse Operations (NOT STARTED)
-- **Phạm vi**: storage location, QR, inventory classification, warehouse workflow. Backlog: `backlog/V2-Warehouse-Operations/`.
-- Dependency: V1 inventory ổn định (AdjustStock/TraceLot).
-- [ ] toàn bộ. Gate: `V2-.../05-gate.md`.
+- **Phạm vi dự kiến**: storage location, QR, inventory classification, warehouse workflow. A V2 backlog is not present in this checkout.
+- Dependency: verify inventory handlers' callers, authorization, and tests; `AdjustStock` and `TraceLot` have implementations.
+- [ ] toàn bộ. A V2 release gate is not present in this checkout.
 
 ## V3 — Connected Farm (NOT STARTED)
-- **Phạm vi**: device registry, MQTT telemetry, environment rules, actuator control, sensor simulator, safety/observability, E2E. Backlog: `backlog/V3-Connected-Farm/`.
+- **Phạm vi dự kiến**: device registry, MQTT telemetry, environment rules, actuator control, sensor simulator, safety/observability, E2E. A V3 backlog is not present in this checkout.
 - Dependency: `farm.proto` + `telemetry.proto` (hiện chưa impl), MQTT security (ISSUE-02).
 - [ ] toàn bộ.
 
 ## TODO checklist còn hiệu lực (cross-version)
-- [x] EVT-01/02: identity event → protobuf DomainEvent + topic chuẩn (live-verified)
+- [x] EVT-01/02: source builds identity protobuf DomainEvent and normalized topic
 - [x] GW-01: route gateway cho health (dev REST facade)
-- [x] EVT-03: health prod event path (all-profile signed publisher)
-- [x] ISSUE-02: MQTT HMAC ký+verify app-level (live-verified); broker hardening còn OPEN (ISSUE-15/16)
+- [x] EVT-03: health publisher/source configuration exists; production delivery and signing depend on deployment config
+- [x] ISSUE-02: HMAC implementation exists; broker hardening remains open (ISSUE-15/16)
 - [x] ISSUE-06: command.result reclassified by-design (command-ack WS)
 - [x] DOC-01: sửa README broken link
 - [ ] GW-02: finance prod path (REST/GraphQL prod)
-- [ ] inventory AdjustStock/TraceLot impl
-- [ ] broker allow_anonymous=false + ACL + mTLS bật thật (ISSUE-15/16)
+- [x] inventory `AdjustStock`/`TraceLot` handlers exist
+- [ ] complete caller/security/test coverage for all inventory gRPC operations
+- [ ] broker allow_anonymous=false + ACL + mTLS bật thật
 - [ ] gRPC TLS prod, observability/SLO alerting cluster-wide, K8s cho 5 service
 
-← [Documentation Index](index.md) · [Implementation Roadmap chi tiết](10-implementation-roadmap.md) · [Task Dependency Graph](11-task-dependency-graph.md)
+← [Documentation Index](index.md) · [Identity implementation backlog](../IDENTITY_BACKLOG_UPDATED.md)

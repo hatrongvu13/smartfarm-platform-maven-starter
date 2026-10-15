@@ -13,8 +13,6 @@ import com.htv.smartfarm.identity.authorization.repository.MembershipRoleReposit
 import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
-import com.htv.smartfarm.identity.mfa.application.AuthenticatorService;
-import com.htv.smartfarm.identity.mfa.application.model.TotpEnrollment;
 import com.htv.smartfarm.identity.tenant.domain.TenantEntity;
 import com.htv.smartfarm.identity.tenant.domain.TenantMembershipEntity;
 import com.htv.smartfarm.identity.tenant.repository.TenantMembershipRepository;
@@ -28,10 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -47,10 +42,8 @@ import org.springframework.web.server.ResponseStatusException;
  * permission {@code *}. Consequently, its access token can carry the wildcard
  * scope required by the gateway to recognize it as a super administrator.</p>
  *
- * <p>TOTP enrollment is optional during the initial bootstrap. After the
- * super-administrator transaction commits successfully, a separate enrollment
- * is prepared and printed to the service console. A TOTP enrollment failure
- * cannot roll back the account that was already created.</p>
+ * <p>TOTP enrollment must be completed through the authenticated enrollment
+ * API after bootstrap. Bootstrap never generates or logs an enrollment secret.</p>
  */
 @Slf4j
 @Service
@@ -81,9 +74,6 @@ public class SuperAdminBootstrapService {
     private static final String WILDCARD_DESCRIPTION =
             "Wildcard permission: grants every scope (root/super-admin)";
 
-    private static final String TOTP_ISSUER =
-            "SmartFarm Super Admin";
-
     private final AccountService accountService;
     private final UserAccountRepository accountRepository;
     private final TenantRepository tenantRepository;
@@ -92,7 +82,6 @@ public class SuperAdminBootstrapService {
     private final MembershipRoleRepository membershipRoleRepository;
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
-    private final AuthenticatorService authenticatorService;
 
     /**
      * Determines whether the system already has a SUPERADMIN membership.
@@ -457,102 +446,7 @@ public class SuperAdminBootstrapService {
         );
     }
 
-    private void registerTotpEnrollmentAfterCommit(
-            String userId,
-            String normalizedEmail
-    ) {
-        if (!TransactionSynchronizationManager
-                .isSynchronizationActive()) {
-            log.warn(
-                    "Transaction synchronization is not active; "
-                            + "optional TOTP enrollment will not be prepared: "
-                            + "userId={}",
-                    userId
-            );
 
-            return;
-        }
-
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-
-                    @Override
-                    public void afterCommit() {
-                        printTotpEnrollmentToConsole(
-                                userId,
-                                normalizedEmail
-                        );
-                    }
-                }
-        );
-
-        log.debug(
-                "Registered optional TOTP enrollment after transaction commit: "
-                        + "userId={}",
-                userId
-        );
-    }
-
-    /**
-     * Prepares and prints an optional TOTP enrollment after the SUPERADMIN
-     * transaction has committed.
-     *
-     * <p>This operation uses its own transaction so that an enrollment failure
-     * cannot roll back the previously created administrator. TOTP remains
-     * optional during the initial bootstrap.</p>
-     *
-     * <p>Warning: the generated {@code otpauth://} URI contains the TOTP secret
-     * and must be treated as sensitive information. Production log storage must
-     * have appropriately restricted access and retention.</p>
-     *
-     * @param userId identifier of the newly created administrator
-     * @param email  normalized administrator email
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void printTotpEnrollmentToConsole(
-            String userId,
-            String email
-    ) {
-        try {
-            TotpEnrollment enrollment =
-                    authenticatorService.beginTotpEnrollment(
-                            userId,
-                            TOTP_ISSUER
-                    );
-
-            log.warn(
-                    """
-                            
-                            ================================================================
-                             SENSITIVE: SUPER-ADMIN TOTP ENROLLMENT
-                             This URI contains a TOTP secret. Do not copy it to shared logs.
-                             account        : {}
-                             authenticatorId: {}
-                             otpauth URI    : {}
-                             Scan the URI into an authenticator, then confirm via:
-                               POST /api/v1/auth/mfa/enrollment/confirm
-                             This information is printed once during bootstrap.
-                            ================================================================
-                            """,
-                    email,
-                    enrollment.authenticatorId(),
-                    enrollment.otpauthUri()
-            );
-        } catch (RuntimeException exception) {
-            log.warn(
-                    "Optional SUPERADMIN TOTP enrollment could not be prepared: "
-                            + "userId={}, errorType={}. "
-                            + "TOTP can be enabled later through the enrollment API.",
-                    userId,
-                    exception.getClass().getSimpleName()
-            );
-
-            log.debug(
-                    "SUPERADMIN TOTP enrollment preparation failure details",
-                    exception
-            );
-        }
-    }
 
     private static String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {

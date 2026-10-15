@@ -28,6 +28,7 @@ public class ServiceTokenClient {
     private final WebClient identity;
     private final String clientId;
     private final String secret;
+    private final String identityInternalApiSecret;
     private final Duration requestTimeout;
     private final AuthorizationVersionWatermarkStore authorizationWatermarks;
     private final Map<Key, Cached> cache = new ConcurrentHashMap<>();
@@ -38,12 +39,16 @@ public class ServiceTokenClient {
             WebClient identityWebClient,
             @Value("${smartfarm.gateway.service-client.id:gateway}") String clientId,
             @Value("${smartfarm.gateway.service-client.secret:}") String secret,
+            @Value("${smartfarm.identity.internal-api-secret:}") String identityInternalApiSecret,
             @Value("${smartfarm.gateway.grpc.service-token-timeout:5s}") Duration requestTimeout,
             AuthorizationVersionWatermarkStore authorizationWatermarks
     ) {
         this.identity = java.util.Objects.requireNonNull(identityWebClient, "identityWebClient");
         this.clientId = required(clientId, "clientId");
         this.secret = secret;
+        this.identityInternalApiSecret = identityInternalApiSecret == null
+                ? ""
+                : identityInternalApiSecret;
         this.requestTimeout = positive(requestTimeout, "service token timeout");
         this.authorizationWatermarks = java.util.Objects.requireNonNull(
                 authorizationWatermarks,
@@ -51,7 +56,10 @@ public class ServiceTokenClient {
         );
     }
 
-    /** Compatibility constructor retained for existing unit tests and manual construction. */
+    /**
+     * Compatibility constructor for manual construction without transport credentials.
+     * Token minting fails closed until the internal API secret is supplied.
+     */
     public ServiceTokenClient(
             WebClient identityWebClient,
             String clientId,
@@ -62,6 +70,7 @@ public class ServiceTokenClient {
                 identityWebClient,
                 clientId,
                 secret,
+                "",
                 requestTimeout,
                 new InMemoryAuthorizationVersionWatermarkStore()
         );
@@ -184,8 +193,14 @@ public class ServiceTokenClient {
                     "gateway service-client secret is not configured"
             );
         }
+        if (identityInternalApiSecret.isBlank()) {
+            throw new IllegalStateException(
+                    "gateway identity internal API secret is not configured"
+            );
+        }
         Grant grant = identity.post()
                 .uri("/internal/service-token")
+                .header("X-Identity-Internal-Secret", identityInternalApiSecret)
                 .bodyValue(new TokenRequest(
                         clientId,
                         secret,

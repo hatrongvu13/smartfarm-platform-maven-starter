@@ -1,6 +1,6 @@
 # Service: Order (`services/smartfarm-order-service`)
 
-> Verified @ HEAD `eaaa112`. :8085 / gRPC :9095. **Most complete service.** ← [System Overview](../architecture/system-overview.md)
+> Implementation summary; :8085 / gRPC :9095. ← [System Overview](../architecture/system-overview.md)
 
 ## Trách nhiệm
 Order lifecycle (draft→place→cancel) + **persistent saga orchestration** (reserve stock → record expense → commit, với compensation), outbox at-least-once, CQRS read-model projection + gap recovery.
@@ -23,7 +23,7 @@ Order lifecycle (draft→place→cancel) + **persistent saga orchestration** (re
 11 migrations (V1 baseline → V11): saga persistence, audit/versions, recovery audit, outbox snapshot delivery, projection ordering + gap recovery, lifecycle deadlines, admin hardening, granular events, event idempotency.
 
 ## Health / observability
-Outbox health indicator; operational metrics; full Prometheus alerts + Grafana dashboard (observability/). Runbook: `docs/operations/ORDER-OPERATIONS-RUNBOOK.md`, SLO: `ORDER-SLO.md`.
+Outbox health indicator and operational metrics exist. Prometheus alerts and Grafana dashboard files are absent from this checkout; see [Observability](../operations/observability.md). Runbook: `docs/operations/ORDER-OPERATIONS-RUNBOOK.md`, SLO: `ORDER-SLO.md`.
 
 ## Known limitations
 - `OrderMqttPublisher` remains clean-session + random client-id until broker identity/ACL/TLS and per-instance identifiers are enabled together (ISSUE-10).

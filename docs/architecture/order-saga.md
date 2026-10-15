@@ -1,8 +1,6 @@
 # Order Saga — Architecture & Contract
 
-> Tài liệu kiến trúc saga đang CHẠY của order-service, sau khi gỡ dead-path
-> `OrderSagaOrchestrator` (ISSUE-03/08). Mục tiêu: người mới hiểu saga mà không phải đọc hết source.
-> Nguồn: đọc source trực tiếp. Khớp với implementation tại thời điểm cleanup.
+> Tài liệu kiến trúc saga của order-service. Reconcile chi tiết state transitions and retry behavior against current source/tests before operational use.
 
 ## 1. Owner & Participants
 
@@ -10,7 +8,7 @@
 - **Participants (single-step, idempotent, không phải saga owner):**
   - inventory-service — `reserveStock` / `commitReservation` / `releaseReservation`.
   - finance-service — `recordExpense` / `reverseExpense`.
-- **Không service nào khác sở hữu saga.** (⇒ chưa tách `smartfarm-saga`, xem `docs/audit/08`.)
+- **Không service nào khác sở hữu saga.** No separate saga backlog is present in this checkout.
 
 ## 2. Thành phần (3 lớp)
 
@@ -182,5 +180,4 @@ sequenceDiagram
 ## 14. Cố ý KHÔNG generic hóa (ranh giới trích xuất tương lai)
 
 `OrderSagaStepType`, forward/compensation executors (gọi inventory/finance stub), `graph()`,
-manual-review policy, `OrderEntity`/`OrderStatus` mapping. Chỉ trích xuất khi có saga owner thứ 2
-(xem backlog `SAGA-EN2` trong `docs/audit/08`).
+manual-review policy, `OrderEntity`/`OrderStatus` mapping. Chỉ trích xuất khi có saga owner thứ 2.

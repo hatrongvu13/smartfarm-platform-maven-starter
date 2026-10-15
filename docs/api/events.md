@@ -1,6 +1,6 @@
 # Events — SmartFarm Platform (MQTT)
 
-> Verified từ outbox/publisher/consumer @ HEAD (updated 2026-10-07, EVT-01/02/03 fixed). Broker: Mosquitto :1883.
+> Reconciled 2026-10-15 from MQTT publisher/consumer source and profile configuration. Source implementation does not by itself prove broker delivery or production rollout.
 
 ## Topic schema (chuẩn)
 `smartfarm/{tenantId}/{farmId}/domain/{aggregate}-{event}/v1` — payload = protobuf `DomainEvent`.
@@ -10,7 +10,7 @@
 |---------|---------|-------|:------:|
 | order | protobuf | `.../domain/order-changed/v1` | 🟢 |
 | livestock | protobuf | `.../domain/task-changed/v1` + lifecycle leaves | 🟢 |
-| health | protobuf (signed) | `.../domain/health-*/v1` | 🟢 all-profile (EVT-03 fixed) |
+| health | protobuf `DomainEvent` | `.../domain/health-*/v1` | 🟡 publisher/configuration exists; prod HMAC defaults off and broker delivery is deployment-dependent |
 | identity | protobuf `IdentityLifecycleEvent` | `smartfarm/{tenant}/_global/domain/{event}/v1` | 🟢 (EVT-01/02 fixed) |
 
 ## Consumers
@@ -25,10 +25,10 @@
 - Idempotency: order event idempotency (migration V11); identity inbox idempotency (ISSUE-17 INFO).
 
 ## MQTT message integrity (HMAC)
-Mọi publisher ký + consumer verify envelope `SFM1` HMAC-SHA256 (`libs/smartfarm-security`): dev bật sẵn, prod rollout 2 pha (default OFF). Live-verified 2026-10-07 (identity login.failed frame + 5/5 negative controls). Broker-level ACL+mTLS vẫn là sample config, chưa enable. Xem [`unresolved-items.md`](../audit/unresolved-items.md) (ISSUE-02).
+`MqttSecurityVerifier` and the `SFM1` HMAC-SHA256 envelope are implemented in `libs/smartfarm-security`. Current service profile files configure signing/verification on in dev and off by default in prod for configured publishers/consumers. The application defaults alone do not prove every integration path is wired or that deployed brokers enforce signatures. Broker-level authentication, ACL, and TLS remain separate controls and are not enabled by the repository's Mosquitto config. See [`mqtt-acl-mtls.md`](../security/mqtt-acl-mtls.md).
 
 ## Known issues (còn OPEN)
-- `smartfarm.events.mqtt.enabled` default `false` ở gateway (operator bật).
+- Gateway event subscription is configured by `smartfarm.events.mqtt.enabled` / `SMARTFARM_MQTT_EVENTS_ENABLED`, default `true` in `application.yml`; actual connection still depends on broker availability and profile configuration.
 - `identity.command.result` = command-ack hướng WS, feature-flag OFF (ISSUE-06 by-design, không phải bug).
 - ISSUE-10 (publisher cleanSession/client-id), ISSUE-13 (consumer timeout/circuit-breaker) — xem register.
 

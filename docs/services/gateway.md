@@ -1,6 +1,6 @@
 # Service: Gateway (`apps/smartfarm-gateway`)
 
-> Verified @ HEAD (updated 2026-10-07). ← [System Overview](../architecture/system-overview.md)
+> Implementation summary; verify current behavior against source and active configuration. ← [System Overview](../architecture/system-overview.md)
 
 ## Trách nhiệm
 Edge/ingress duy nhất của hệ thống. Spring WebFlux reactive, :8080. Terminate client REST + GraphQL, dịch sang gRPC fan-out tới backend; proxy auth sang identity qua HTTP (WebClient); bridge MQTT domain events → WebSocket cho browser.
@@ -26,7 +26,7 @@ Edge/ingress duy nhất của hệ thống. Spring WebFlux reactive, :8080. Term
 `mvn -f apps/smartfarm-gateway/pom.xml spring-boot:run` (profile `dev` tự nhận). Cần identity :8092 chạy trước.
 
 ## Health / observability
-`/actuator/health` (liveness/readiness). Prometheus/Grafana có cho gateway (observability/).
+`/actuator/health` (liveness/readiness). Application health instrumentation exists; Prometheus/Grafana deployment configuration is absent from this checkout. See [Observability](../operations/observability.md).
 
 ## Known limitations
 - health-service: đã nối gateway nhưng mới chỉ **dev REST facade** (GW-01 fixed; prod route chưa có).

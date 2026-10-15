@@ -23,8 +23,9 @@ DB RBAC (role→permission + per-farm scope); gRPC fail-closed exact-method auth
 
 ## Transport security
 - Nội bộ gRPC: TLS **chưa bật mặc định** (cần bật cho prod).
+- Identity service-token gRPC issue/exchange yêu cầu caller JWT. HTTP internal service-token endpoint yêu cầu header `IDENTITY_INTERNAL_API_SECRET` riêng cộng client credentials; shared header không mã hóa traffic, vì vậy endpoint phải ở private network và dùng TLS/mTLS khi đi qua host.
 - MQTT: broker hiện `allow_anonymous true` — **phải** cấu hình auth + TLS + ACL cho prod (ISSUE-02).
-- App-level MQTT message HMAC: đã implement, default-off; rollout theo thứ tự sign→verify.
+- App-level MQTT message HMAC: implementation exists; dev profiles enable it and production profiles default it off. Broker authentication/ACL/TLS are separate and remain unconfigured.
 
 ## Dependency & container scanning
 CI (`.github/workflows/build-push.yml`) sinh SBOM + provenance cho image GHCR. **Chưa có** scan-gate (fail-on-CVE) — đầu việc còn thiếu.
@@ -36,4 +37,4 @@ Correlation ID (`x-correlation-id`) xuyên gateway→service. gRPC audit configu
 Hiện chưa có runbook incident chuyên biệt ngoài `docs/operations/ORDER-OPERATIONS-RUNBOOK.md`. Đầu việc còn thiếu.
 
 ## Security checklist / đầu việc còn thiếu
-Xem [`docs/security/security-architecture.md` §7](docs/security/security-architecture.md) và [`docs/audit/unresolved-items.md`](docs/audit/unresolved-items.md).
+Xem [`docs/security/security-architecture.md`](docs/security/security-architecture.md), [`IDENTITY_BACKLOG_UPDATED.md`](IDENTITY_BACKLOG_UPDATED.md), và [`docs/roadmap.md`](docs/roadmap.md).

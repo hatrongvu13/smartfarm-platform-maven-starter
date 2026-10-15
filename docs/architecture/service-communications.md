@@ -1,6 +1,6 @@
 # Service Communications — SmartFarm Platform
 
-> Verified @ HEAD (updated 2026-10-07). Ma tran giao tiep thuc te (co loi goi trong source).
+> Communication matrix based on current source; verify active configuration and runtime before treating a path as deployable.
 
 ## Ma tran (from -> to)
 | From → To | Protocol | Chi tiết | Status |

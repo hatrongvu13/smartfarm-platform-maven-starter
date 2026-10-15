@@ -1,6 +1,6 @@
 # Gateway Mapping — SmartFarm Platform
 
-> Verified from `apps/smartfarm-gateway` controllers + `graphql/schema.graphqls` + `GatewaySecurityConfiguration` + `application.yml`, @ HEAD (updated 2026-10-07).
+> Mapping summary from gateway controllers, GraphQL schema, security configuration, and application configuration. Verify live behavior against the current source and active profile.
 > Gateway = Spring WebFlux reactive, :8080. REST + GraphQL (`/graphql`) edge → gRPC fan-out. Auth là ngoại lệ: HTTP-proxy sang identity qua WebClient.
 > `dev-only` = controller mang `@Profile("dev & !prod")` → biến mất ở prod.
 

@@ -1,11 +1,11 @@
 # System Overview — SmartFarm Platform
 
-> Verified from source @ HEAD `f113657` (updated 2026-10-07). Màu: 🟢 verified-implemented · 🟡 partial · 🔴 missing/not-mapped · ⬜ planned.
+> Reconciled 2026-10-15 against current source and profile configuration. Màu: 🟢 source implementation · 🟡 partial/limited · 🔴 missing/not-mapped · ⬜ planned. Runtime/security readiness still requires tests and configuration evidence.
 > Mỗi service node liên kết tới `docs/services/<name>.md`.
 
 ## 1. Kiến trúc tổng thể
 
-Monorepo Maven 14 module. **Edge** = `smartfarm-gateway` (Spring WebFlux reactive, :8080): nhận REST + GraphQL từ client, dịch sang **gRPC** gọi các service nội bộ. Giao tiếp sự kiện qua **MQTT** (Mosquitto :1883) theo outbox/inbox. Mỗi service có Postgres riêng (TEST/PROD) hoặc dùng chung `smartfarm` (dev).
+Monorepo Maven 14 module. **Edge** = `smartfarm-gateway` (Spring WebFlux reactive, :8080): nhận REST + GraphQL từ client, dịch sang **gRPC** gọi các service nội bộ. Giao tiếp sự kiện qua **MQTT** (Mosquitto :1883) theo outbox/inbox. Database behavior is module/profile-specific; identity refresh-session data is persisted through JPA, not Redis. Do not infer per-service database isolation solely from the diagram.
 
 - **Đồng bộ**: REST (client↔gateway, gateway↔identity auth), gRPC (gateway↔services, order↔inventory/finance).
 - **Bất đồng bộ**: MQTT domain events (outbox relay → broker → consumer/WS bridge).
@@ -27,7 +27,6 @@ flowchart TB
     hea["health :8087/9097"]:::ok
   end
   pg[("Postgres 17")]:::ok
-  redis[("Redis")]:::ok
   client -->|REST/GraphQL| gw
   gw -->|gRPC| id
   gw -->|gRPC| ord
@@ -38,7 +37,6 @@ flowchart TB
   gw -->|gRPC dev| hea
   gw -. "MQTT sub (WS bridge)" .-> broker
   id & ord & inv & fin & liv & rep & hea --> pg
-  id --> redis
   ord -. outbox .-> broker
   liv -. outbox .-> broker
   hea -. "outbox (protobuf)" .-> broker
@@ -51,7 +49,7 @@ flowchart TB
   classDef planned fill:#424242,color:#fff,stroke:#757575;
 ```
 
-🟢 **health-service** giờ đã nối vào gateway: dev REST facade `/api/v1/health/*` (observations/vaccinations/alerts) qua gRPC client `AnimalHealthService` (GW-01 fixed). 🟡 **finance** chỉ lộ 2 GraphQL dev-only.
+🟡 **health-service** has a development-profile REST facade for observations/vaccinations/alerts; six declared health RPCs have no handlers. Finance/reporting and other dev facades are profile-limited; check current controllers for exact routes.
 
 ## 3. Service dependency graph
 
@@ -197,13 +195,13 @@ flowchart LR
   classDef missing fill:#8e1b1b,color:#fff;
 ```
 
-🔐 **MQTT message auth (HMAC-SHA256 signed envelope)** đã wired vào **mọi** publisher (`sign`) và consumer (`verify`) qua `libs/smartfarm-security` (`MqttSecurityVerifier` + self-describing `SFM1` frame). `dev`: bật sẵn (sign+verify ON, shared dev secret). `prod`: default OFF, bật theo rollout 2 pha (sign-all → verify-all) — chi tiết [`mqtt-acl-mtls.md`](../security/mqtt-acl-mtls.md). Broker-level ACL + mTLS vẫn là sample config (chưa enable).
+🔐 Source configuration enables app-level MQTT HMAC in dev and defaults it off in production; broker-level ACL/TLS is not enabled by those settings. Verify individual publisher/consumer wiring before claiming platform-wide enforcement. See [`mqtt-acl-mtls.md`](../security/mqtt-acl-mtls.md).
 
-**Vấn đề đã xác minh** (chi tiết [`request-flows.md`](./request-flows.md) + [`unresolved-items.md`](../audit/unresolved-items.md)):
-- ✅ **EVT-01 (RESOLVED)**: identity giờ emit **protobuf `DomainEvent`** (payload `IdentityLifecycleEvent`, oneof field 24) → WS bridge parse được. Trước đây emit JSON nên bị drop.
+**Implementation notes** (see [`request-flows.md`](./request-flows.md), [`security-architecture.md`](../security/security-architecture.md), and the [identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)):
+- ✅ **EVT-01 (source implementation)**: identity publisher builds protobuf `DomainEvent` containing `IdentityLifecycleEvent` (oneof field 24); don't treat this as a statement about current broker delivery.
 - ✅ **EVT-02 (RESOLVED)**: identity topic chuẩn hoá về `smartfarm/{tenant}/_global/domain/{event}/v1` (bỏ segment `{aggr}-{event}`), khớp filter `smartfarm/+/+/domain/#`.
 - 🟡 inventory chỉ sub `task-changed/v1`; 6 leaf lifecycle livestock khác chỉ WS bridge nhận.
-- 🟢 health publisher giờ active mọi profile (gated `smartfarm.health.outbox.enabled`), ký HMAC, nhận broker cấu hình → **đã có đường event health ở prod** (EVT-03 fixed, Option A).
+- 🟡 health publisher/source configuration is not limited to a dev profile; deployed broker delivery and production HMAC signing depend on profile/environment values (prod HMAC defaults off).
 
 ---
 

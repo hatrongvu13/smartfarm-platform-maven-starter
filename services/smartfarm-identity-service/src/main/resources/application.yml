@@ -31,6 +31,8 @@ smartfarm:
       cert-chain: ${GRPC_CERT_CHAIN:}
       private-key: ${GRPC_PRIVATE_KEY:}
   identity:
+    internal-api:
+      secret: ${IDENTITY_INTERNAL_API_SECRET:}
     authorization:
       permission-sync:
         enabled: true
@@ -299,7 +301,6 @@ smartfarm:
       cleanup-interval: ${IDENTITY_OUTBOX_CLEANUP_INTERVAL:1h}
     service-token:
       ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
-      clients: {}
 management:
   endpoints:
     web:

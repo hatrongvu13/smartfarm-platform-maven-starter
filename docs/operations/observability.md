@@ -1,22 +1,20 @@
 # Observability — SmartFarm Platform
 
-> Verified từ `observability/` @ HEAD `eaaa112`.
+> Reconciled 2026-10-15 against the current checkout. The `observability/` configuration files are absent from this worktree, so the monitoring stack described in earlier revisions is not currently deployable from this repository state.
 
-## Hiện có
-- `observability/docker-compose.monitoring.yml` — Prometheus + Grafana.
-- Prometheus: `prometheus/prometheus.yml`, alerts `prometheus/order-alerts.yml`.
-- Grafana: dashboard `smartfarm-order-operations.json` + provisioning (datasource prometheus, dashboard order).
+## Present in source
 - Health endpoints: `/actuator/health` (+ liveness/readiness) mọi service.
 - Correlation ID (`x-correlation-id`) xuyên gateway→service.
 - Order: operational metrics + outbox health indicator.
 
 ## Phạm vi
-**Chỉ order + gateway** có Prometheus scrape + Grafana dashboard + alerts.
+Application metrics/health instrumentation exists, but no Prometheus/Grafana compose, scrape, alert, or dashboard configuration is present in the current checkout.
 
-## Thiếu (prod)
-- Dashboard/alerts cho 5 service còn lại.
+## Gaps
+- Restore or recreate the monitoring configuration before claiming a runnable Prometheus/Grafana stack.
+- Dashboard/alerts for all services.
 - Distributed tracing (không thấy OTel/Zipkin config).
 - Cluster-wide metrics aggregation.
-- Log aggregation (chỉ console/correlation hiện tại).
+- Log aggregation.
 
 ← [Deployment](deployment.md) · [Order SLO](ORDER-SLO.md)

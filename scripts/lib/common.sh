@@ -6,7 +6,7 @@
 #   source "$SCRIPT_DIR/../lib/common.sh"
 #
 # Provides: logging (INFO/WARN/ERROR/SUCCESS), dependency checks, env loading,
-# temp-file management, result aggregation, standardized exit codes.
+# result aggregation, standardized exit codes.
 #
 # This library hard-codes NO ports, hosts, endpoints or secrets. Everything comes
 # from scripts/config/test.env (copied from test.env.example). Values are verified
@@ -83,27 +83,13 @@ load_env() {
   GRAPHQL_URL="${GRAPHQL_URL:-$API_GATEWAY_URL/graphql}"
   AUTH_BASE_URL="${AUTH_BASE_URL:-$API_GATEWAY_URL}"   # auth is proxied through the gateway
   REQUEST_TIMEOUT_SECONDS="${REQUEST_TIMEOUT_SECONDS:-30}"
-  GRAPHQL_INTROSPECTION_ENABLED="${GRAPHQL_INTROSPECTION_ENABLED:-true}"
-  ALLOW_DESTRUCTIVE_TESTS="${ALLOW_DESTRUCTIVE_TESTS:-false}"
-  # Multi-tenant login body is {tenantId,email,password} (identity AuthService.Login).
+  # Multi-tenant login body accepts optional tenantId.
   TEST_TENANT_ID="${TEST_TENANT_ID:-}"
   TEST_USERNAME="${TEST_USERNAME:-}"
   TEST_PASSWORD="${TEST_PASSWORD:-}"
-  TEST_FARM_ID="${TEST_FARM_ID:-farm-1}"
   export API_GATEWAY_URL GRAPHQL_URL AUTH_BASE_URL REQUEST_TIMEOUT_SECONDS \
-         GRAPHQL_INTROSPECTION_ENABLED ALLOW_DESTRUCTIVE_TESTS \
-         TEST_TENANT_ID TEST_USERNAME TEST_PASSWORD TEST_FARM_ID
+         TEST_TENANT_ID TEST_USERNAME TEST_PASSWORD
 }
-
-# ---- Temp-file management ----------------------------------------------------
-# mktemp wrappers that auto-clean on exit. Honors TMPDIR.
-_TMP_FILES=()
-tmp_file() {
-  local f; f="$(mktemp "${TMPDIR:-/tmp}/smartfarm-test.XXXXXX")"
-  _TMP_FILES+=("$f"); printf '%s' "$f"
-}
-_cleanup_tmp() { [ "${#_TMP_FILES[@]}" -eq 0 ] || rm -f "${_TMP_FILES[@]}" 2>/dev/null || true; }
-trap _cleanup_tmp EXIT
 
 # ---- Result aggregation ------------------------------------------------------
 # A test file calls pass/fail/skip; summary() prints the tally and returns
