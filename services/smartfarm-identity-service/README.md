@@ -12,17 +12,12 @@ cd services/smartfarm-identity-service
 export IDENTITY_BOOTSTRAP_TENANT=farm-demo
 export IDENTITY_BOOTSTRAP_EMAIL=admin@example.test
 export IDENTITY_BOOTSTRAP_PASSWORD='replace-with-a-long-random-password'
-mkdir -p .local
-if [ ! -s .local/identity-mfa-encryption-key ]; then
-  (umask 077 && openssl rand -base64 32 > .local/identity-mfa-encryption-key)
-fi
-export IDENTITY_MFA_ENCRYPTION_KEY="$(cat .local/identity-mfa-encryption-key)"
 mvn clean spring-boot:run
 ```
 
 Dev DB is file-backed H2 under `.local/`; generated RSA keypair is local, ignored by Git. **Do not regenerate keys** after creating accounts unless you intentionally invalidate existing JWTs. Bootstrap creates the first admin only if the account does not already exist. Remove bootstrap environment variables after initial setup. Use `dev-tls` for any end-to-end tests. Never expose plaintext login/token endpoints outside an isolated localhost development session.
 
-The MFA encryption key is generated locally and must be kept private and stable while encrypted MFA enrollments are in use. Do not commit it or replace it casually: changing it makes existing MFA secrets unreadable. If the previously committed development key was used for MFA enrollments, reset those enrollments before switching to a new key.
+In the `dev` profile, Identity automatically creates a random 256-bit MFA encryption key at `.local/identity-mfa-encryption-key` on first launch and reuses it on subsequent launches; the file is owner-readable/writable and ignored by Git. Set `IDENTITY_MFA_ENCRYPTION_KEY` to override it, or `IDENTITY_MFA_ENCRYPTION_KEY_FILE` to change the local file path. For non-dev deployments, provide `IDENTITY_MFA_ENCRYPTION_KEY` as a Base64-encoded 32-byte secret; startup fails if it is missing or malformed. Keep the key private and stable while encrypted MFA enrollments are in use: replacing it makes existing MFA secrets unreadable. If the previously committed development key was used for MFA enrollments, reset those enrollments before switching to a new key.
 
 ## Connect the existing Gateway
 
@@ -100,7 +95,7 @@ curl -X PUT \
 
 ## Security design and remaining work
 
-- BCrypt strength 12, password length 12..72, login lockout after 5 failed attempts for 15 minutes; failed-attempt and refresh-reuse revocation updates commit even when HTTP 401 is returned, dummy password verification for unknown users.
+- BCrypt strength 12, password length of at least 12 characters and at most 72 UTF-8 bytes, login lockout after 5 failed attempts for 15 minutes; failed-attempt and refresh-reuse revocation updates commit even when HTTP 401 is returned, dummy password verification for unknown users.
 - Access tokens RS256, `kid`, issuer, audience, tenant, subject, 10-minute TTL. JWT revocation is **not instantaneous**: disabling an account or changing permissions stops new tokens but old access tokens remain valid until expiry; add distributed token-version/revocation if required.
 - Refresh tokens are 48-byte random opaque values, stored only as SHA-256 hashes, rotated and grouped by family; reusing a revoked token revokes the family. **Concurrency and replay handling require integration tests under PostgreSQL**.
 - Role and permission catalog is currently global; admin assignments are tenant-scoped, but admin role/permission *definitions* are global and require `SCOPE_identity:platform`. Bootstrap admin has this permission; ordinary tenant admins do not. Tenant role assignment cannot delegate `PLATFORM_ADMIN`. Review platform-admin provisioning before production.

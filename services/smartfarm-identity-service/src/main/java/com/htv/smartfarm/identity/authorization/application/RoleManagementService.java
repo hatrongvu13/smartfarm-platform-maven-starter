@@ -4,6 +4,7 @@ import com.htv.smartfarm.common.exception.ConflictException;
 import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.identity.authorization.domain.MembershipRoleEntity;
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
+import com.htv.smartfarm.identity.authorization.domain.PermissionCode;
 import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
 import com.htv.smartfarm.identity.authorization.domain.RolePermissionEntity;
 import com.htv.smartfarm.identity.authorization.domain.RolePermissionId;
@@ -501,6 +502,38 @@ public class RoleManagementService {
             String roleCode,
             String grantedBy
     ) {
+        assignRole(tenantId, userId, roleCode, grantedBy, null, false);
+    }
+
+    @Transactional
+    public void assignInitialRole(
+            String tenantId,
+            String userId,
+            String roleCode,
+            String grantedBy
+    ) {
+        assignRole(tenantId, userId, roleCode, grantedBy, null, true);
+    }
+
+    @Transactional
+    public void assignRole(
+            String tenantId,
+            String userId,
+            String roleCode,
+            String grantedBy,
+            String correlationId
+    ) {
+        assignRole(tenantId, userId, roleCode, grantedBy, correlationId, false);
+    }
+
+    private void assignRole(
+            String tenantId,
+            String userId,
+            String roleCode,
+            String grantedBy,
+            String correlationId,
+            boolean allowInvited
+    ) {
         requireText(tenantId, "tenantId");
         requireText(userId, "userId");
         requireText(roleCode, "roleCode");
@@ -540,7 +573,9 @@ public class RoleManagementService {
                     );
                 });
 
-        if (membership.getStatus() != MembershipStatus.ACTIVE) {
+        if (membership.getStatus() != MembershipStatus.ACTIVE
+                && !(allowInvited
+                && membership.getStatus() == MembershipStatus.INVITED)) {
             log.warn(
                     "Role assignment rejected because the membership is not "
                             + "active: tenantId={}, subjectId={}, "
@@ -596,7 +631,7 @@ public class RoleManagementService {
                 tenantId,
                 normalizedGrantedBy,
                 null,
-                null,
+                correlationId,
                 ROLE_ASSIGNED_EVENT,
                 MEMBERSHIP_AGGREGATE_TYPE,
                 membership.getId(),
@@ -613,7 +648,7 @@ public class RoleManagementService {
                 tenantId,
                 userId,
                 normalizedGrantedBy,
-                null,
+                correlationId,
                 ROLE_ASSIGNED_REASON
         );
 
@@ -839,9 +874,7 @@ public class RoleManagementService {
      * Permission codes are OAuth scope identifiers and are canonical lowercase.
      */
     private String normalizePermissionCode(String value) {
-        requireText(value, "permissionCode");
-
-        return value.trim().toLowerCase(Locale.ROOT);
+        return PermissionCode.normalize(value);
     }
 
     private String normalizePermissionPart(String value) {

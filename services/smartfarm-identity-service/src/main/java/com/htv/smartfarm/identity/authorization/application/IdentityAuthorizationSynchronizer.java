@@ -1,6 +1,7 @@
 package com.htv.smartfarm.identity.authorization.application;
 
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
+import com.htv.smartfarm.identity.authorization.domain.PermissionCode;
 import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
 import com.htv.smartfarm.identity.authorization.domain.RolePermissionEntity;
 import com.htv.smartfarm.identity.authorization.repository.PermissionRepository;
@@ -78,10 +79,9 @@ public class IdentityAuthorizationSynchronizer implements ApplicationRunner {
         int unchangedCount = 0;
 
         for (var definition : permissionSync.permissions()) {
-            String permissionCode = required(
-                    definition.code(),
-                    "permission.code"
-            ).toLowerCase(Locale.ROOT);
+            String permissionCode = PermissionCode.normalize(
+                    required(definition.code(), "permission.code")
+            );
 
             String resourceType = required(
                     definition.resourceType(),
@@ -182,6 +182,7 @@ public class IdentityAuthorizationSynchronizer implements ApplicationRunner {
         int updatedRoleCount = 0;
         int createdGrantCount = 0;
         int skippedProtectedRoleCount = 0;
+        int skippedUserManagedRoleCount = 0;
 
         for (var tenant : existingTenants) {
             for (var definition : configuredRoles) {
@@ -218,6 +219,16 @@ public class IdentityAuthorizationSynchronizer implements ApplicationRunner {
 
                 if (existingRole.isPresent()) {
                     role = existingRole.get();
+                    if (!role.isSystemRole()) {
+                        skippedUserManagedRoleCount++;
+                        log.warn(
+                                "Configured role synchronization skipped for "
+                                        + "user-managed role: tenantId={}, roleCode={}",
+                                tenant.getId(),
+                                roleCode
+                        );
+                        continue;
+                    }
                     role.rename(roleName);
                     updatedRoleCount++;
                 } else {
@@ -255,13 +266,15 @@ public class IdentityAuthorizationSynchronizer implements ApplicationRunner {
                 "Tenant role synchronization completed: tenantCount={}, "
                         + "configuredRoleCount={}, createdRoleCount={}, "
                         + "updatedRoleCount={}, createdGrantCount={}, "
-                        + "skippedProtectedRoleCount={}",
+                        + "skippedProtectedRoleCount={}, "
+                        + "skippedUserManagedRoleCount={}",
                 existingTenants.size(),
                 configuredRoles.size(),
                 createdRoleCount,
                 updatedRoleCount,
                 createdGrantCount,
-                skippedProtectedRoleCount
+                skippedProtectedRoleCount,
+                skippedUserManagedRoleCount
         );
     }
 
@@ -273,10 +286,9 @@ public class IdentityAuthorizationSynchronizer implements ApplicationRunner {
         int createdGrantCount = 0;
 
         for (String rawPermissionCode : configuredPermissionCodes) {
-            String permissionCode = required(
-                    rawPermissionCode,
-                    "role.permissionCode"
-            ).toLowerCase(Locale.ROOT);
+            String permissionCode = PermissionCode.normalize(
+                    required(rawPermissionCode, "role.permissionCode")
+            );
 
             PermissionEntity permission = permissions
                     .findById(permissionCode)

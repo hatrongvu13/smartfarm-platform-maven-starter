@@ -24,16 +24,15 @@ administration.
   `PlatformAuthorizationAdministrationService`.
 - Existing tenant permission mutation RPCs are retained temporarily with the
   protobuf `deprecated` option for wire compatibility.
-- Deprecated tenant mutation RPCs must be retired after consumers migrate.
+- Deprecated tenant mutation RPCs fail with `FAILED_PRECONDITION`; tenant-scoped
+  application mutation APIs have been removed.
 - A global permission mutation must increment tenant authorization versions for
-  every affected tenant, or use an equivalent global catalog version checked by
-  downstream authorization enforcement.
+  every affected tenant in the same transaction.
 
 ## Consequences
 
 - Platform administration becomes the only permission-definition writer.
 - Tenant role management remains tenant scoped.
 - Permission-reference validation uses the global catalog.
-- Contract and schema guard tests prevent the hybrid model from returning.
-- A later phase must implement global invalidation and disable deprecated tenant
-  mutation methods at runtime.
+- Contract, schema, and application API guard tests prevent the hybrid model
+  from returning.

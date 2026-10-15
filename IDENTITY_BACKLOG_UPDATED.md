@@ -1,31 +1,31 @@
 # Identity Service Unification Backlog
 
-> Scope: SmartFarm Identity Service  
+> Scope: SmartFarm Identity Service, current implemented product boundary (not a general-purpose OAuth/OIDC or user-directory platform)
 > Updated: 2026-10-15
 > Strategy: clean rebuild, no legacy schema compatibility  
 > Progress legend: `[x]` complete, `[-]` partial/scaffolded, `[ ]` pending, `[N/A]` removed by architecture decision
 
 ## Current progress summary
 
-- Completed: **43**
-- Partial/scaffolded: **32**
-- Pending: **49**
-- Removed by clean-rebuild decision (N/A): **3**
-- Total checklist entries: **127**
+- Completed: **52**
+- Partial/scaffolded: **30**
+- Pending: **21**
+- Deferred/out of current scope: **7**
+- Total in-scope checklist entries: **103** (110 marked entries including deferred/N/A)
+- Remaining in-scope work: **51 entries** (30 partial, 21 pending); several partial entries are release evidence rather than new implementation.
 - Authority: implementation and tests under `services/smartfarm-identity-service`, plus the contract in `libs/smartfarm-proto/src/main/proto/smartfarm/identity/v1/identity.proto`. A contract or bean alone is not proof of secure runtime exposure or production readiness.
-- Checklist completion: **34%** marked complete (43/127; partial items are not counted as complete).
-- Runtime/source status (2026-10-15): Identity binds three dev service clients; service-token issuance is now gRPC-only. Gateway uses `ExchangeDelegatedToken` with a verified user JWT, and Order/Reporting use `IssueServiceToken` with client credentials. All five Identity adapters are marked `@GrpcService`; a local Netty server registration test verifies all five services, all five token RPC methods, successful machine-token RPC dispatch, and rejection of unauthenticated delegated exchange. Full Spring Boot application-context/multi-service runtime flow remains unverified. Identity gRPC binds to loopback by default; cross-host TLS/mTLS is not configured. First-superadmin creation now locks a seeded singleton database row within the bootstrap transaction; a concurrent PostgreSQL integration test is present but has not been run here.
-- Current focus: verify full Spring Boot gRPC runtime wiring and cross-host transport before production; run PostgreSQL bootstrap/refresh concurrency tests; continue permission ownership and mutation/version/outbox coverage.
+- Checklist completion: **50%** (52/103; partial items are not counted as complete).
+- Runtime/source status (2026-10-15): Identity has public authentication/JWKS over HTTP and internal administration/token issuance over gRPC. Gateway delegated exchange uses a verified user JWT; Order/Reporting use allowlisted client credentials. The complete Spring Boot context starts with the test profile/H2 and registers all five gRPC adapters; real Gateway/Order/Reporting calls remain unverified. Identity binds gRPC to loopback by default; cross-host deployment is unsupported until TLS/mTLS is configured. Bootstrap has a row-lock implementation and PostgreSQL concurrency test, but the PostgreSQL gates have not been run because Docker is unavailable.
+- Scope decision: release readiness means the existing SmartFarm auth, tenant membership, authorization, MFA, refresh-session, and service-token flows work reliably. New directory/farm-scope/user-lifecycle RPCs and OAuth/OIDC compliance are product extensions, not blockers unless separately requested.
+- Current focus: close downstream/PostgreSQL release evidence, remaining transaction/version/outbox gaps, and production deployment controls. Tenant-user paging/search now runs in the database. Do not count future API wishlist items as unfinished Identity implementation.
 
-## Working rules
+## Target architecture (fixed scope)
 
-- [x] REST is limited to public authentication/OAuth-facing flows, JWKS, health, and operations. Internal service-token issuance is not exposed over HTTP.
-- [x] Identity internal read/write and token-issuance operations use gRPC; all five adapters now register through Spring gRPC and local live token RPC registration is tested. Full application-context/multi-service runtime and cross-host transport proof remain open.
-- [x] MQTT is an adapter and invokes application services rather than repositories.
-- [ ] No transport adapter mutates business repositories directly. Direct role assignment paths remain.
-- [x] Current authentication and service-token application flows issue through `TokenGrantFacade`; legacy signing helpers remain on `TokenService` but have no current application callers.
-- [-] Authorization mutations update versions and outbox atomically. Coverage is incomplete for update/delete paths.
-- [x] Proto additions preserve existing services, messages, field numbers, package, and `IdentityProto` outer classname.
+- HTTP serves authentication, JWKS, health, and operations; Identity is not an OAuth/OIDC authorization server.
+- Internal administration and service-token operations use gRPC. All five adapters have local registration/security coverage; Boot-context, downstream-call, and cross-host transport proof remain release gates.
+- MQTT is an adapter to application services; current token issuance flows use `TokenGrantFacade`.
+- Authorization mutations must commit version changes and invalidation events atomically; coverage is incomplete for some update/delete paths.
+- Preserve existing proto services, messages, field numbers, package, and `IdentityProto` outer classname.
 
 ---
 
@@ -33,17 +33,17 @@
 
 ### ID-01.1 Permission ownership
 
-- [-] **P0** Decision made: permission catalog is global and platform-owned.
-- [ ] **P0** Record the decision as an ADR in the repository.
+- [x] **P0** Permission catalog is global and platform-owned.
+- [x] **P0** Record the decision as an ADR in the repository (`docs/adr/ADR-001-global-permission-catalog.md`).
 - [x] **P0** Tenant permission create/update/delete RPCs are deprecated and rejected; Gateway catalog CRUD routes to platform administration gRPC.
 - [N/A] **P0** Tenant-scoped permission schema.
-- [ ] **P0** Remove the current hybrid behavior completely.
-- [ ] **P0** Enforce ownership in schema, services, and tests.
+- [x] **P0** Remove the current hybrid behavior completely; tenant RPCs reject mutation and tenant-scoped application mutation APIs are removed.
+- [x] **P0** Enforce ownership in schema, services, and tests: global schema, platform administration boundary, all-tenant invalidation, and release guards are present.
 
 ### ID-01.2 Channel responsibilities
 
-- [-] **P0** Keep public authentication in REST only.
-- [-] **P0** Keep internal administration in gRPC only.
+- [x] **P0** Keep public authentication in HTTP only (not OAuth/OIDC); internal administration is gRPC-only.
+- [-] **P0** Keep internal administration in gRPC; adapters and full test-profile/H2 application context are verified, while real downstream calls remain open.
 - [x] **P0** MQTT commands call application services.
 - [ ] **P1** Add architecture tests preventing repository injection into transport adapters.
 
@@ -75,11 +75,11 @@
 ### ID-02.3 Service-token issuance
 
 - [x] **P0** Reject actor delegation when the client has not enabled delegation.
-- [-] **P0** `IdentityTokenService` contract merged without removing existing proto symbols.
-- [-] **P0** `IdentityTokenGrpcService` implements all five proto RPCs. Machine issue validates allowlisted client credentials; delegated exchange additionally requires a JWT-bound actor/tenant. Service, interceptor, and live-server tests cover credential rejection, delegated identity, public machine-issue policy, session authorities, registration, and issue/exchange dispatch. Full application-context and multi-service runtime proof remains open.
-- [-] **P0** Machine token issue is gRPC client-credential authenticated on a loopback listener; delegated exchange additionally requires a valid caller JWT. Local server registration/reachability is tested; cross-host TLS/mTLS remains a production gate.
+- [x] **P0** `IdentityTokenService` contract and all five RPCs exist without removing existing proto symbols.
+- [-] **P0** `IdentityTokenGrpcService` implements all five proto RPCs. Machine issue validates allowlisted client credentials; delegated exchange additionally requires a JWT-bound actor/tenant. Service, interceptor, live-server, and full test-profile context tests cover credentials, delegated identity, method policy, registration, and dispatch; real multi-service calls remain open.
+- [-] **P0** Machine token issue is gRPC client-credential authenticated on a loopback listener; delegated exchange additionally requires a valid caller JWT. Local server registration and test-profile startup are verified; cross-host TLS/mTLS remains a production gate.
 - [x] **P0** Retire duplicate HTTP service-token issuance; Gateway, Order, and Reporting now use the Identity gRPC token service.
-- [ ] **P0** Move service credentials to a secret manager and support rotation.
+- [ ] **P0** Require externally supplied service credentials and a documented/rehearsed rotation path; secret-manager vendor integration is deployment-specific.
 - [-] **P1** Structured token audit exists; metrics and rate limits remain.
 
 ---
@@ -90,12 +90,11 @@
 
 - [-] **P0** Clean schema includes `sf_refresh_session` and `sf_refresh_token`.
 - [-] **P1** Clean schema contains lifecycle timestamps and replacement link.
-- [ ] **P1** Add client/device metadata.
 - [x] **P0** Implement JPA entities and repositories for refresh sessions and token hashes.
 - [x] **P0** Implement `RefreshSessionPort` with JPA persistence and rotation.
 - [x] **P0** Distinguish replay (`REFRESH_TOKEN_REUSE`) from administrative revocation reasons.
 - [-] **P0** Replay revocation uses a `REQUIRES_NEW` transaction before returning an error; add PostgreSQL integration coverage proving the revoked session and unusable refresh-token family remain committed after the request fails.
-- [-] **P1** Expiry indexes exist; cleanup job remains.
+- [x] **P1** Expiry indexes and scheduled cleanup job exist; PostgreSQL execution/retention behavior remains part of integration validation.
 
 ### ID-03.2 Session gRPC
 
@@ -109,7 +108,7 @@
 
 - [-] **P0** Authorization versions exist; enforcement is not complete.
 - [-] **P0** Subject and tenant mutation methods exist; coverage is incomplete.
-- [ ] **P1** Decide whether login lock revokes existing access authorization.
+- [N/A] **P1** Decide whether login lock revokes existing access authorization: current access tokens are short-lived and lockout gates new authentication; immediate token revocation is outside the current contract.
 
 ---
 
@@ -117,27 +116,30 @@
 
 ### ID-04.1 Model gaps
 
-- [ ] **P0** Implement or remove `country_code` and `address` end-to-end.
+- [N/A] **P0** `country_code` and `address` are legacy proto fields without current product/domain support; defer until profile requirements are approved.
 - [ ] **P0** Add authorization versions to principal/authorization responses.
 - [ ] **P1** Add membership update/version fields.
 - [ ] **P1** Add expected versions to role, permission, and account mutations.
 - [x] **P1** Use `Locale.ROOT` for normalization.
 - [x] **P1** Reuse injected `IdentityProtoMapper`.
-- [ ] **P1** Replace authenticator type/status strings with enums.
+- [N/A] **P1** Replace authenticator type/status strings with enums: retain the existing proto v1 string fields for wire compatibility; consider enums only in a versioned contract change.
 - [ ] **P1** Add structured gRPC error details.
-- [ ] **P1** Align permission validation with domain `PermissionCode`.
+- [x] **P1** Align permission validation across gRPC, tenant/platform role mutation, and startup synchronization with domain `PermissionCode`.
 
-### ID-04.2 Missing RPCs
+### ID-04.2 Contract coverage
 
-- [ ] `ListPrincipalMemberships`
-- [ ] `GetUser`, `UpdateUser`, `DeleteOrAnonymizeUser`
-- [ ] `InviteUser`, `RemoveMembership`
-- [ ] `GrantFarmAccess`, `RevokeFarmAccess`, `ListFarmScopes`
-- [ ] `GetPermission`
-- [ ] `ResetUserPassword`
 - [x] `IdentityTokenService.ListSessions`, `RevokeSession`, `RevokeAllSessions`: adapter and application implementation exist.
-- [-] Internal token issue/exchange RPCs: adapter and client-secret validation exist; machine issue does not require a pre-existing bearer JWT, while delegated exchange requires a verified user JWT. Dedicated server-level registration/enforcement tests are absent.
-- [ ] Platform permission CRUD.
+- [-] Internal token issue/exchange RPCs: adapter and client-secret validation exist; machine issue does not require a pre-existing bearer JWT, while delegated exchange requires a verified user JWT. Local server and full Boot-context tests pass; downstream proof remains.
+- [x] Platform permission CRUD: Get/Create/Update/Delete global permission RPCs are implemented and method-protected.
+
+### ID-04.3 Deferred contract extensions (not release blockers)
+
+- Separate Get/Update/Delete-or-anonymize user and explicit invitation/removal RPCs.
+- Farm-scope grant/revoke/list RPCs; current farm authorization remains in its existing authorization boundary.
+- Admin password-reset RPC and principal-membership listing.
+- Per-session client/device metadata.
+- OAuth/OIDC protocol compliance and discovery/PKCE/browser SSO.
+- Versioned proto enum replacements for authenticator/status strings.
 
 ---
 
@@ -149,29 +151,26 @@
 - [ ] **P0** Route all account/profile entry points through shared command services.
 - [-] **P1** Entities use optimistic versions; not all RPCs expose expected/new versions.
 - [x] **P1** Password timestamps use injected `Clock` where patched.
-- [ ] **P0** Reconcile password maximum length.
-- [ ] **P0** Replace in-memory user filtering with database paging/search.
+- [x] **P0** Reconcile password maximum length: Identity limits passwords to at most 72 UTF-8 bytes and routes oversized login comparisons through the dummy hash.
+- [x] **P0** Replace in-memory user filtering with database paging/search; filtering, ordering, and offset-based slicing now execute in the database.
 - [ ] **P0** Separate create-account from link-existing-account.
-- [ ] **P1** Add disable/anonymize/retention workflow.
 
 ### ID-05.2 Membership/farm scope
 
 - [-] **P0** Membership mutations mostly use `TenantMembershipService`.
-- [ ] **P0** Add farm-scope RPCs.
-- [ ] **P0** Revoke tenant sessions consistently after suspend/disable.
+- [x] **P0** Revoke tenant refresh sessions after suspend/disable; account disable revokes account sessions.
 - [-] **P1** Actor/correlation/reason are propagated on many paths; idempotency remains missing.
 
 ---
 
 ## EPIC ID-06: Role and permission paths
 
-- [ ] **P0** Remove direct initial-role save from tenant user creation.
-- [ ] **P0** Remove direct role save from public registration.
+- [x] **P0** Remove direct initial-role save from tenant user creation; initial assignment now goes through `RoleManagementService`, which atomically records the role event and authorization invalidation.
+- [x] **P0** Remove direct role save from public registration; default USER assignment now uses `RoleManagementService`.
 - [x] **P0** MQTT role revoke carries actor and correlation.
 - [-] **P0** Role/permission events and versions are implemented on some, not all, mutations.
 - [ ] **P1** Persist role description or remove the proto field.
-- [-] **P1** Authorization synchronizer is intended for system definitions; ownership marker remains.
-- [ ] **P1** Add explicit catalog ownership marker.
+- [-] **P1** Authorization synchronizer marks configured roles as system roles, but currently updates matching roles regardless of their existing ownership; protect user-managed roles before synchronization can overwrite them.
 - [x] **P0** Remove `SuperAdminWildcardGrantRunner` in the clean rebuild.
 - [N/A] Convert startup runner to an upgrade migration.
 
@@ -196,9 +195,9 @@
 - [x] **P1** Inject and reuse `IdentityProtoMapper`.
 - [x] **P1** Remove duplicate/unused logger imports.
 - [x] **P1** Use injected clock for password timestamps.
-- [ ] **P0** Disable Open Session in View and fix transaction boundaries.
+- [-] **P0** Disable Open Session in View for all profiles; transaction-boundary review remains incomplete.
 - [ ] **P1** Fail startup when MQTT commands are enabled without verification.
-- [ ] **P1** Use PostgreSQL `FOR UPDATE SKIP LOCKED` for inbox/outbox.
+- [N/A] **P1** Require PostgreSQL `FOR UPDATE SKIP LOCKED`: current row locking is sufficient for correctness; use skip-locked only if measured multi-worker contention requires it.
 - [-] **P1** Clean baseline adds core FKs; runtime validation and orphan tests remain.
 
 ---
@@ -216,12 +215,12 @@
 
 ## EPIC ID-10: Test/release gates
 
-- [-] Existing services have method policies; token issue/exchange and session-method enforcement are covered through `JwtServerInterceptor` tests. Local server registration/reachability is tested; full application-context multi-service runtime remains.
-- [-] Delegated-actor/correlation tests exist; add token RPC tests covering credential rejection, audience allowlisting, delegation, and method security.
+- [-] Existing services have method policies; token issue/exchange and session-method enforcement are covered through `JwtServerInterceptor` tests. Local registration and test-profile Boot context pass; multi-service runtime remains.
+- [-] Token RPC credential/delegation/method-security unit and live-server tests exist; full Spring context and downstream-client proof remains.
 - [-] Wildcard tests exist; full grant claim-contract tests remain.
-- [ ] Permission ownership tests.
+- [-] Permission ownership tests: static release guard exists; PostgreSQL transaction/invalidation coverage remains.
 - [ ] Proto compatibility CI.
-- [ ] Concurrent refresh rotation/replay test.
+- [ ] PostgreSQL concurrent refresh rotation/replay and commit-on-error tests.
 - [-] Concurrent bootstrap PostgreSQL test is present but has not been executed.
 - [ ] Concurrent authorization-version test.
 - [ ] Inbox/outbox multi-worker test.
@@ -230,13 +229,23 @@
 
 ## Next execution plan (ranked)
 
-1. **P0 — Complete gRPC runtime proof.** All five adapters are now Spring-discoverable and a live local Netty test proves registration plus machine issue/delegated-auth boundaries. Next verify the full Spring Boot application context and Gateway/Order/Reporting calls; do not treat mocked-dependency tests as multi-service proof. Starting points: `IdentityGrpcServerRegistrationTest`, `IdentityGrpcSecurityConfiguration`, and `GrpcRequestSecurityDelegatedActorTest`.
-2. **P0 — Prove and harden service-token exposure.** Keep the single gRPC issuance boundary and configure TLS/mTLS before cross-host deployment. Keep listener binding private and never log credentials/tokens.
-3. **P0 — Prove bootstrap atomicity.** Bootstrap now locks a seeded singleton DB row before checking for an existing super-admin; a concurrent PostgreSQL integration test covers one-winner behavior. Run that test against PostgreSQL before marking the gate complete. Bootstrap no longer generates or logs a TOTP URI; authenticated MFA enrollment is a separate challenge flow.
-4. **P1 — Verify refresh replay/session behavior end to end.** Add PostgreSQL tests for `JpaRefreshSessionAdapter.rotate`, `RefreshReplayRevocationService` commit-on-error, replay family rejection, rotation races, revoke/revoke-all, expiry cleanup, and tenant isolation. Extend `RefreshSessionTenantIsolationIT` and `RefreshSessionCleanupIT`; unit tests do not prove transaction behavior.
-5. **P1 — Close authorization mutation/version gaps.** Audit `DefaultTenantIdentityAdministrationService`, `RoleManagementService`, `PermissionCatalogMutationService`, and `AuthorizationMutationCoordinator`; test that every supported mutation updates version/outbox atomically and that permission ownership is consistently enforced.
-6. **P1/P2 — Finish contract and operations gaps.** Reconcile remaining model/RPC gaps in `identity.proto`, `IdentityProtoMapper`, and gRPC services; add proto compatibility, paging/search, and expected-version tests. Then harden production transport/configuration (gRPC TLS, secret rotation, MQTT broker ACL/TLS, Flyway/profile validation) and document completion only when source and tests prove it.
+1. **P0 release evidence — downstream and PostgreSQL.** Test-profile Spring Boot startup and gRPC registration pass; verify real Gateway/Order/Reporting calls, then run Flyway/Hibernate validation plus bootstrap, refresh replay/rotation, session cleanup/isolation, and permission invalidation integration tests on PostgreSQL. H2/unit tests do not replace these gates.
+2. **P0 deployment gate — production secrets and transport.** Require externally supplied/rotatable service credentials and MFA encryption key; keep gRPC loopback-only unless TLS/mTLS is enabled for cross-host deployment. Secret-manager vendor integration is deployment-specific, not an Identity code abstraction.
+3. **P1 functional correctness.** Replace in-memory tenant-user filtering with database paging/search; disable Open Session in View and make transaction boundaries explicit; close remaining authorization version/outbox gaps and validate all supported mutations.
+4. **P1 operational resilience.** Add PostgreSQL concurrent refresh/bootstrap and outbox/inbox multi-worker proof; validate MFA pending-enrollment expiry, challenge cleanup, replay, and recovery-code concurrency.
+5. **P2 contract/release polish.** Add proto compatibility CI and structured gRPC error details; complete documentation reconciliation. Keep new user-lifecycle/farm-scope RPCs and v1 enum changes deferred until requirements and compatibility policy are approved.
+
+## Remaining effort estimate
+
+Estimates are implementation effort for one engineer, excluding review/release scheduling and external infrastructure provisioning:
+
+- **P0 release evidence (about 2–4 engineer-days):** downstream gRPC calls; PostgreSQL Flyway/validate; bootstrap and refresh/session/permission transaction tests (test-profile application startup is verified).
+- **P0 production deployment controls (about 1–3 engineer-days, infra-dependent):** inject/rotate service and MFA keys; prove loopback-only deployment or configure cross-host TLS/mTLS. Secret-manager vendor setup is outside this code estimate.
+- **P1 functional/data correctness (about 2–5 engineer-days):** remaining transaction cleanup; complete authorization version/outbox coverage and paging for other catalogs.
+- **P1 resilience and release polish (about 2–4 engineer-days):** MFA lifecycle/concurrency tests, outbox/inbox multi-worker validation, proto compatibility and gRPC error details.
+
+**Current readiness:** core feature shape is implemented, but production readiness is not proven until both P0 gates pass. Estimates assume PostgreSQL and deployment infrastructure are available; infrastructure or contract changes can increase them.
 
 ## Reconciled checklist totals
 
-Totals count checklist entries only (all epics and working rules; exclude headings and prose): **43 complete + 32 partial + 49 pending + 3 N/A = 127 entries**. Recalculate these numbers whenever a marker changes.
+There are **52 complete + 30 partial + 21 pending = 103 in-scope entries**, plus **7 N/A/deferred entries** (110 marked entries total). Completion is **50%** (complete / in-scope); partial work is not counted as complete. Keep this summary synchronized with the checklist.

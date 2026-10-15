@@ -27,20 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PermissionCatalogMutationService {
 
-    private static final String PERMISSION_CATALOG_CREATED =
-            "PERMISSION_CATALOG_CREATED";
-
-    private static final String PERMISSION_CATALOG_UPDATED =
-            "PERMISSION_CATALOG_UPDATED";
-
-    private static final String PERMISSION_CATALOG_DELETED =
-            "PERMISSION_CATALOG_DELETED";
-
     private static final String WILDCARD_PERMISSION = "*";
 
     private final PermissionRepository permissions;
     private final RolePermissionRepository grants;
-    private final TenantPermissionCatalogAdministrationService tenantMutations;
 
     @Transactional
     public PermissionEntity createGlobal(
@@ -65,155 +55,6 @@ public class PermissionCatalogMutationService {
     @Transactional
     public boolean deleteGlobal(String code) {
         return deleteInternal(code);
-    }
-
-    @Transactional
-    public PermissionEntity create(
-            String tenantId,
-            String code,
-            String resourceType,
-            String action,
-            String description,
-            String actorId,
-            String correlationId
-    ) {
-        log.debug(
-                "Creating permission catalog entry: tenantId={}, "
-                        + "permissionCode={}, resourceType={}, action={}, "
-                        + "actorId={}, correlationId={}",
-                tenantId,
-                code,
-                resourceType,
-                action,
-                actorId,
-                correlationId
-        );
-
-        PermissionEntity permission = tenantMutations.apply(
-                tenantId,
-                actorId,
-                correlationId,
-                PERMISSION_CATALOG_CREATED,
-                () -> createInternal(
-                        code,
-                        resourceType,
-                        action,
-                        description
-                )
-        );
-
-        log.info(
-                "Permission catalog entry created successfully: "
-                        + "tenantId={}, permissionCode={}, resourceType={}, "
-                        + "action={}, actorId={}, correlationId={}",
-                tenantId,
-                permission.getCode(),
-                permission.getResourceType(),
-                permission.getAction(),
-                actorId,
-                correlationId
-        );
-
-        return permission;
-    }
-
-    @Transactional
-    public PermissionEntity update(
-            String tenantId,
-            String code,
-            String resourceType,
-            String action,
-            String description,
-            String actorId,
-            String correlationId
-    ) {
-        log.debug(
-                "Updating permission catalog entry: tenantId={}, "
-                        + "permissionCode={}, resourceType={}, action={}, "
-                        + "actorId={}, correlationId={}",
-                tenantId,
-                code,
-                resourceType,
-                action,
-                actorId,
-                correlationId
-        );
-
-        PermissionEntity permission = tenantMutations.apply(
-                tenantId,
-                actorId,
-                correlationId,
-                PERMISSION_CATALOG_UPDATED,
-                () -> updateInternal(
-                        code,
-                        resourceType,
-                        action,
-                        description
-                )
-        );
-
-        log.info(
-                "Permission catalog entry updated successfully: "
-                        + "tenantId={}, permissionCode={}, resourceType={}, "
-                        + "action={}, actorId={}, correlationId={}",
-                tenantId,
-                permission.getCode(),
-                permission.getResourceType(),
-                permission.getAction(),
-                actorId,
-                correlationId
-        );
-
-        return permission;
-    }
-
-    @Transactional
-    public boolean delete(
-            String tenantId,
-            String code,
-            String actorId,
-            String correlationId
-    ) {
-        log.debug(
-                "Deleting permission catalog entry: tenantId={}, "
-                        + "permissionCode={}, actorId={}, correlationId={}",
-                tenantId,
-                code,
-                actorId,
-                correlationId
-        );
-
-        boolean deleted = tenantMutations.apply(
-                tenantId,
-                actorId,
-                correlationId,
-                PERMISSION_CATALOG_DELETED,
-                () -> deleteInternal(code)
-        );
-
-        if (deleted) {
-            log.info(
-                    "Permission catalog entry deleted successfully: "
-                            + "tenantId={}, permissionCode={}, actorId={}, "
-                            + "correlationId={}",
-                    tenantId,
-                    code,
-                    actorId,
-                    correlationId
-            );
-        } else {
-            log.debug(
-                    "Permission catalog deletion skipped because the permission "
-                            + "does not exist: tenantId={}, permissionCode={}, "
-                            + "actorId={}, correlationId={}",
-                    tenantId,
-                    code,
-                    actorId,
-                    correlationId
-            );
-        }
-
-        return deleted;
     }
 
     PermissionEntity createInternal(

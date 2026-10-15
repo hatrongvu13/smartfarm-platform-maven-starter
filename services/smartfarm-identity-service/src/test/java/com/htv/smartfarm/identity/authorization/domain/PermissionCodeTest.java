@@ -1,6 +1,7 @@
 package com.htv.smartfarm.identity.authorization.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import com.htv.smartfarm.common.contract.PermissionCodeContract;
 import org.junit.jupiter.api.Test;
@@ -15,5 +16,15 @@ class PermissionCodeTest {
                 .isEqualTo(PermissionCodeContract.WILDCARD);
         assertThat(PermissionCode.action(PermissionCodeContract.WILDCARD))
                 .isEqualTo(PermissionCodeContract.WILDCARD);
+    }
+
+    @Test
+    void normalizesCanonicalCodesAndRejectsSyntaxNotAcceptedByRuntimeAuthorities() {
+        assertThat(PermissionCode.normalize(" Identity:User:Read "))
+                .isEqualTo("identity:user:read");
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> PermissionCode.normalize("identity.user:read"));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> PermissionCode.normalize("identity_user:read"));
     }
 }

@@ -1,6 +1,7 @@
 package com.htv.smartfarm.identity.authorization;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.Arrays;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,29 @@ class GlobalPermissionReleaseGateTest {
         assertThat(tenant).doesNotContain("dynamicAuthorization.createPermission")
                 .doesNotContain("dynamicAuthorization.updatePermission")
                 .doesNotContain("dynamicAuthorization.deletePermission");
+        assertThat(Arrays.stream(
+                        com.htv.smartfarm.identity.authorization.application
+                                .DynamicAuthorizationAdministrationService.class
+                                .getDeclaredMethods()
+                )
+                .map(java.lang.reflect.Method::getName))
+                .doesNotContain(
+                        "createPermission",
+                        "updatePermission",
+                        "deletePermission"
+                );
+        assertThat(Arrays.stream(
+                        com.htv.smartfarm.identity.authorization.application
+                                .PermissionCatalogMutationService.class
+                                .getDeclaredMethods()
+                )
+                .map(java.lang.reflect.Method::getName))
+                .contains(
+                        "createGlobal",
+                        "updateGlobal",
+                        "deleteGlobal"
+                )
+                .doesNotContain("create", "update", "delete");
     }
     private int count(String text,String value){int count=0,index=0;while((index=text.indexOf(value,index))>=0){count++;index+=value.length();}return count;}
 }

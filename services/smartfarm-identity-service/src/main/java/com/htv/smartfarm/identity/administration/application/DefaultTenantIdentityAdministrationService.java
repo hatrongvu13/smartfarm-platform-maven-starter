@@ -1,7 +1,6 @@
 package com.htv.smartfarm.identity.administration.application;
 
 import java.time.Clock;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -90,18 +89,19 @@ public class DefaultTenantIdentityAdministrationService
     public PageResult<UserSummaryData> listUsers(String tenantId, int pageSize, String pageToken,
             String searchText, MembershipStatus membershipStatus, String roleCode) {
         String search = searchText == null ? "" : searchText.trim().toLowerCase(Locale.ROOT);
-        String normalizedRole = roleCode == null ? "" : roleCode.trim().toUpperCase(Locale.ROOT);
-        List<UserSummaryData> users = membershipRepository.findAll().stream()
-                .filter(m -> m.getTenant().getId().equals(tenantId))
-                .filter(m -> membershipStatus == null || m.getStatus() == membershipStatus)
-                .map(this::toUserSummary)
-                .filter(u -> search.isBlank()
-                        || u.email().toLowerCase(Locale.ROOT).contains(search)
-                        || u.displayName().toLowerCase(Locale.ROOT).contains(search))
-                .filter(u -> normalizedRole.isBlank() || u.roles().contains(normalizedRole))
-                .sorted(Comparator.comparing(UserSummaryData::email))
-                .toList();
-        return PageSupport.page(users, pageSize, pageToken);
+        String normalizedRole = roleCode == null || roleCode.isBlank()
+                ? ""
+                : roleCode.trim().toUpperCase(Locale.ROOT);
+        int offset = PageSupport.offset(pageToken);
+        var pageable = PageSupport.pageable(pageSize, pageToken);
+        var users = membershipRepository.searchTenantUsers(
+                tenantId,
+                membershipStatus,
+                search,
+                normalizedRole,
+                pageable
+        );
+        return PageSupport.page(users.map(this::toUserSummary), offset);
     }
 
     @Override
@@ -145,11 +145,12 @@ public class DefaultTenantIdentityAdministrationService
         for (String codeValue : new LinkedHashSet<>(command.initialRoleCodes())) {
             String code = requireText(codeValue, "initialRoleCode").toUpperCase(Locale.ROOT);
             rejectPlatformRole(code);
-            RoleEntity role = roleRepository.findByTenantIdAndCode(command.tenantId(), code)
-                    .orElseThrow(() -> NotFoundException.entity("Role", command.tenantId() + ":" + code));
-            if (!membershipRoleRepository.existsByIdMembershipIdAndIdRoleId(membership.getId(), role.getId())) {
-                membershipRoleRepository.save(new MembershipRoleEntity(membership, role, command.actorId()));
-            }
+            roleManagementService.assignInitialRole(
+                    command.tenantId(),
+                    subjectId,
+                    code,
+                    command.actorId()
+            );
         }
         return new CreatedTenantUser(subjectId, membership.getId(), command.tenantId(), membership.getStatus(), existing);
     }

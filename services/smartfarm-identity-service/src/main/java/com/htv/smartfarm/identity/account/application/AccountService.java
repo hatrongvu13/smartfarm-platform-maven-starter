@@ -31,8 +31,6 @@ public class AccountService {
 
     private static final int DEFAULT_LOCK_THRESHOLD = 5;
     private static final Duration DEFAULT_LOCK_DURATION = Duration.ofMinutes(15);
-    private static final int MINIMUM_PASSWORD_LENGTH = 12;
-    private static final int MAXIMUM_PASSWORD_LENGTH = 128;
     private static final String DEFAULT_LOCALE = "vi-VN";
     private static final String DEFAULT_TIME_ZONE = "Asia/Ho_Chi_Minh";
 
@@ -387,21 +385,22 @@ public class AccountService {
     private void validatePassword(String password) {
         requireText(password, "password");
 
-        if (password.length() < MINIMUM_PASSWORD_LENGTH) {
+        if (password.length() < PasswordPolicy.MINIMUM_CHARACTERS) {
             throw new ValidationException(
                     "PASSWORD_TOO_SHORT",
                     "Password must contain at least "
-                            + MINIMUM_PASSWORD_LENGTH
+                            + PasswordPolicy.MINIMUM_CHARACTERS
                             + " characters"
             );
         }
 
-        if (password.length() > MAXIMUM_PASSWORD_LENGTH) {
+        if (PasswordPolicy.utf8Length(password)
+                > PasswordPolicy.MAXIMUM_UTF8_BYTES) {
             throw new ValidationException(
                     "PASSWORD_TOO_LONG",
                     "Password must not exceed "
-                            + MAXIMUM_PASSWORD_LENGTH
-                            + " characters"
+                            + PasswordPolicy.MAXIMUM_UTF8_BYTES
+                            + " UTF-8 bytes"
             );
         }
     }

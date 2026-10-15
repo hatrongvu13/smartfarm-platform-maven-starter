@@ -1,5 +1,6 @@
 package com.htv.smartfarm.identity.grpc;
 
+import com.htv.smartfarm.identity.account.application.PasswordPolicy;
 import com.htv.smartfarm.identity.account.application.PrincipalProfileService;
 import com.htv.smartfarm.identity.administration.application.TenantIdentityAdministrationService;
 import com.htv.smartfarm.identity.administration.application.command.AssignRoleCommand;
@@ -1222,7 +1223,8 @@ public class IdentityAdministrationGrpcService
                 "initial_password"
         );
 
-        if (request.getInitialPassword().length() < 12) {
+        if (request.getInitialPassword().length()
+                < PasswordPolicy.MINIMUM_CHARACTERS) {
             log.warn(
                     "Create user validation failed: "
                             + "initial password is shorter than minimum length, "
@@ -1232,21 +1234,26 @@ public class IdentityAdministrationGrpcService
 
             throw new IllegalArgumentException(
                     "initial_password must contain at least "
-                            + "12 characters"
+                            + PasswordPolicy.MINIMUM_CHARACTERS
+                            + " characters"
             );
         }
 
-        if (request.getInitialPassword().length() > 128) {
+        int passwordUtf8Bytes = PasswordPolicy.utf8Length(
+                request.getInitialPassword()
+        );
+        if (passwordUtf8Bytes > PasswordPolicy.MAXIMUM_UTF8_BYTES) {
             log.warn(
                     "Create user validation failed: "
                             + "initial password exceeds maximum length, "
-                            + "passwordLength={}",
-                    request.getInitialPassword().length()
+                            + "passwordUtf8Bytes={}",
+                    passwordUtf8Bytes
             );
 
             throw new IllegalArgumentException(
                     "initial_password must not exceed "
-                            + "128 characters"
+                            + PasswordPolicy.MAXIMUM_UTF8_BYTES
+                            + " UTF-8 bytes"
             );
         }
 

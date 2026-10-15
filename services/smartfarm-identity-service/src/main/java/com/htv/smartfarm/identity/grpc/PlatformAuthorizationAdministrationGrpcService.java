@@ -1,5 +1,6 @@
 package com.htv.smartfarm.identity.grpc;
 
+import com.htv.smartfarm.common.contract.PermissionCodeContract;
 import com.htv.smartfarm.identity.authorization.application
         .PlatformAuthorizationAdministrationService;
 import com.htv.smartfarm.identity.authorization.application
@@ -26,9 +27,6 @@ public class PlatformAuthorizationAdministrationGrpcService
 
     private static final String ROLE_PATTERN =
             "[A-Z][A-Z0-9_]{1,39}";
-
-    private static final String PERMISSION_PATTERN =
-            "[A-Za-z][A-Za-z0-9:._-]{1,79}";
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
@@ -170,7 +168,7 @@ public class PlatformAuthorizationAdministrationGrpcService
                 () -> {
                     requireContext(request.hasContext());
                     validateRoleCode(request.getRoleCode());
-                    validatePermissionCode(
+                    String permissionCode = validatePermissionCode(
                             request.getPermissionCode()
                     );
 
@@ -187,14 +185,14 @@ public class PlatformAuthorizationAdministrationGrpcService
                                     + "roleCode={}, permissionCode={}, "
                                     + "actorId={}",
                             request.getRoleCode(),
-                            request.getPermissionCode(),
+                            permissionCode,
                             secured.actorId()
                     );
 
                     var role =
                             administrationService.grantPermission(
                                     request.getRoleCode(),
-                                    request.getPermissionCode(),
+                                    permissionCode,
                                     secured.actorId()
                             );
 
@@ -203,7 +201,7 @@ public class PlatformAuthorizationAdministrationGrpcService
                                     + "roleCode={}, permissionCode={}, "
                                     + "actorId={}",
                             request.getRoleCode(),
-                            request.getPermissionCode(),
+                            permissionCode,
                             secured.actorId()
                     );
 
@@ -233,7 +231,7 @@ public class PlatformAuthorizationAdministrationGrpcService
                 () -> {
                     requireContext(request.hasContext());
                     validateRoleCode(request.getRoleCode());
-                    validatePermissionCode(
+                    String permissionCode = validatePermissionCode(
                             request.getPermissionCode()
                     );
 
@@ -250,14 +248,14 @@ public class PlatformAuthorizationAdministrationGrpcService
                                     + "roleCode={}, permissionCode={}, "
                                     + "actorId={}",
                             request.getRoleCode(),
-                            request.getPermissionCode(),
+                            permissionCode,
                             secured.actorId()
                     );
 
                     var role =
                             administrationService.revokePermission(
                                     request.getRoleCode(),
-                                    request.getPermissionCode(),
+                                    permissionCode,
                                     secured.actorId()
                             );
 
@@ -266,7 +264,7 @@ public class PlatformAuthorizationAdministrationGrpcService
                                     + "roleCode={}, permissionCode={}, "
                                     + "actorId={}",
                             request.getRoleCode(),
-                            request.getPermissionCode(),
+                            permissionCode,
                             secured.actorId()
                     );
 
@@ -430,21 +428,23 @@ public class PlatformAuthorizationAdministrationGrpcService
         }
     }
 
-    private void validatePermissionCode(
+    private String validatePermissionCode(
             String permissionCode
     ) {
-        if (permissionCode == null
-                || !permissionCode.matches(
-                PERMISSION_PATTERN
-        )) {
+        try {
+            String normalized = PermissionCode.normalize(permissionCode);
+            if (PermissionCodeContract.WILDCARD.equals(normalized)) {
+                throw new IllegalArgumentException(
+                        "Wildcard permission cannot be managed through platform role RPCs"
+                );
+            }
+            return normalized;
+        } catch (IllegalArgumentException exception) {
             log.warn(
                     "Platform authorization request rejected: "
                             + "invalid permission code"
             );
-
-            throw new IllegalArgumentException(
-                    "Invalid permission code"
-            );
+            throw exception;
         }
     }
 

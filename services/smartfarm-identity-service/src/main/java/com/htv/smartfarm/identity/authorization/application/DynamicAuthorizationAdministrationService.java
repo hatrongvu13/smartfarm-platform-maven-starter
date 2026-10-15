@@ -5,8 +5,8 @@ import java.util.Locale;
 
 import com.htv.smartfarm.common.exception.ConflictException;
 import com.htv.smartfarm.common.exception.NotFoundException;
-import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
 import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
+import com.htv.smartfarm.identity.authorization.domain.PermissionCode;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
@@ -31,65 +31,6 @@ public class DynamicAuthorizationAdministrationService {
     private final RoleRepository roles;
     private final RolePermissionRepository grants;
     private final MembershipRoleRepository assignments;
-    private final PermissionCatalogMutationService catalog;
-
-    @Transactional
-    public PermissionEntity createPermission(
-            String tenantId,
-            String code,
-            String resource,
-            String action,
-            String description,
-            String actorId,
-            String correlationId
-    ) {
-        return catalog.create(
-                tenantId,
-                code,
-                resource,
-                action,
-                description,
-                actorId,
-                correlationId
-        );
-    }
-
-    @Transactional
-    public PermissionEntity updatePermission(
-            String tenantId,
-            String code,
-            String resource,
-            String action,
-            String description,
-            String actorId,
-            String correlationId
-    ) {
-        return catalog.update(
-                tenantId,
-                code,
-                resource,
-                action,
-                description,
-                actorId,
-                correlationId
-        );
-    }
-
-    @Transactional
-    public boolean deletePermission(
-            String tenantId,
-            String code,
-            String actorId,
-            String correlationId
-    ) {
-        return catalog.delete(
-                tenantId,
-                code,
-                actorId,
-                correlationId
-        );
-    }
-
     @Transactional
     public String createRole(
             String tenantId,
@@ -326,14 +267,7 @@ public class DynamicAuthorizationAdministrationService {
     private static String normalizePermission(
             String value
     ) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(
-                    "permission code is required"
-            );
-        }
-
-        return value.trim()
-                .toLowerCase(Locale.ROOT);
+        return PermissionCode.normalize(value);
     }
 
     private static String normalizeRole(

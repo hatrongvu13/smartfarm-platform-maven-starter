@@ -7,7 +7,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    open-in-view: true
+    open-in-view: false
   sql:
     init:
       mode: never
@@ -129,4 +129,4 @@ smartfarm:
       challenge-ttl: ${IDENTITY_MFA_CHALLENGE_TTL:5m}
       maximum-attempts: ${IDENTITY_MFA_MAXIMUM_ATTEMPTS:5}
       recovery-code-count: ${IDENTITY_MFA_RECOVERY_CODE_COUNT:10}
-      encryption-key: ${IDENTITY_MFA_ENCRYPTION_KEY:}
+      development-key-file: ${IDENTITY_MFA_ENCRYPTION_KEY_FILE:.local/identity-mfa-encryption-key}

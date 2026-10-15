@@ -18,6 +18,7 @@ public class MfaProperties {
     private int maximumAttempts = 5;
     private int recoveryCodeCount = 10;
     private String encryptionKey = "";
+    private String developmentKeyFile = ".local/identity-mfa-encryption-key";
 
     public void validateRuntime() {
         if (issuer == null || issuer.isBlank()) {

@@ -1,6 +1,8 @@
 spring:
   application:
     name: smartfarm-identity-service
+  jpa:
+    open-in-view: false
   profiles:
     # Mặc định cứng = dev khi khởi chạy bình thường (mvn spring-boot:run / java -jar) mà không
     # cần set biến môi trường. Override bằng SPRING_PROFILES_ACTIVE=prod|test khi cần.
@@ -27,6 +29,8 @@ smartfarm:
       # SHADOW records divergence but preserves the existing static decision.
       authorization-mode: ${SMARTFARM_GRPC_AUTHORIZATION_MODE:SHADOW}
   identity:
+    mfa:
+      encryption-key: ${IDENTITY_MFA_ENCRYPTION_KEY:}
     authorization:
       permission-sync:
         enabled: true

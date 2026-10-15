@@ -7,13 +7,14 @@ import java.util.Locale;
 import java.util.UUID;
 
 import com.htv.smartfarm.identity.account.application.AccountService;
+import com.htv.smartfarm.identity.account.application.PasswordPolicy;
 import com.htv.smartfarm.identity.account.application.command.CreateAccountCommand;
 import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
-import com.htv.smartfarm.identity.authorization.domain.MembershipRoleEntity;
 import com.htv.smartfarm.identity.authorization.repository.MembershipRoleRepository;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
+import com.htv.smartfarm.identity.authorization.application.RoleManagementService;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationMutationCoordinator;
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.mfa.application.AuthenticatorService;
@@ -166,6 +167,7 @@ public class AuthService {
     private final MfaChallengeService mfaChallenges;
     private final Clock clock;
     private final String dummyHash;
+    private RoleManagementService roleManagementService;
     private IdentityIntegrationEventPublisher events;
     private AuthorizationMutationCoordinator authorizationMutations;
     private com.htv.smartfarm.identity.bootstrap.SuperAdminBootstrapService bootstrap;
@@ -215,6 +217,13 @@ public class AuthService {
     }
 
     @Autowired
+    void setRoleManagementService(
+            RoleManagementService roleManagementService
+    ) {
+        this.roleManagementService = roleManagementService;
+    }
+
+    @Autowired
     void setAuthorizationMutationCoordinator(
             AuthorizationMutationCoordinator authorizationMutations
     ) {
@@ -254,8 +263,14 @@ public class AuthService {
     }
 
     public static void password(String value) {
-        if (value == null || value.length() < 12 || value.length() > 128) {
-            throw badRequest("Password length must be 12..128");
+        if (!PasswordPolicy.hasSupportedLength(value)) {
+            throw badRequest(
+                    "Password must contain at least "
+                            + PasswordPolicy.MINIMUM_CHARACTERS
+                            + " characters and must not exceed "
+                            + PasswordPolicy.MAXIMUM_UTF8_BYTES
+                            + " UTF-8 bytes"
+            );
         }
     }
 
@@ -297,12 +312,11 @@ public class AuthService {
         membership.activate();
         memberships.save(membership);
         roles.findByTenantIdAndCode(tenant.getId(), "USER")
-                .ifPresent(role -> membershipRoles.save(
-                        new MembershipRoleEntity(
-                                membership,
-                                role,
-                                userId
-                        )
+                .ifPresent(role -> roleManagementService.assignRole(
+                        tenant.getId(),
+                        userId,
+                        role.getCode(),
+                        userId
                 ));
         return userId;
     }
@@ -323,7 +337,12 @@ public class AuthService {
         String hash = account == null
                 ? dummyHash
                 : account.getPasswordHash();
-        boolean matched = encoder.matches(rawPassword, hash);
+        boolean passwordLengthSupported =
+                PasswordPolicy.hasSupportedLength(rawPassword);
+        boolean matched = encoder.matches(
+                rawPassword,
+                passwordLengthSupported ? hash : dummyHash
+        ) && passwordLengthSupported;
 
         if (account == null || !matched) {
             if (account != null) {

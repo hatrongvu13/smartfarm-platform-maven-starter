@@ -12,6 +12,7 @@ import com.htv.smartfarm.identity.administration.application.model.RoleTypeData;
 import com.htv.smartfarm.identity.authorization.application.model.PermissionData;
 import com.htv.smartfarm.identity.authorization.domain.PermissionEntity;
 import com.htv.smartfarm.identity.authorization.domain.RoleEntity;
+import com.htv.smartfarm.identity.authorization.domain.PermissionCode;
 import com.htv.smartfarm.identity.authorization.domain.RolePermissionEntity;
 import com.htv.smartfarm.identity.authorization.repository.RolePermissionRepository;
 import com.htv.smartfarm.identity.authorization.repository.RoleRepository;
@@ -280,7 +281,9 @@ public class DefaultPlatformAuthorizationAdministrationService
             return Set.of();
         }
 
-        return new LinkedHashSet<>(permissionCodes);
+        return permissionCodes.stream()
+                .map(PermissionCode::normalize)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     private static String normalizeRoleCode(String roleCode) {
