@@ -7,14 +7,14 @@
 
 ## Current progress summary
 
-- Completed: **52**
+- Completed: **58**
 - Partial/scaffolded: **30**
-- Pending: **21**
+- Pending: **15**
 - Deferred/out of current scope: **7**
 - Total in-scope checklist entries: **103** (110 marked entries including deferred/N/A)
-- Remaining in-scope work: **51 entries** (30 partial, 21 pending); several partial entries are release evidence rather than new implementation.
+- Remaining in-scope work: **45 entries** (30 partial, 15 pending); several partial entries are release evidence rather than new implementation.
 - Authority: implementation and tests under `services/smartfarm-identity-service`, plus the contract in `libs/smartfarm-proto/src/main/proto/smartfarm/identity/v1/identity.proto`. A contract or bean alone is not proof of secure runtime exposure or production readiness.
-- Checklist completion: **50%** (52/103; partial items are not counted as complete).
+- Checklist completion: **56%** (58/103; partial items are not counted as complete).
 - Runtime/source status (2026-10-15): Identity has public authentication/JWKS over HTTP and internal administration/token issuance over gRPC. Gateway delegated exchange uses a verified user JWT; Order/Reporting use allowlisted client credentials. The complete Spring Boot context starts with the test profile/H2 and registers all five gRPC adapters; real Gateway/Order/Reporting calls remain unverified. Identity binds gRPC to loopback by default; cross-host deployment is unsupported until TLS/mTLS is configured. Bootstrap has a row-lock implementation and PostgreSQL concurrency test, but the PostgreSQL gates have not been run because Docker is unavailable.
 - Scope decision: release readiness means the existing SmartFarm auth, tenant membership, authorization, MFA, refresh-session, and service-token flows work reliably. New directory/farm-scope/user-lifecycle RPCs and OAuth/OIDC compliance are product extensions, not blockers unless separately requested.
 - Current focus: close downstream/PostgreSQL release evidence, remaining transaction/version/outbox gaps, and production deployment controls. Tenant-user paging/search now runs in the database. Do not count future API wishlist items as unfinished Identity implementation.
@@ -45,7 +45,7 @@
 - [x] **P0** Keep public authentication in HTTP only (not OAuth/OIDC); internal administration is gRPC-only.
 - [-] **P0** Keep internal administration in gRPC; adapters and full test-profile/H2 application context are verified, while real downstream calls remain open.
 - [x] **P0** MQTT commands call application services.
-- [ ] **P1** Add architecture tests preventing repository injection into transport adapters.
+- [x] **P1** Add architecture tests preventing repository injection into HTTP and gRPC transport adapters.
 
 ---
 
@@ -58,8 +58,8 @@
 - [x] **P0** Validated `TokenContext` is used by the grant facade.
 - [x] **P0** Route `AuthService` issuance and refresh rotation through `TokenGrantFacade`.
 - [x] **P0** Route `ServiceTokenService` issuance through `TokenGrantFacade`.
-- [ ] **P1** Restrict `TokenService` to signing, JWKS, decoding, and claim serialization.
-- [ ] **P1** Move grant policy and repository access out of `TokenService`.
+- [x] **P1** Restrict `TokenService` to signing, JWKS, decoding, and claim serialization.
+- [x] **P1** Move grant policy and repository access out of `TokenService`.
 - [x] **P0** Architecture guard rejects business-service calls to legacy issue methods; `TokenGrantFacade` is the only current `TokenSigner` caller.
 
 ### ID-02.2 Standardize claims
@@ -70,7 +70,7 @@
 - [x] **P0** Service token has `client_id` and rejects wildcard scope.
 - [x] **P0** Delegated service token has signed `act` and actor versions.
 - [x] **P1** Add `sid`, `auth_time`, and `amr` to user token claims when present in `TokenContext`.
-- [ ] **P1** Enforce token type at downstream service boundaries.
+- [x] **P1** Enforce recognized token type at downstream HTTP and gRPC boundaries; client ID no longer implies service-token type.
 
 ### ID-02.3 Service-token issuance
 
@@ -183,8 +183,8 @@
 - [x] **P0** Stop bootstrap TOTP URI/secret logging; bootstrap no longer generates or logs an enrollment URI.
 - [-] **P0** Use authenticated post-bootstrap MFA enrollment; document and test it.
 - [ ] **P1** Remove stale bootstrap configuration.
-- [ ] **P1** Persist pending enrollment expiry or bind it to a challenge.
-- [ ] **P1** Cleanup expired pending authenticators/challenges.
+- [x] **P1** Persist pending enrollment expiry and reject confirmation after expiry.
+- [x] **P1** Periodically cleanup expired pending authenticators and MFA challenges.
 - [ ] **P1** Add replay/concurrency/recovery-code tests.
 
 ---
@@ -248,4 +248,4 @@ Estimates are implementation effort for one engineer, excluding review/release s
 
 ## Reconciled checklist totals
 
-There are **52 complete + 30 partial + 21 pending = 103 in-scope entries**, plus **7 N/A/deferred entries** (110 marked entries total). Completion is **50%** (complete / in-scope); partial work is not counted as complete. Keep this summary synchronized with the checklist.
+There are **58 complete + 30 partial + 15 pending = 103 in-scope entries**, plus **7 N/A/deferred entries** (110 marked entries total). Completion is **56%** (complete / in-scope); partial work is not counted as complete. Keep this summary synchronized with the checklist.

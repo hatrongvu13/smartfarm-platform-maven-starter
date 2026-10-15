@@ -81,7 +81,7 @@ sequenceDiagram
   participant CQRS as order read-model (OrderChangedConsumer)
   
   C->>GW: POST /api/v1/orders {Idempotency-Key, farmId, lines}
-  Note over GW: @PreAuthorize SCOPE_orders:write; JWT->gRPC context
+  Note over GW: @PreAuthorize SCOPE_orders:write, JWT->gRPC context
   GW->>ORD: gRPC PlaceOrder
   ORD->>ORD: persist Order (CREATED) + SagaExecution
   ORD-->>GW: Order(view)
@@ -127,7 +127,7 @@ sequenceDiagram
   LIV->>LIV: domain logic + persist outbox event
   LIV->>MQTT: outbox relay: smartfarm/{tenant}/{farm}/domain/task-changed/v1
   MQTT->>INV: subscribe task-changed/v1 only
-  Note over INV: Inventory chi sub topic task-changed; 6 leaf lifecycle khac (assigned/accepted/completed/cancelled) -> chi WS bridge nhan
+  Note over INV: Inventory chi sub topic task-changed, 6 leaf lifecycle khac (assigned/accepted/completed/cancelled) -> chi WS bridge nhan
 ```
 
 🟡 dev-only. inventory chỉ lắng nghe `task-changed/v1` — phạm vi hẹp.

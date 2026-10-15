@@ -5,8 +5,7 @@ import java.util.Locale;
 /**
  * Type of the authenticated JWT principal.
  *
- * <p>UNKNOWN is retained only during the token-contract migration. Once all
- * token issuers emit token_type, UNKNOWN should be rejected by internal APIs.
+ * <p>UNKNOWN is used to reject tokens that omit or misstate their token_type.
  */
 public enum TokenType {
     USER,

@@ -4,10 +4,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-
-import com.htv.smartfarm.common.contract.TokenClaimContract;
 import java.util.Objects;
 import java.util.Set;
+
+import com.htv.smartfarm.common.contract.TokenClaimContract;
+import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionTuple;
 
 public record TokenContext(
         GrantType grantType,
@@ -25,6 +26,8 @@ public record TokenContext(
         List<String> authenticationMethods,
         Duration ttl
 ) {
+    private static final Duration MAXIMUM_TOKEN_TTL = Duration.ofMinutes(15);
+
     public TokenContext {
         grantType = Objects.requireNonNull(grantType, "grantType");
         subjectId = required(subjectId, "subjectId");
@@ -35,7 +38,9 @@ public record TokenContext(
         authenticationMethods = authenticationMethods == null
                 ? List.of() : List.copyOf(authenticationMethods);
         ttl = Objects.requireNonNull(ttl, "ttl");
-        if (ttl.isZero() || ttl.isNegative()) throw new IllegalArgumentException("ttl must be positive");
+        if (ttl.isZero() || ttl.isNegative() || ttl.compareTo(MAXIMUM_TOKEN_TTL) > 0) {
+            throw new IllegalArgumentException("ttl must be between 1 second and 15 minutes");
+        }
         if (subjectAuthorizationVersion < 0 || tenantAuthorizationVersion < 0) {
             throw new IllegalArgumentException("authorization versions must not be negative");
         }
@@ -62,6 +67,24 @@ public record TokenContext(
                 TokenClaimContract.TENANT_AUTHORIZATION_VERSION,
                 tenantAuthorizationVersion
         );
+    }
+
+    public boolean serviceGrant() {
+        return grantType == GrantType.SERVICE_CLIENT
+                || grantType == GrantType.DELEGATED_SERVICE;
+    }
+
+    public String tokenType() {
+        return serviceGrant() ? "service" : "user";
+    }
+
+    public AuthorizationVersionTuple authorizationVersions() {
+        return serviceGrant()
+                ? null
+                : new AuthorizationVersionTuple(
+                        tenantAuthorizationVersion,
+                        subjectAuthorizationVersion
+                );
     }
 
     private static boolean wildcard(String value) {

@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.htv.smartfarm.common.contract.TokenClaimContract;
-import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionService;
 import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.token.grant.GrantType;
+import com.htv.smartfarm.identity.token.grant.NimbusUserTokenSigner;
 import com.htv.smartfarm.identity.token.grant.TokenContext;
 import java.time.Clock;
 import java.time.Duration;
@@ -40,8 +40,7 @@ class TokenServiceAuthTimeTest {
         var service = new TokenService(
                 settings,
                 new DefaultResourceLoader(),
-                Clock.systemUTC(),
-                mock(AuthorizationVersionService.class)
+                Clock.systemUTC()
         );
         Instant authenticatedAt = Instant.parse("2026-10-15T08:00:00Z");
         var context = new TokenContext(
@@ -61,7 +60,10 @@ class TokenServiceAuthTimeTest {
                 Duration.ofMinutes(5)
         );
 
-        String token = service.issue(context);
+        String token = new NimbusUserTokenSigner(
+                service,
+                Clock.systemUTC()
+        ).sign(context).value();
         var decoded = service.decoder().decode(token);
         Object authTime = decoded.getClaim(
                 TokenClaimContract.AUTHENTICATION_TIME
@@ -75,5 +77,61 @@ class TokenServiceAuthTimeTest {
         )).intValue()).isEqualTo(
                 TokenClaimContract.CURRENT_CONTRACT_VERSION
         );
+    }
+
+    @Test
+    void encodesSubjectAndTenantAuthorizationVersionsFromGrantContext()
+            throws Exception {
+        var settings = new IdentitySettings(
+                "http://localhost:8092",
+                "smartfarm-gateway",
+                "smartfarm-identity",
+                "test-key",
+                "classpath:.local/identity-private.pem",
+                "classpath:.local/identity-public.pem",
+                Duration.ofMinutes(5),
+                Duration.ofDays(14),
+                5,
+                Duration.ofMinutes(15),
+                false,
+                "",
+                "farm-demo",
+                "admin@example.test",
+                "replace-with-a-long-random-password"
+        );
+        var service = new TokenService(
+                settings,
+                new DefaultResourceLoader(),
+                Clock.systemUTC()
+        );
+        var context = new TokenContext(
+                GrantType.USER_LOGIN,
+                "subject-1",
+                "tenant-1",
+                "smartfarm-gateway",
+                null,
+                null,
+                Set.of("identity:principal:read"),
+                Set.of("ADMIN"),
+                11,
+                22,
+                null,
+                null,
+                List.of("password"),
+                Duration.ofMinutes(5)
+        );
+
+        String token = new NimbusUserTokenSigner(
+                service,
+                Clock.systemUTC()
+        ).sign(context).value();
+        var decoded = service.decoder().decode(token);
+
+        assertThat(((Number) decoded.getClaim(
+                TokenClaimContract.AUTHORIZATION_VERSION
+        )).longValue()).isEqualTo(11);
+        assertThat(((Number) decoded.getClaim(
+                TokenClaimContract.TENANT_AUTHORIZATION_VERSION
+        )).longValue()).isEqualTo(22);
     }
 }

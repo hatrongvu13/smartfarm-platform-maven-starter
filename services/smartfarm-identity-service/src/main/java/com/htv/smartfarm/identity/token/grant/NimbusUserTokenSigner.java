@@ -14,7 +14,7 @@ public class NimbusUserTokenSigner implements TokenSigner {
 
     @Override
     public IssuedToken sign(TokenContext context) {
-        String value = tokens.issue(context);
+        String value = tokens.encode(context);
         return new IssuedToken(
                 value,
                 "Bearer",

@@ -28,7 +28,7 @@ public interface MfaChallengeRepository
             @Param("challengeHash") String challengeHash
     );
 
-    long deleteByExpiresAtBeforeAndStatus(
+    int deleteByExpiresAtLessThanEqualAndStatus(
             Instant expiresAt,
             MfaChallengeStatus status
     );

@@ -44,6 +44,21 @@ class TokenArchitectureGuardTest {
         assertThat(violations).isEmpty();
     }
 
+    @Test
+    void tokenServiceMustNotContainGrantPolicyOrRepositoryAccess() throws Exception {
+        String source = Files.readString(
+                SOURCE.resolve("com/htv/smartfarm/identity/token/TokenService.java")
+        );
+
+        assertThat(source)
+                .doesNotContain("AuthorizationVersionService")
+                .doesNotContain("issueUserToken(")
+                .doesNotContain("issueServiceToken(")
+                .doesNotContain("issueDelegatedServiceToken(")
+                .doesNotContain("Repository")
+                .doesNotContain("JpaRepository");
+    }
+
     private List<String> scan(String... forbidden) throws Exception {
         List<String> violations = new ArrayList<>();
         try (var paths = Files.walk(SOURCE)) {

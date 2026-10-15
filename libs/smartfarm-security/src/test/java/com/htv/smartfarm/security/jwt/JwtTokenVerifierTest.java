@@ -1,6 +1,7 @@
 package com.htv.smartfarm.security.jwt;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -70,7 +71,7 @@ class JwtTokenVerifierTest {
     }
 
     @Test
-    void shouldInferServiceDuringTransitionWhenClientIdExists() {
+    void rejectsTokenTypeOmissionEvenWhenClientIdExists() {
         Jwt jwt = jwt(Map.of(
                 "sub", "gateway",
                 "client_id", "gateway",
@@ -79,12 +80,13 @@ class JwtTokenVerifierTest {
         ));
         when(decoder.decode("token")).thenReturn(jwt);
 
-        assertThat(verifier.verify("token").tokenType())
-                .isEqualTo(TokenType.SERVICE);
+        assertThatThrownBy(() -> verifier.verify("token"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("missing or invalid token_type claim");
     }
 
     @Test
-    void shouldKeepLegacyTokenUnknownWithoutTypeOrClientId() {
+    void rejectsLegacyTokenWithoutTypeOrClientId() {
         Jwt jwt = jwt(Map.of(
                 "sub", "legacy-subject",
                 "tenant_id", "tenant-001",
@@ -92,8 +94,9 @@ class JwtTokenVerifierTest {
         ));
         when(decoder.decode("token")).thenReturn(jwt);
 
-        assertThat(verifier.verify("token").tokenType())
-                .isEqualTo(TokenType.UNKNOWN);
+        assertThatThrownBy(() -> verifier.verify("token"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("missing or invalid token_type claim");
     }
 
     private Jwt jwt(Map<String, Object> claims) {

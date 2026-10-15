@@ -2,6 +2,7 @@ package com.htv.smartfarm.identity.mfa.repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 import com.htv.smartfarm.identity.mfa.domain.AuthenticatorStatus;
 import com.htv.smartfarm.identity.mfa.domain.AuthenticatorType;
@@ -31,6 +32,11 @@ public interface UserAuthenticatorRepository
             String userId,
             AuthenticatorType type,
             AuthenticatorStatus status
+    );
+
+    int deleteByStatusAndEnrollmentExpiresAtLessThanEqual(
+            AuthenticatorStatus status,
+            Instant expiresAt
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

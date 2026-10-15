@@ -4,6 +4,7 @@ import java.util.Set;
 
 import com.htv.smartfarm.common.contract.TokenClaimContract;
 import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
+import com.htv.smartfarm.security.core.TokenType;
 
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -55,6 +56,12 @@ public final class SmartFarmJwtValidator
 
         if (tenant == null || tenant.isBlank()) {
             return fail("missing_tenant");
+        }
+
+        if (TokenType.fromClaim(
+                jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE)
+        ) == TokenType.UNKNOWN) {
+            return fail("missing_or_invalid_token_type");
         }
 
         Object contractVersion = jwt.getClaims().get(

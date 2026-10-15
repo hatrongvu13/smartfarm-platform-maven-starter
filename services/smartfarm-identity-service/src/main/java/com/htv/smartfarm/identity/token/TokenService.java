@@ -13,18 +13,15 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import com.htv.smartfarm.common.contract.TokenClaimContract;
-import com.htv.smartfarm.identity.config.IdentitySettings;
-import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionService;
 import com.htv.smartfarm.identity.authorization.version.AuthorizationVersionTuple;
-import com.htv.smartfarm.identity.token.grant.GrantType;
+import com.htv.smartfarm.identity.config.IdentitySettings;
 import com.htv.smartfarm.identity.token.grant.TokenContext;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -51,24 +48,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class TokenService {
 
-    private static final Duration MAXIMUM_TOKEN_TTL = Duration.ofMinutes(15);
-
     private final IdentitySettings settings;
     private final RSAKey key;
     private final JwtEncoder encoder;
     private final JwtDecoder decoder;
     private final Clock clock;
-    private final AuthorizationVersionService authorizationVersions;
 
     public TokenService(
             IdentitySettings settings,
             ResourceLoader resourceLoader,
-            Clock clock,
-            AuthorizationVersionService authorizationVersions
+            Clock clock
     ) throws Exception {
         this.settings = settings;
         this.clock = clock;
-        this.authorizationVersions = authorizationVersions;
         KeyFactory factory = KeyFactory.getInstance("RSA");
         RSAPrivateKey privateKey = (RSAPrivateKey) factory.generatePrivate(
                 new PKCS8EncodedKeySpec(pem(
@@ -140,154 +132,25 @@ public class TokenService {
         return new JWKSet(key.toPublicJWK()).toString();
     }
 
-    public String issueUserToken(
-            String subjectId,
-            String tenantId,
-            Collection<String> scopes,
-            Collection<String> roles,
-            Duration ttl
-    ) {
-        String normalizedSubject = requireText(subjectId, "subjectId");
-        String normalizedTenant = requireText(tenantId, "tenantId");
-        AuthorizationVersionTuple versions = authorizationVersions.current(
-                normalizedTenant,
-                normalizedSubject
-        );
-        return issue(
-                normalizedSubject,
-                null,
-                normalizedTenant,
-                settings.gatewayAudience(),
-                scopes,
-                roles,
-                "user",
-                ttl,
-                versions,
-                null,
-                null
-        );
-    }
-
-    /** Signs a previously authorized unified token context. */
-    public String issue(TokenContext context) {
+    /** Encodes claims from the validated grant context without resolving grant policy. */
+    public String encode(TokenContext context) {
         if (context == null) {
             throw new IllegalArgumentException("context must not be null");
         }
-        if (context.grantType() == GrantType.SERVICE_CLIENT) {
-            validateServiceScopes(context.scopes());
-            return issue(
-                    context.subjectId(),
-                    context.clientId(),
-                    context.tenantId(),
-                    context.audience(),
-                    context.scopes(),
-                    List.of(),
-                    "service",
-                    context.ttl(),
-                    null,
-                    null,
-                    context
-            );
-        }
-        if (context.grantType() == GrantType.DELEGATED_SERVICE) {
-            validateServiceScopes(context.scopes());
-            return issue(
-                    context.subjectId(),
-                    context.clientId(),
-                    context.tenantId(),
-                    context.audience(),
-                    context.scopes(),
-                    List.of(),
-                    "service",
-                    context.ttl(),
-                    null,
-                    context.delegatedActorClaim(),
-                    context
-            );
-        }
         return issue(
                 context.subjectId(),
-                null,
+                context.serviceGrant() ? context.clientId() : null,
                 context.tenantId(),
                 context.audience(),
                 context.scopes(),
-                context.roles(),
-                "user",
+                context.serviceGrant() ? List.of() : context.roles(),
+                context.tokenType(),
                 context.ttl(),
-                new AuthorizationVersionTuple(
-                        context.subjectAuthorizationVersion(),
-                        context.tenantAuthorizationVersion()
-                ),
-                null,
+                context.authorizationVersions(),
+                context.delegatedActorClaim().isEmpty()
+                        ? null
+                        : context.delegatedActorClaim(),
                 context
-        );
-    }
-
-    public String issueServiceToken(
-            String clientId,
-            String tenantId,
-            String audience,
-            Collection<String> scopes,
-            Duration ttl
-    ) {
-        String normalizedClientId = requireText(clientId, "clientId");
-        validateServiceScopes(scopes);
-        return issue(
-                "svc:" + normalizedClientId,
-                normalizedClientId,
-                tenantId,
-                audience,
-                scopes,
-                List.of(),
-                "service",
-                ttl,
-                null,
-                null,
-                null
-        );
-    }
-
-    /**
-     * DYNAMIC_AUTH_PHASE3A: emits a signed delegated actor only after the caller has
-     * independently verified the actor and authorization versions.
-     */
-    public String issueDelegatedServiceToken(
-            String clientId,
-            String tenantId,
-            String audience,
-            Collection<String> scopes,
-            String actorSubjectId,
-            AuthorizationVersionTuple actorVersions,
-            Duration ttl
-    ) {
-        String normalizedClientId = requireText(clientId, "clientId");
-        validateServiceScopes(scopes);
-        String normalizedActor = requireText(actorSubjectId, "actorSubjectId");
-        if (actorVersions == null) {
-            throw new IllegalArgumentException("actorVersions must not be null");
-        }
-        Map<String, Object> actor = new LinkedHashMap<>();
-        actor.put(TokenClaimContract.SUBJECT, normalizedActor);
-        actor.put(
-                TokenClaimContract.AUTHORIZATION_VERSION,
-                actorVersions.subjectVersion()
-        );
-        actor.put(
-                TokenClaimContract.TENANT_AUTHORIZATION_VERSION,
-                actorVersions.tenantVersion()
-        );
-        return issue(
-                "svc:" + normalizedClientId,
-                normalizedClientId,
-                tenantId,
-                audience,
-                scopes,
-                List.of(),
-                "service",
-                ttl,
-                null,
-                Map.copyOf(actor),
-                null
         );
     }
 
@@ -304,7 +167,6 @@ public class TokenService {
             Map<String, Object> delegatedActor,
             TokenContext tokenContext
     ) {
-        validateTtl(ttl);
         Instant now = clock.instant();
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuer(settings.issuer())
@@ -373,16 +235,6 @@ public class TokenService {
         )).getTokenValue();
     }
 
-    static void validateServiceScopes(Collection<String> scopes) {
-        if (scopes == null) return;
-        for (String scope : scopes) {
-            if (scope == null) continue;
-            String normalized = scope.trim();
-            if ("*".equals(normalized) || "SCOPE_*".equalsIgnoreCase(normalized))
-                throw new IllegalArgumentException("service tokens must not contain wildcard scope");
-        }
-    }
-
     private static List<String> normalize(Collection<String> values) {
         if (values == null) return List.of();
         Set<String> normalized = new LinkedHashSet<>();
@@ -390,15 +242,6 @@ public class TokenService {
             if (value != null && !value.isBlank()) normalized.add(value.trim());
         }
         return List.copyOf(normalized);
-    }
-
-    private static void validateTtl(Duration ttl) {
-        if (ttl == null || ttl.isZero() || ttl.isNegative()
-                || ttl.compareTo(MAXIMUM_TOKEN_TTL) > 0) {
-            throw new IllegalArgumentException(
-                    "token ttl must be between 1 second and 15 minutes"
-            );
-        }
     }
 
     private static byte[] pem(
@@ -439,4 +282,5 @@ public class TokenService {
         }
         return value.trim();
     }
+
 }

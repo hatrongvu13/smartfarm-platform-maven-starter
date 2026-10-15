@@ -41,6 +41,9 @@ public class UserAuthenticatorEntity extends AuditableEntity {
     @Column(name = "secret_ciphertext", length = 2048)
     private String secretCiphertext;
 
+    @Column(name = "enrollment_expires_at")
+    private Instant enrollmentExpiresAt;
+
     @Column(name = "verified_at")
     private Instant verifiedAt;
 
@@ -54,12 +57,17 @@ public class UserAuthenticatorEntity extends AuditableEntity {
     }
 
     public UserAuthenticatorEntity(String id, String userId, AuthenticatorType type,
-            String displayName, String secretCiphertext) {
+            String displayName, String secretCiphertext,
+            Instant enrollmentExpiresAt) {
         this.id = requireText(id, "id");
         this.userId = requireText(userId, "userId");
         this.type = java.util.Objects.requireNonNull(type);
         this.displayName = requireText(displayName, "displayName");
         this.secretCiphertext = secretCiphertext;
+        this.enrollmentExpiresAt = java.util.Objects.requireNonNull(
+                enrollmentExpiresAt,
+                "enrollmentExpiresAt"
+        );
         this.status = AuthenticatorStatus.PENDING;
     }
 
@@ -67,8 +75,17 @@ public class UserAuthenticatorEntity extends AuditableEntity {
         if (status != AuthenticatorStatus.PENDING) {
             throw new IllegalStateException("Only a pending authenticator can be activated");
         }
+        Instant activationTime = java.util.Objects.requireNonNull(occurredAt);
+        if (enrollmentExpiredAt(activationTime)) {
+            throw new IllegalStateException("TOTP enrollment has expired");
+        }
         status = AuthenticatorStatus.ACTIVE;
-        verifiedAt = java.util.Objects.requireNonNull(occurredAt);
+        verifiedAt = activationTime;
+        enrollmentExpiresAt = null;
+    }
+
+    public boolean enrollmentExpiredAt(Instant now) {
+        return enrollmentExpiresAt != null && !enrollmentExpiresAt.isAfter(now);
     }
 
     public void acceptTotpStep(long timeStep, Instant occurredAt) {

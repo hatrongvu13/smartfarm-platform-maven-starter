@@ -53,6 +53,60 @@ class SmartFarmJwtValidatorTest {
     }
 
     @Test
+    void acceptsExplicitServiceTokenType() {
+        Jwt token = jwt(List.of("smartfarm-order"));
+        Map<String, Object> claims = new HashMap<>(token.getClaims());
+        claims.put(TokenClaimContract.TOKEN_TYPE, "service");
+
+        assertThat(validator.validate(new Jwt(
+                token.getTokenValue(),
+                token.getIssuedAt(),
+                token.getExpiresAt(),
+                token.getHeaders(),
+                claims
+        )).hasErrors()).isFalse();
+    }
+
+    @Test
+    void rejectsMissingTokenTypeEvenForLegacyContractVersion() {
+        Jwt token = jwt(List.of("smartfarm-order"));
+        Map<String, Object> claims = new HashMap<>(token.getClaims());
+        claims.remove(TokenClaimContract.TOKEN_TYPE);
+        var result = validator.validate(new Jwt(
+                token.getTokenValue(),
+                token.getIssuedAt(),
+                token.getExpiresAt(),
+                token.getHeaders(),
+                claims
+        ));
+
+        assertThat(result.hasErrors()).isTrue();
+        assertThat(result.getErrors())
+                .anySatisfy(error -> assertThat(error.getDescription())
+                        .isEqualTo("missing_or_invalid_token_type"));
+    }
+
+    @Test
+    void rejectsUnknownTokenType() {
+        Jwt token = jwt(List.of("smartfarm-order"));
+        Map<String, Object> claims = new HashMap<>(token.getClaims());
+        claims.put(TokenClaimContract.TOKEN_TYPE, "administrator");
+
+        var result = validator.validate(new Jwt(
+                token.getTokenValue(),
+                token.getIssuedAt(),
+                token.getExpiresAt(),
+                token.getHeaders(),
+                claims
+        ));
+
+        assertThat(result.hasErrors()).isTrue();
+        assertThat(result.getErrors())
+                .anySatisfy(error -> assertThat(error.getDescription())
+                        .isEqualTo("missing_or_invalid_token_type"));
+    }
+
+    @Test
     void rejectsUnsupportedIdentityClaimContractVersion() {
         Jwt token = jwt(List.of("smartfarm-order"));
         Map<String, Object> claims = new HashMap<>(token.getClaims());
@@ -107,7 +161,8 @@ class SmartFarmJwtValidatorTest {
                         "iss", ISSUER,
                         "sub", "svc:gateway",
                         "tenant_id", "tenant-001",
-                        "aud", audiences
+                        "aud", audiences,
+                        TokenClaimContract.TOKEN_TYPE, "user"
                 )
         );
     }

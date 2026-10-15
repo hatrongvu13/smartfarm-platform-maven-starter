@@ -28,7 +28,14 @@ public final class JwtTokenVerifier implements TokenVerifier {
                 jwt.getClaimAsString(TokenClaimContract.CLIENT_ID),
                 jwt.getClaimAsString("azp")
         );
-        TokenType tokenType = resolveTokenType(jwt, clientId);
+        TokenType tokenType = TokenType.fromClaim(
+                jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE)
+        );
+        if (tokenType == TokenType.UNKNOWN) {
+            throw new IllegalArgumentException(
+                    "missing or invalid token_type claim"
+            );
+        }
         DelegatedActor actor = delegatedActor(jwt, tokenType);
 
         return new SecurityIdentity(
@@ -87,14 +94,6 @@ public final class JwtTokenVerifier implements TokenVerifier {
         long result = number.longValue();
         if (result < 0) throw new IllegalArgumentException(name + " must not be negative");
         return result;
-    }
-
-    private TokenType resolveTokenType(Jwt jwt, String clientId) {
-        TokenType explicit = TokenType.fromClaim(
-                jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE)
-        );
-        if (explicit != TokenType.UNKNOWN) return explicit;
-        return clientId == null ? TokenType.UNKNOWN : TokenType.SERVICE;
     }
 
     private Set<String> audienceSet(Jwt jwt) {

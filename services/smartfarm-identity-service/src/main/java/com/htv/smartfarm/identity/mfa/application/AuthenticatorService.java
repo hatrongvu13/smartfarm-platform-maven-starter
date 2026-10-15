@@ -69,14 +69,21 @@ public class AuthenticatorService {
         String id = UUID.randomUUID().toString();
         String name = displayName == null || displayName.isBlank()
                 ? "Authenticator" : displayName.trim();
+        Instant expiresAt = clock.instant().plus(properties.getChallengeTtl());
         authenticators.save(new UserAuthenticatorEntity(
-                id, userId, AuthenticatorType.TOTP, name, cipher.encrypt(secret)));
+                id,
+                userId,
+                AuthenticatorType.TOTP,
+                name,
+                cipher.encrypt(secret),
+                expiresAt
+        ));
         String label = encode(properties.getIssuer() + ":" + account.getEmail());
         String uri = "otpauth://totp/" + label
                 + "?secret=" + secret
                 + "&issuer=" + encode(properties.getIssuer())
                 + "&algorithm=SHA1&digits=6&period=30";
-        return new TotpEnrollment(id, uri, clock.instant().plus(properties.getChallengeTtl()));
+        return new TotpEnrollment(id, uri, expiresAt);
     }
 
     @Transactional
@@ -100,6 +107,9 @@ public class AuthenticatorService {
             throw new IllegalStateException("TOTP enrollment is not pending");
         }
         Instant now = clock.instant();
+        if (authenticator.enrollmentExpiredAt(now)) {
+            throw new IllegalStateException("TOTP enrollment has expired");
+        }
         long step = totp.verify(cipher.decrypt(authenticator.getSecretCiphertext()), code, now);
         if (step < 0) throw new IllegalArgumentException("TOTP code is invalid");
         authenticator.activate(now);
