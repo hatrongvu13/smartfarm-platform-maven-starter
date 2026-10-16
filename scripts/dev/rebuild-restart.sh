@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# scripts/dev/rebuild-restart.sh
+# ⚠️ CẢNH BÁO VẬN HÀNH:
+# Script này CHỈ DÙNG CHO DEVELOPER chạy thủ công từ terminal cá nhân khi cần
+# hard-restart toàn bộ JVM của các microservice.
+# TUYỆT ĐỐI KHÔNG CHẠY TỰ ĐỘNG trong agent/CI vì script này sẽ kill process trên
+# các cổng 8080-8097 và chạy ngầm (nohup) các tiến trình Maven/JVM.
+# ==============================================================================
+#
 # SmartFarm dev: build proto+services COHERENTLY, then hard-restart every service
 # from the terminal (NOT IntelliJ) so no stale JVM keeps an old gRPC stub bound.
 #
@@ -89,4 +98,4 @@ done
 
 echo
 echo "==> done. Logs in $LOG_DIR"
-echo "    Now run:  bash scripts/release/v1/run-all.sh"
+echo "    Now run:  bash scripts/run-all.sh"
