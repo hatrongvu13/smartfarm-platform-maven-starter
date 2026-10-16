@@ -2,9 +2,11 @@
 
 # 6. Security and Failure Policy
 
+> Proposed policy only. Current source's default watermark store is process-local and MQTT-driven; it does not prove a zero-stale or bounded-staleness guarantee across nodes. Roll out any stricter freshness policy additively and only after measuring availability and latency impact.
+
 ## 6.1 Fail-closed rules
 
-When no valid cached decision exists and Identity cannot be reached:
+Target behavior when no valid cached decision exists and Identity cannot be reached:
 
 ```text
 Read permission:   DENY
@@ -62,7 +64,7 @@ Identity verifies the authenticated `client_id`. One service cannot register ano
 - Request context actor must match the claim.
 - Service-token cache key includes client, audience, tenant, actor and authorization version.
 - The service token expires quickly.
-- Revocation version prevents a cached business decision from outliving a permission change.
+- **Target design:** revocation versions prevent a cached business decision from outliving a permission change when enforcement nodes observe the new watermark. Current source uses a process-local watermark advanced by MQTT and does not prove a cross-node staleness bound.
 
 ## 6.6 Deadlines and retry
 

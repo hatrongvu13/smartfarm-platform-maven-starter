@@ -10,6 +10,7 @@ public record RoleData(
         String tenantId,
         String code,
         String name,
+        String description,
         RoleTypeData type,
         List<PermissionData> permissions,
         Instant createdAt,

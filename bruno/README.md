@@ -16,9 +16,9 @@ required scopes). Where a request is DEV-only it says so.
 4. Open the **local** environment and check the vars:
    - `gatewayUrl` = `http://localhost:8080` (single ingress: REST + GraphQL)
    - `identityUrl` = `http://localhost:8092` (identity service, direct — needed only for TOTP enrollment)
-   - `tenantId`, `adminEmail`, `adminPassword` — pre-filled with the bootstrapped dev admin.
-     `adminPassword` defaults to the YAML bootstrap value `replace-with-a-long-random-password`;
-     if you started identity with a custom `IDENTITY_BOOTSTRAP_PASSWORD`, change it here.
+   - `adminEmail`, `adminPassword` — the credentials submitted by `00 - bootstrap-superadmin`;
+     update these variables and the bootstrap request together if you choose different credentials.
+   - `tenantId` — select the tenant returned by login when the account has multiple memberships.
 
 > **Single ingress.** Everything — including TOTP enrollment — now goes through the gateway
 > `{{gatewayUrl}}`. The gateway proxies all public auth endpoints (login, mfa/verify,
@@ -41,7 +41,7 @@ required scopes). Where a request is DEV-only it says so.
 Run `01 - identity` first — it saves `accessToken` into the **local** environment, and
 every other request reads `{{accessToken}}` as a Bearer token automatically.
 
-## 3. First-time auth — bootstrap the super-admin, then TOTP (optional)
+## 3. First-time auth — bootstrap the super-admin, then enroll required TOTP
 
 There is **no auto-created default admin**. Seed the first system super-admin once, then log in with
 email + password.
@@ -50,9 +50,8 @@ email + password.
 
 1. **`00 - bootstrap-superadmin`** → on a fresh system returns **200 COMPLETED** with an `accessToken`
    (auto-saved). You are authenticated immediately — the token carries the wildcard scope `*`, so it
-   passes every scope-gated endpoint. A second call returns **409** (bootstrap is closed). The identity
-   service also prints an `otpauth://` TOTP enrollment URI to its **console** (never over HTTP) so you
-   can enable MFA later.
+   passes every scope-gated endpoint. A second call returns **409** (bootstrap is closed). Bootstrap
+   does not generate an enrollment secret or print a TOTP URI.
 
 **Normal login** (email + password only — no tenantId):
 
@@ -64,7 +63,9 @@ email + password.
    - **TENANT_SELECTION_REQUIRED** → the email has several tenants (`.tenants[]`); resend `01 - login`
      with `"tenantId": "<id>"` added to the body to choose one.
 
-**Enabling TOTP** (optional): `02 - mfa-enrollment-begin` → scan the `otpauthUri` (or
+**Required TOTP enrollment** for `ADMIN`, `PLATFORM_ADMIN`, and `SUPERADMIN` roles:
+login returns `MFA_ENROLLMENT_REQUIRED`; use its challenge token with `02 - mfa-enrollment-begin`
+→ scan the `otpauthUri` (or
 `oathtool --totp -b "<secret>"`, `brew install oath-toolkit`) → set env `totpCode` →
 `03 - mfa-enrollment-confirm` (returns `recoveryCodes` — save them). Afterwards every login is
 `MFA_REQUIRED` → `05 - mfa-verify`. Within the 15-min window, `07 - refresh token` rotates without a code.

@@ -1,6 +1,6 @@
 # SmartFarm Identity Service | Java 17, Maven, Spring Boot 4
 
-Self-hosted identity **MVP** with no third-party identity application: local user store, login, registration (disabled by default), admin-created users, roles/permissions, RS256 JWT access tokens, public JWKS and hashed rotating refresh tokens. Uses Spring Security libraries, not Keycloak. **This is not an OAuth2/OIDC-compliant authorization server.** Do not claim OIDC discovery, PKCE, client credentials or browser SSO support.
+Self-hosted identity **MVP** with no third-party identity application: local user store, login, registration (disabled by default), admin-created users, roles/permissions, RS256 JWT access tokens, public JWKS and hashed rotating refresh tokens. Uses Spring Security libraries, not Keycloak. **This is not an OAuth2/OIDC-compliant authorization server.** Do not claim OIDC discovery, PKCE, the OAuth2 client-credentials grant, or browser SSO support.
 
 ## Setup and run (dev)
 
@@ -9,13 +9,10 @@ Place this folder at `services/smartfarm-identity-service/`. Add `<module>servic
 ```bash
 cd services/smartfarm-identity-service
 ./scripts/generate-dev-keys.sh
-export IDENTITY_BOOTSTRAP_TENANT=farm-demo
-export IDENTITY_BOOTSTRAP_EMAIL=admin@example.test
-export IDENTITY_BOOTSTRAP_PASSWORD='replace-with-a-long-random-password'
 mvn clean spring-boot:run
 ```
 
-Dev DB is file-backed H2 under `.local/`; generated RSA keypair is local, ignored by Git. **Do not regenerate keys** after creating accounts unless you intentionally invalidate existing JWTs. Bootstrap creates the first admin only if the account does not already exist. Remove bootstrap environment variables after initial setup. Use `dev-tls` for any end-to-end tests. Never expose plaintext login/token endpoints outside an isolated localhost development session.
+The `dev` profile uses PostgreSQL (`IDENTITY_DB_URL`, defaulting to `jdbc:postgresql://localhost:5432/smartfarm`) with Hibernate schema update; H2 is used by the `test` profile. Generated RSA keypair is local and ignored by Git. **Do not regenerate keys** after creating accounts unless you intentionally invalidate existing JWTs. Create the first super-admin once through `POST /api/v1/auth/bootstrap-superadmin`; submit its credentials in that request, not through environment properties. Privileged users complete MFA enrollment through the challenge-token-protected endpoints. `IDENTITY_BOOTSTRAP_TENANT` configures the platform authorization tenant, not the bootstrap account. Use `dev-tls` for HTTP end-to-end tests. Never expose plaintext login/token endpoints outside an isolated localhost development session.
 
 In the `dev` profile, Identity automatically creates a random 256-bit MFA encryption key at `.local/identity-mfa-encryption-key` on first launch and reuses it on subsequent launches; the file is owner-readable/writable and ignored by Git. Set `IDENTITY_MFA_ENCRYPTION_KEY` to override it, or `IDENTITY_MFA_ENCRYPTION_KEY_FILE` to change the local file path. For non-dev deployments, provide `IDENTITY_MFA_ENCRYPTION_KEY` as a Base64-encoded 32-byte secret; startup fails if it is missing or malformed. Keep the key private and stable while encrypted MFA enrollments are in use: replacing it makes existing MFA secrets unreadable. If the previously committed development key was used for MFA enrollments, reset those enrollments before switching to a new key.
 
@@ -28,8 +25,6 @@ cd services/smartfarm-identity-service
 ./scripts/generate-dev-keys.sh       # only once; do not overwrite existing signing keys
 ./scripts/generate-dev-tls.sh        # only once for the local certificate
 export IDENTITY_BOOTSTRAP_TENANT=farm-demo
-export IDENTITY_BOOTSTRAP_EMAIL=admin@example.test
-export IDENTITY_BOOTSTRAP_PASSWORD='replace-with-a-long-random-password'
 mvn spring-boot:run -Dspring-boot.run.profiles=dev,dev-tls
 ```
 
@@ -59,48 +54,32 @@ curl -s --cacert .local/identity-tls.crt -X POST https://localhost:8092/api/v1/a
  -d '{"tenantId":"farm-demo","email":"admin@example.test","password":"replace-with-a-long-random-password"}'
 ```
 
-The response contains `accessToken` and `refreshToken`. Never commit either token or the bootstrap password. Use the access token as `Authorization: Bearer ...` at Gateway; `aud=smartfarm-gateway`, `tenant_id`, and `scope=farm:read identity:admin identity:platform` are included for the seeded ADMIN role.
+The response contains authentication tokens when MFA is not required. A privileged account may instead need to complete the MFA challenge before receiving tokens. Never commit either token or the bootstrap password. Token audience, tenant, and scopes depend on the configured account and client.
 
-## API
+## HTTP and gRPC API
 
-- `POST /api/v1/auth/login` tenantId/email/password -> access/refresh.
-- `POST /api/v1/auth/refresh` `{ "refreshToken": "..." }` -> new access/refresh; previous refresh token is invalidated.
-- `POST /api/v1/auth/logout` -> revoke refresh family; current JWT remains valid until expiry.
-- `GET /api/v1/auth/me` -> authenticated identity and current permissions.
-- `GET /api/v1/auth/verify` -> verifies JWT and checks that the account is currently enabled (not a public token introspection endpoint).
-- `POST /api/v1/auth/password` -> change own password and revoke refresh sessions.
-- `POST /api/v1/auth/register` -> USER account only if `public-registration=true`, with a **fixed** registration tenant; disabled by default.
-- `POST /api/v1/admin/users` -> create USER in admin's tenant.
-- `PUT /api/v1/admin/users/{id}/roles/{role}` -> assign existing role in same tenant.
-- `DELETE /api/v1/admin/users/{id}/roles/{role}` -> remove role; cannot remove own ADMIN.
-- `POST /api/v1/admin/users/{id}/disable` -> disable account; cannot disable self.
-- `POST /api/v1/admin/roles/{role}` -> define a global role (PLATFORM_ADMIN only).
-- `PUT /api/v1/admin/roles/{role}/permissions/{permission}` -> grant scope to role (PLATFORM_ADMIN only).
+- `POST /api/v1/auth/register` -> creates a USER only when public registration is enabled; disabled by default.
+- `POST /api/v1/auth/login` -> authenticates using tenantId/email/password; privileged accounts may require MFA verification.
+- `POST /api/v1/auth/bootstrap-superadmin` -> one-time initial super-admin creation.
+- `POST /api/v1/auth/mfa/enrollment/begin` and `/confirm` -> challenge-token-protected TOTP enrollment.
+- `POST /api/v1/auth/mfa/verify` -> completes an MFA login challenge.
+- `POST /api/v1/auth/refresh` -> rotates a refresh token; the previous token is invalidated.
+- `POST /api/v1/auth/logout` -> revokes the refresh-token family; an already issued JWT remains valid until expiry.
+- `GET /api/v1/platform/deployment-state` -> reports whether first-super-admin bootstrap is required.
 - `GET /.well-known/jwks.json` -> public RSA JWK only; no private key.
 
-Example admin creates a user:
-
-```bash
-curl --cacert .local/identity-tls.crt -X POST https://localhost:8092/api/v1/admin/users \
- -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
- -d '{"email":"worker@example.test","password":"a-long-unique-password-123"}'
-```
-
-Example add permission admin:
-```bash
-curl -X PUT \
-  http://localhost:8092/api/v1/admin/roles/ADMIN/permissions/tasks:write \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-```
+User, role, permission, session, and service-token administration are internal gRPC operations, not REST endpoints. The gRPC contract is in `libs/smartfarm-proto/src/main/proto/smartfarm/identity/v1/identity.proto`; see the platform gRPC documentation for available methods and authorities.
 
 ## Security design and remaining work
 
 - BCrypt strength 12, password length of at least 12 characters and at most 72 UTF-8 bytes, login lockout after 5 failed attempts for 15 minutes; failed-attempt and refresh-reuse revocation updates commit even when HTTP 401 is returned, dummy password verification for unknown users.
-- Access tokens RS256, `kid`, issuer, audience, tenant, subject, 10-minute TTL. JWT revocation is **not instantaneous**: disabling an account or changing permissions stops new tokens but old access tokens remain valid until expiry; add distributed token-version/revocation if required.
+- Access tokens use RS256, `kid`, issuer, audience, tenant, and subject. The configured default TTL is 10 minutes and the hard maximum is 15 minutes. JWT revocation is **not instantaneous**: disabling an account or changing permissions does not invalidate already issued access tokens immediately.
 - Refresh tokens are 48-byte random opaque values, stored only as SHA-256 hashes, rotated and grouped by family; reusing a revoked token revokes the family. **Concurrency and replay handling require integration tests under PostgreSQL**.
-- Role and permission catalog is currently global; admin assignments are tenant-scoped, but admin role/permission *definitions* are global and require `SCOPE_identity:platform`. Bootstrap admin has this permission; ordinary tenant admins do not. Tenant role assignment cannot delegate `PLATFORM_ADMIN`. Review platform-admin provisioning before production.
-- No rate limiter, CAPTCHA, MFA, email verification, password reset, security audit, distributed abuse detection, key rotation, secret manager, token exchange or gRPC directory adapter yet. Add these before public exposure.
-- `schema.sql` initializes dev H2. For production use PostgreSQL with versioned Flyway migrations; `application-prod.yml` disables automatic SQL initialization. Do not run prod until schema migration and HTTPS reverse proxy are deployed.
+- Privileged roles require TOTP; enrollment uses a purpose-bound challenge token. Recovery codes and replay protection are implemented, but concurrent persistence behavior still requires PostgreSQL integration coverage.
+- Role and permission catalog is currently global; admin assignments are tenant-scoped, but role/permission definitions are global and require platform authority. Tenant role assignment cannot delegate `PLATFORM_ADMIN`.
+- Service-token issue/exchange and directory/administration APIs are implemented over gRPC. Machine issue validates registered client credentials and audience allowlists; delegated exchange additionally requires a verified user JWT. Cross-host gRPC requires TLS/mTLS and private network controls.
+- Rate limiting, CAPTCHA, email verification, password reset, distributed abuse detection, and a production secret-manager/rotation process remain open.
+- Production requires PostgreSQL environment variables, runs Flyway migrations, and uses Hibernate schema validation. Migration and PostgreSQL concurrency gates must pass before production release; the profile defaults HTTP and gRPC binds to loopback.
 - This service is deliberately a limited self-hosted authentication service, **not** a full standards-compliant OAuth2/OIDC provider. If browser/mobile OAuth interoperability is needed later, implement standards using maintained Spring Authorization Server components within this service, rather than inventing a partial protocol.
 
 **Operational warning:** Protect the bootstrap admin credentials; a PLATFORM_ADMIN can grant powerful global permissions. Do not expose this MVP to untrusted networks.

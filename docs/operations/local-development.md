@@ -40,7 +40,7 @@ mvn -f apps/smartfarm-gateway/pom.xml               spring-boot:run
 ```
 
 ## Database (dev)
-Identity dev defaults to `IDENTITY_DB_URL` or `jdbc:postgresql://localhost:5432/smartfarm`, `postgres/root`; `ddl-auto: update`, Flyway disabled, and `open-in-view: true` are explicit in `services/smartfarm-identity-service/src/main/resources/application-dev.yml`. Identity production instead requires `IDENTITY_DB_URL/USER/PASSWORD`, enables Flyway, validates the schema, and uses loopback bind addresses by default. Other module database settings are per their own `application-*.yml`; do not infer production database isolation from this identity setting.
+Identity dev defaults to `IDENTITY_DB_URL` or `jdbc:postgresql://localhost:5432/smartfarm`, `postgres/root`; `ddl-auto: update`, Flyway disabled, and `open-in-view: false` are explicit in `services/smartfarm-identity-service/src/main/resources/application-dev.yml`. H2 is used by the test profile. Identity production instead requires `IDENTITY_DB_URL/USER/PASSWORD`, enables Flyway, validates the schema, and uses loopback bind addresses by default. Other module database settings are per their own `application-*.yml`; do not infer production database isolation from this identity setting.
 
 Internal service-token issuance now uses Identity gRPC. HTTP remains for public authentication/OAuth-facing requests and JWKS. The ignored root `.env` may supply database and client secrets; do not enable shell tracing (`set -x`) while loading or using secrets.
 

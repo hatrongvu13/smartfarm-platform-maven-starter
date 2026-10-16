@@ -104,6 +104,27 @@ public class RoleManagementService {
             String actorId,
             String correlationId
     ) {
+        return createRole(
+                tenantId,
+                code,
+                name,
+                systemRole,
+                actorId,
+                correlationId,
+                null
+        );
+    }
+
+    @Transactional
+    public String createRole(
+            String tenantId,
+            String code,
+            String name,
+            boolean systemRole,
+            String actorId,
+            String correlationId,
+            String description
+    ) {
         requireText(tenantId, "tenantId");
         requireText(code, "code");
         requireText(name, "name");
@@ -160,6 +181,7 @@ public class RoleManagementService {
                 tenant,
                 normalizedCode,
                 name.trim(),
+                description,
                 systemRole
         );
 
@@ -178,6 +200,9 @@ public class RoleManagementService {
                         "roleId", role.getId(),
                         "roleCode", role.getCode(),
                         "name", role.getName(),
+                        "description", role.getDescription() == null
+                                ? ""
+                                : role.getDescription(),
                         "systemRole", role.isSystemRole()
                 )
         );

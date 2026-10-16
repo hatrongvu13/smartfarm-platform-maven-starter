@@ -19,6 +19,7 @@ public final class TokenClaimContract {
     public static final String SESSION_ID = "sid";
     public static final String AUTHENTICATION_TIME = "auth_time";
     public static final String AUTHENTICATION_METHODS = "amr";
+    public static final String IS_ASYNC = "is_async";
 
     private TokenClaimContract() {
     }

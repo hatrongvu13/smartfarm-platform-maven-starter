@@ -45,7 +45,6 @@ smartfarm:
     identity-audience: ${IDENTITY_AUDIENCE:smartfarm-identity}
     private-key-path: ${IDENTITY_PRIVATE_KEY_PATH}
     public-key-path: ${IDENTITY_PUBLIC_KEY_PATH}
-    bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:}
     service-token:
       ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
       clients: {}

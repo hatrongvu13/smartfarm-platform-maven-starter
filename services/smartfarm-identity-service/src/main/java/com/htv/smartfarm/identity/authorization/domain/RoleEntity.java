@@ -52,6 +52,9 @@ public class RoleEntity extends AuditableEntity {
     @Column(name = "name", nullable = false, length = 120)
     private String name;
 
+    @Column(name = "description", length = 255)
+    private String description;
+
     @Column(name = "system_role", nullable = false)
     private boolean systemRole;
 
@@ -65,16 +68,45 @@ public class RoleEntity extends AuditableEntity {
             String name,
             boolean systemRole
     ) {
+        this(id, tenant, code, name, null, systemRole);
+    }
+
+    public RoleEntity(
+            String id,
+            TenantEntity tenant,
+            String code,
+            String name,
+            String description,
+            boolean systemRole
+    ) {
         this.id = id;
         this.tenant = tenant;
         this.code = code;
         this.name = name;
+        this.description = normalizeNullable(description);
         this.systemRole = systemRole;
     }
 
     public void rename(String name) {
         if (name == null || name.isBlank()) throw new IllegalArgumentException("name must not be blank");
         this.name = name.trim();
+    }
+
+    public void updateDescription(String description) {
+        this.description = normalizeNullable(description);
+    }
+
+    private static String normalizeNullable(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > 255) {
+            throw new IllegalArgumentException(
+                    "description must not exceed 255 characters"
+            );
+        }
+        return normalized;
     }
 
 }

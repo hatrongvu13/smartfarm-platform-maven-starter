@@ -48,7 +48,10 @@ public final class SmartFarmJwtValidator
             return fail("missing_subject");
         }
 
-        if (jwt.getExpiresAt() == null) {
+        boolean isAsync = Boolean.TRUE.equals(jwt.getClaim(TokenClaimContract.IS_ASYNC))
+                || "true".equalsIgnoreCase(String.valueOf(jwt.getClaims().get(TokenClaimContract.IS_ASYNC)));
+
+        if (!isAsync && jwt.getExpiresAt() == null) {
             return fail("missing_expiry");
         }
 

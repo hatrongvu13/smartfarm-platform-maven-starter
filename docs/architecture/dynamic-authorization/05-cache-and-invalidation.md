@@ -2,6 +2,8 @@
 
 # 5. Cache, Versioning, MQTT, and Outbox
 
+> This is a proposed target design, not a description of the current runtime. Current source defaults to an in-memory authorization watermark store updated by the optional MQTT invalidation consumer. It does not synchronously read a shared authoritative version on each request, so this document's version/cache consistency guarantees are not currently established.
+
 ## 5.1 Cache layers
 
 ```mermaid
@@ -68,7 +70,7 @@ Do not clear Redis with `KEYS`. Old keys expire naturally and become unreachable
 
 ## 5.4 TTL defaults
 
-Proposed defaults:
+Proposed design defaults only; these TTLs are not current runtime configuration and do not establish an authorization-staleness SLA or revocation bound.
 
 ```text
 L1 allow decision:       30 seconds
@@ -164,16 +166,16 @@ Do not use wildcard Redis deletion.
 
 ## 5.9 Consistency hierarchy
 
-Correctness does not depend on MQTT delivery:
+Proposed target hierarchy:
 
 ```text
-Database version     = source of truth
-Redis version        = shared fast marker
-MQTT event           = fast local invalidation
-TTL                   = final cleanup bound
+Identity database/version source = authoritative state
+Shared version store              = optional fast cross-node lookup
+MQTT event                        = fast local invalidation hint
+TTL                               = bounded cleanup only where explicitly designed
 ```
 
-A subscriber that misses MQTT detects the new version before reusing the stale decision.
+MQTT delivery alone cannot guarantee cross-node freshness. A missed event is detected before reusing a decision only if the enforcement path checks a shared authoritative version or has another bounded refresh mechanism; the current default in-memory store has neither guarantee. Select and measure the consistency mechanism before claiming an authorization staleness bound.
 
 ## 5.10 Outbox behavior
 

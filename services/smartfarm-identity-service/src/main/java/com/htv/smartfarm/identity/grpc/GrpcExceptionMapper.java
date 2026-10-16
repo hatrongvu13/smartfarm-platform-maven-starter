@@ -9,6 +9,7 @@ import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.common.exception.ValidationException;
 import com.htv.smartfarm.identity.shared.exception.OptimisticConflictException;
 
+import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -22,6 +23,12 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public final class GrpcExceptionMapper {
+
+    private static final Metadata.Key<String> ERROR_CODE_TRAILER =
+            Metadata.Key.of(
+                    "identity-error-code",
+                    Metadata.ASCII_STRING_MARSHALLER
+            );
 
     public <T> void executeUnary(
             StreamObserver<T> responseObserver,
@@ -49,7 +56,8 @@ public final class GrpcExceptionMapper {
         if (exception instanceof SecurityException) {
             return status(
                     Status.UNAUTHENTICATED,
-                    "Authentication failed"
+                    "Authentication failed",
+                    "UNAUTHENTICATED"
             );
         }
 
@@ -57,31 +65,34 @@ public final class GrpcExceptionMapper {
                 || exception instanceof IllegalArgumentException) {
             return status(
                     Status.INVALID_ARGUMENT,
-                    businessDescription(exception)
+                    businessDescription(exception),
+                    errorCode(exception, "INVALID_ARGUMENT")
             );
         }
 
         if (exception instanceof NotFoundException) {
             return status(
                     Status.NOT_FOUND,
-                    businessDescription(exception)
+                    businessDescription(exception),
+                    errorCode(exception, "NOT_FOUND")
             );
         }
 
         if (exception instanceof ForbiddenOperationException) {
             return status(
                     Status.PERMISSION_DENIED,
-                    businessDescription(exception)
+                    businessDescription(exception),
+                    errorCode(exception, "PERMISSION_DENIED")
             );
         }
 
         if (exception instanceof OptimisticConflictException
                 || exception instanceof ObjectOptimisticLockingFailureException) {
-            return Status.ABORTED
-                    .withDescription(
-                            "The resource was modified by another request"
-                    )
-                    .asRuntimeException();
+            return status(
+                    Status.ABORTED,
+                    "The resource was modified by another request",
+                    "RESOURCE_VERSION_CONFLICT"
+            );
         }
 
         if (exception instanceof ConflictException
@@ -89,14 +100,16 @@ public final class GrpcExceptionMapper {
                 || exception instanceof IllegalStateException) {
             return status(
                     Status.FAILED_PRECONDITION,
-                    businessDescription(exception)
+                    businessDescription(exception),
+                    errorCode(exception, "FAILED_PRECONDITION")
             );
         }
 
         if (exception instanceof BusinessException) {
             return status(
                     Status.FAILED_PRECONDITION,
-                    businessDescription(exception)
+                    businessDescription(exception),
+                    errorCode(exception, "FAILED_PRECONDITION")
             );
         }
 
@@ -105,18 +118,29 @@ public final class GrpcExceptionMapper {
                 exception
         );
 
-        return Status.INTERNAL
-                .withDescription("Internal identity service error")
-                .asRuntimeException();
+        return status(
+                Status.INTERNAL,
+                "Internal identity service error",
+                "INTERNAL"
+        );
     }
 
     private StatusRuntimeException status(
             Status status,
-            String description
+            String description,
+            String errorCode
     ) {
+        Metadata trailers = new Metadata();
+        trailers.put(ERROR_CODE_TRAILER, errorCode);
         return status
                 .withDescription(description)
-                .asRuntimeException();
+                .asRuntimeException(trailers);
+    }
+
+    private String errorCode(Throwable exception, String fallback) {
+        return exception instanceof BusinessException businessException
+                ? businessException.code()
+                : fallback;
     }
 
     private String businessDescription(Throwable exception) {

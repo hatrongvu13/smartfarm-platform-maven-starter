@@ -1,6 +1,6 @@
 # Roadmap — SmartFarm Platform
 
-> Reconciled 2026-10-15 against the current source tree and runtime profiles. Versioning follows the existing backlog: V1 Core Platform / V2 Warehouse / V3 Connected Farm. Do not treat old dated validation notes as current test results.
+> Reconciled 2026-10-16 against the current source tree and runtime profiles. Versioning follows the existing backlog: V1 Core Platform / V2 Warehouse / V3 Connected Farm. Do not treat old dated validation notes as current test results.
 
 ## Milestone map
 
@@ -16,7 +16,7 @@ flowchart LR
   classDef todo fill:#424242,color:#fff;
 ```
 
-**Hiện tại: V1 in progress; no percent-complete claim.** The source has gateway/service APIs, order saga integrations, identity token/session code, and MQTT event infrastructure. Production readiness is not established by code presence. Remaining work includes choosing and hardening a single identity token-issuance boundary with TLS/mTLS, adding database/server-level concurrency and authorization tests, broker ACL/TLS, and completing missing RPCs and production paths.
+**Hiện tại: V1 in progress; no percent-complete claim.** The source has gateway/service APIs, order saga integrations, identity token/session code, and MQTT event infrastructure. Identity uses `TokenGrantFacade` as the active token-issuance boundary; downstream runtime proof and cross-host TLS/mTLS remain open. Production readiness is not established by code presence. Remaining work includes database/server-level concurrency and authorization tests, broker ACL/TLS, and completing missing RPCs and production paths.
 
 ## V0 — Foundation (✅ DONE)
 - **Mục tiêu**: build → boot → config nhất quán.
@@ -40,7 +40,7 @@ flowchart LR
 - [ ] broker hardening: allow_anonymous=false + ACL + TLS bật thật
 - [ ] gRPC TLS prod
 - [ ] Build/test results must be recorded from the current checkout; this documentation update does not claim a successful full reactor run.
-- **Rủi ro còn lại**: token issuance transport/TLS hardening, bootstrap concurrency, incomplete RPCs (FarmDirectory and health), profile-limited REST facades, and production transport hardening.
+- **Rủi ro còn lại**: downstream token-issuance proof and cross-host gRPC TLS/mTLS, bootstrap concurrency, incomplete RPCs (FarmDirectory and health), profile-limited REST facades, and production transport hardening.
 - **Điều kiện hoàn thành V1**: define and verify release gates from current source and tests; no V1 gate document is present in this checkout.
 
 ## V2 — Warehouse Operations (NOT STARTED)

@@ -45,7 +45,6 @@ smartfarm:
     issuer: ${IDENTITY_ISSUER:http://localhost:8092}
     private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
     public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}
-    bootstrap-password: ${IDENTITY_BOOTSTRAP_PASSWORD:replace-with-a-long-random-password}
     identity-audience: ${IDENTITY_AUDIENCE:smartfarm-identity}
     service-token:
       ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}

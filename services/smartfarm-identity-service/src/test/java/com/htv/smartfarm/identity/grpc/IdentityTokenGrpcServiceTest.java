@@ -32,7 +32,7 @@ class IdentityTokenGrpcServiceTest {
     void issuesMachineTokenUsingRegisteredClientCredentials() {
         when(tokenService.issue(
                 "order", "client-secret", "smartfarm-inventory", "tenant-1", null
-        )).thenReturn(grant("smartfarm-inventory"));
+        )).thenReturn(grant("smartfarm-inventory", 300));
         var result = new Result<TokenGrantResponse>();
 
         service.issueServiceToken(
@@ -49,6 +49,32 @@ class IdentityTokenGrpcServiceTest {
         assertThat(result.value.getAccessToken()).isEqualTo("service-jwt");
         verify(tokenService).issue(
                 "order", "client-secret", "smartfarm-inventory", "tenant-1", null
+        );
+    }
+
+    @Test
+    void issuesAsyncMachineToken() {
+        when(tokenService.issue(
+                "order", "client-secret", "smartfarm-inventory", "tenant-1", null, true
+        )).thenReturn(grant("smartfarm-inventory", 0));
+        var result = new Result<TokenGrantResponse>();
+
+        service.issueServiceToken(
+                IssueServiceTokenRequest.newBuilder()
+                        .setContext(context("tenant-1", "actor-1"))
+                        .setClientId("order")
+                        .setClientSecret("client-secret")
+                        .setAudience("smartfarm-inventory")
+                        .setIsAsync(true)
+                        .build(),
+                result
+        );
+
+        assertThat(result.error).isNull();
+        assertThat(result.value.getAccessToken()).isEqualTo("service-jwt");
+        assertThat(result.value.getExpiresInSeconds()).isEqualTo(0);
+        verify(tokenService).issue(
+                "order", "client-secret", "smartfarm-inventory", "tenant-1", null, true
         );
     }
 
@@ -84,7 +110,7 @@ class IdentityTokenGrpcServiceTest {
         ));
         when(tokenService.issue(
                 "gateway", "client-secret", "smartfarm-order", "tenant-1", "user-2"
-        )).thenReturn(grant("smartfarm-order"));
+        )).thenReturn(grant("smartfarm-order", 300));
         var request = ExchangeDelegatedTokenRequest.newBuilder()
                 .setContext(context("tenant-1", "user-1"))
                 .setClientId("gateway")
@@ -110,7 +136,7 @@ class IdentityTokenGrpcServiceTest {
         ));
         when(tokenService.issue(
                 "gateway", "client-secret", "smartfarm-order", "tenant-1", "user-1"
-        )).thenReturn(grant("smartfarm-order"));
+        )).thenReturn(grant("smartfarm-order", 300));
         var result = new Result<TokenGrantResponse>();
 
         service.exchangeDelegatedToken(
@@ -139,8 +165,8 @@ class IdentityTokenGrpcServiceTest {
                 .build();
     }
 
-    private static ServiceTokenService.Grant grant(String audience) {
-        return new ServiceTokenService.Grant("service-jwt", "Bearer", 300, audience);
+    private static ServiceTokenService.Grant grant(String audience, long expiresIn) {
+        return new ServiceTokenService.Grant("service-jwt", "Bearer", expiresIn, audience);
     }
 
     private static final class Result<T> implements StreamObserver<T> {

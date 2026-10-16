@@ -1,210 +1,154 @@
-# System Overview — SmartFarm Platform
+# Tổng Quan Kiến Trúc Hệ Thống — SmartFarm Platform
 
-> Reconciled 2026-10-15 against current source and profile configuration. Màu: 🟢 source implementation · 🟡 partial/limited · 🔴 missing/not-mapped · ⬜ planned. Runtime/security readiness still requires tests and configuration evidence.
-> Mỗi service node liên kết tới `docs/services/<name>.md`.
-
-## 1. Kiến trúc tổng thể
-
-Monorepo Maven 14 module. **Edge** = `smartfarm-gateway` (Spring WebFlux reactive, :8080): nhận REST + GraphQL từ client, dịch sang **gRPC** gọi các service nội bộ. Giao tiếp sự kiện qua **MQTT** (Mosquitto :1883) theo outbox/inbox. Database behavior is module/profile-specific; identity refresh-session data is persisted through JPA, not Redis. Do not infer per-service database isolation solely from the diagram.
-
-- **Đồng bộ**: REST (client↔gateway, gateway↔identity auth), gRPC (gateway↔services, order↔inventory/finance).
-- **Bất đồng bộ**: MQTT domain events (outbox relay → broker → consumer/WS bridge).
-
-## 2. System context
-
-```mermaid
-flowchart TB
-  client["Client (web/CLI)"]:::ok
-  gw["smartfarm-gateway :8080<br/>REST + GraphQL edge"]:::ok
-  broker(["MQTT Mosquitto :1883"]):::partial
-  subgraph services[Backend services - gRPC]
-    id["identity :8092/9092"]:::ok
-    ord["order :8085/9095"]:::ok
-    inv["inventory :8083/9093"]:::ok
-    fin["finance :8084/9094"]:::partial
-    liv["livestock :8081/9091"]:::ok
-    rep["reporting :8086/9096"]:::partial
-    hea["health :8087/9097"]:::ok
-  end
-  pg[("Postgres 17")]:::ok
-  client -->|REST/GraphQL| gw
-  gw -->|gRPC| id
-  gw -->|gRPC| ord
-  gw -->|gRPC dev| inv
-  gw -->|gRPC dev| liv
-  gw -->|gRPC dev| rep
-  gw -->|gRPC dev| fin
-  gw -->|gRPC dev| hea
-  gw -. "MQTT sub (WS bridge)" .-> broker
-  id & ord & inv & fin & liv & rep & hea --> pg
-  ord -. outbox .-> broker
-  liv -. outbox .-> broker
-  hea -. "outbox (protobuf)" .-> broker
-  id -. "outbox (protobuf)" .-> broker
-  broker -. sub .-> inv
-  broker -. "sub (CQRS)" .-> ord
-  classDef ok fill:#1b5e20,color:#fff,stroke:#2e7d32;
-  classDef partial fill:#8d6e00,color:#fff,stroke:#f9a825;
-  classDef missing fill:#8e1b1b,color:#fff,stroke:#c62828;
-  classDef planned fill:#424242,color:#fff,stroke:#757575;
-```
-
-🟡 **health-service** has a development-profile REST facade for observations/vaccinations/alerts; six declared health RPCs have no handlers. Finance/reporting and other dev facades are profile-limited; check current controllers for exact routes.
-
-## 3. Service dependency graph
-
-```mermaid
-flowchart LR
-  gw["gateway"]:::ok
-  id["identity"]:::ok
-  ord["order"]:::ok
-  inv["inventory"]:::ok
-  fin["finance"]:::partial
-  gw -->|"gRPC: auth/directory/admin"| id
-  gw -->|"gRPC: order/saga"| ord
-  gw -->|"gRPC dev"| inv
-  ord ==>|"gRPC: reserveStock / commitReservation / releaseReservation"| inv
-  ord ==>|"gRPC: recordExpense / reverseExpense"| fin
-  classDef ok fill:#1b5e20,color:#fff;
-  classDef partial fill:#8d6e00,color:#fff;
-```
-
-Dependency xuyên service **thực tế có trong source**: `order → inventory` (3 RPC saga), `order → finance` (2 RPC saga). Không có `identity → order`. Livestock/reporting/health **không** là downstream của service khác (chỉ nhận gRPC từ gateway và/hoặc publish event).
-
-## 4. Gateway routing overview
-
-```mermaid
-flowchart LR
-  c["Client"]:::ok
-  subgraph gw["gateway :8080"]
-    auth["/api/v1/auth/* (REST proxy)"]:::ok
-    me["/me (REST)"]:::ok
-    ords["/api/v1/orders/* (REST->gRPC)"]:::ok
-    saga["/api/v1/order-sagas/* (REST->gRPC, admin)"]:::ok
-    gql["/graphql (Query+Mutation)"]:::ok
-    livd["/api/v1/livestock/* (dev only)"]:::partial
-    invd["/api/v1/inventory/* (dev only)"]:::partial
-    repd["/api/v1/reports/* (dev only)"]:::partial
-    head["/api/v1/health/* (dev only)"]:::partial
-    ws["/ws/** (events WS)"]:::ok
-  end
-  c --> auth & me & ords & saga & gql & livd & invd & repd & head & ws
-  auth -->|"REST (WebClient)"| id["identity"]:::ok
-  me --> id
-  ords & saga -->|gRPC| ord["order"]:::ok
-  gql -->|gRPC| id & ord & inv["inventory"]:::ok & fin["finance"]:::partial
-  livd -->|gRPC| liv["livestock"]:::ok
-  invd -->|gRPC| inv
-  repd -->|gRPC| rep["reporting"]:::partial
-  head -->|gRPC| hea["health"]:::partial
-  classDef ok fill:#1b5e20,color:#fff;
-  classDef partial fill:#8d6e00,color:#fff;
-```
-
-Chi tiết từng route: [`docs/architecture/gateway-mapping.md`](./gateway-mapping.md).
-
-## 5. Authentication flow (login)
-
-```mermaid
-sequenceDiagram
-  participant C as Client
-  participant GW as Gateway
-  participant ID as identity
-  C->>GW: POST /api/v1/auth/login {email, password}
-  GW->>ID: REST proxy (WebClient) /api/v1/auth/login
-  ID->>ID: verify credentials, lockout check, resolve tenant from email
-  alt MFA enrolled (forced for SUPERADMIN)
-    ID-->>GW: MFA_REQUIRED (challengeToken)
-    C->>GW: POST /api/v1/auth/mfa/verify {challengeToken, code}
-    GW->>ID: REST proxy /api/v1/auth/mfa/verify
-  end
-  ID-->>GW: accessToken RS256 15m + refreshToken rotating
-  GW-->>C: tokens
-  Note over C,GW: Bearer access on later calls gateway validates JWT issuer aud JWKS
-```
-
-🟢 Verified @ `f113657`: login nhận **email + password** (bỏ `tenantId` bắt buộc; nhiều tenant → `TENANT_SELECTION_REQUIRED`). `AuthProxyController` (gateway) proxy sang `AuthController` (identity) qua WebClient; JWT RS256 15 phút + JWKS + audience/tenant validation (`libs/smartfarm-security`). SUPERADMIN bị ép TOTP → login trả `MFA_REQUIRED` trước khi cấp token.
-
-## 6. Registration flow
-
-```mermaid
-sequenceDiagram
-  participant C as Client
-  participant GW as Gateway (/api/v1/auth/register, permitAll)
-  participant ID as identity
-  participant PG as Postgres (identity)
-  C->>GW: POST /api/v1/auth/register
-  GW->>ID: REST proxy /api/v1/auth/register
-  ID->>PG: create account + membership (RBAC default role)
-  ID->>ID: enqueue identity domain event (protobuf outbox)
-  ID-->>GW: 201 principal
-  GW-->>C: created
-```
-
-🟢 identity publish event dạng **protobuf `DomainEvent`** (payload `IdentityLifecycleEvent`), cùng format mọi service khác → event identity tới được WS bridge của gateway (EVT-01/02 đã fix, xem §8).
-
-## 7. Request flow xuyên service — PlaceOrder saga (REST → gRPC → saga → inventory + finance)
-
-```mermaid
-sequenceDiagram
-  participant C as Client
-  participant GW as Gateway (/api/v1/orders)
-  participant ORD as order (gRPC FarmOrderGrpcService)
-  participant SAGA as order saga worker (persistent)
-  participant INV as inventory (gRPC)
-  participant FIN as finance (gRPC)
-  participant OB as order outbox -> MQTT
-  C->>GW: POST /api/v1/orders (Idempotency-Key, SCOPE_orders:write)
-  GW->>ORD: gRPC PlaceOrder(context, farmId, lines)
-  ORD->>ORD: persist order + saga (CREATED)
-  ORD-->>GW: Order(view)
-  GW-->>C: 200 Order
-  Note over SAGA: async, persistent saga worker
-  SAGA->>INV: reserveStock -> commitReservation
-  SAGA->>FIN: recordExpense
-  alt failure
-    SAGA->>INV: releaseReservation
-    SAGA->>FIN: reverseExpense
-  end
-  SAGA->>OB: OrderChanged (outbox)
-  OB-->>GW: MQTT domain event -> WS bridge -> browser
-```
-
-🟢 Verified: 5 cross-service gRPC saga calls tồn tại trong source; outbox at-least-once + CQRS projection; failure path = compensation (release/reverse).
-
-## 8. Event communication overview
-
-```mermaid
-flowchart LR
-  subgraph pub[Publishers - outbox relay]
-    ord["order protobuf"]:::ok
-    liv["livestock protobuf"]:::ok
-    hea["health protobuf (all profiles, signed)"]:::ok
-    id["identity protobuf (lifecycle)"]:::ok
-  end
-  broker(["MQTT smartfarm/{tenant}/{farm}/domain/.../v1"]):::partial
-  subgraph sub[Consumers]
-    inv["inventory (task-changed/v1 only)"]:::partial
-    ordc["order CQRS (OrderChanged)"]:::ok
-    wsb["gateway WS bridge -> browser"]:::ok
-  end
-  ord & liv & hea & id -->|protobuf DomainEvent| broker
-  broker --> inv & ordc & wsb
-  classDef ok fill:#1b5e20,color:#fff;
-  classDef partial fill:#8d6e00,color:#fff;
-  classDef missing fill:#8e1b1b,color:#fff;
-```
-
-🔐 Source configuration enables app-level MQTT HMAC in dev and defaults it off in production; broker-level ACL/TLS is not enabled by those settings. Verify individual publisher/consumer wiring before claiming platform-wide enforcement. See [`mqtt-acl-mtls.md`](../security/mqtt-acl-mtls.md).
-
-**Implementation notes** (see [`request-flows.md`](./request-flows.md), [`security-architecture.md`](../security/security-architecture.md), and the [identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)):
-- ✅ **EVT-01 (source implementation)**: identity publisher builds protobuf `DomainEvent` containing `IdentityLifecycleEvent` (oneof field 24); don't treat this as a statement about current broker delivery.
-- ✅ **EVT-02 (RESOLVED)**: identity topic chuẩn hoá về `smartfarm/{tenant}/_global/domain/{event}/v1` (bỏ segment `{aggr}-{event}`), khớp filter `smartfarm/+/+/domain/#`.
-- 🟡 inventory chỉ sub `task-changed/v1`; 6 leaf lifecycle livestock khác chỉ WS bridge nhận.
-- 🟡 health publisher/source configuration is not limited to a dev profile; deployed broker delivery and production HMAC signing depend on profile/environment values (prod HMAC defaults off).
+> **Chuẩn hóa:** 2026-10-16  
+> **Nguyên tắc:** Sử dụng biểu đồ trực quan (Mermaid) và bảng thống kê; thông tin cô đọng, dễ tích hợp và mở rộng; nguồn mã nguồn làm chuẩn duy nhất.
 
 ---
 
-## Service docs
-- [gateway](../services/gateway.md) · [identity](../services/identity.md) · [order](../services/order.md) · [inventory](../services/inventory.md) · [finance](../services/finance.md) · [livestock](../services/livestock.md) · [health](../services/health.md) · [reporting](../services/reporting.md)
-- ← [Documentation Index](../index.md)
+## 1. Cấu Trúc Liên Kết Tinh Giản Của Hệ Thống (Service Interconnection)
+
+```mermaid
+flowchart TD
+    subgraph Clients["Tầng Trình Diễn (Clients & Edge)"]
+        Web["Web App (apps/smartfarm-web)\nReact 19 + Vite + Tailwind"]
+        Bruno["Bruno API Collections\n(Manual & Automated Tests)"]
+    end
+
+    subgraph EdgeIngress["Tầng Cổng (API Gateway)"]
+        GW["smartfarm-gateway (:8080)\n- Spring WebFlux (Reactive)\n- REST Proxy + GraphQL (:8080/graphql)\n- WebSocket Event Bridge (:8080/ws)"]
+    end
+
+    subgraph SecurityHub["Trung Tâm Định Danh (Security & Identity)"]
+        Identity["smartfarm-identity-service (:8092 / :9092)\n- Cấp Token Đồng Bộ & Bất Đồng Bộ (is_async)\n- Xác thực RBAC, MFA, Session Management\n- JWKS Endpoint (/.well-known/jwks.json)"]
+    end
+
+    subgraph BusinessServices["Các Dịch Vụ Nghiệp Vụ Nội Bộ (Internal gRPC Services)"]
+        Order["smartfarm-order-service (:8085 / :9095)\n- Order Lifecycle & SAGA Coordinator"]
+        Inv["smartfarm-inventory-service (:8083 / :9093)\n- Stock Reservations & Warehouses"]
+        Fin["smartfarm-finance-service (:8084 / :9094)\n- Ledger, Expenses & Reversals"]
+        Livestock["smartfarm-livestock-service (:8081 / :9091)\n- Animals & Task Schedules"]
+        Health["smartfarm-health-service (:8087 / :9097)\n- Observations & Alerts"]
+        Reporting["smartfarm-reporting-service (:8086 / :9096)\n- Export Jobs & Aggregates"]
+    end
+
+    subgraph EventMesh["Hạ Tầng Bất Đồng Bộ (Event & Message Bus)"]
+        MQTT["Mosquitto MQTT Broker (:1883)\n- Invalidation: events/identity/authorization-invalidated\n- SAGA & Domain Events: smartfarm/*/events"]
+    end
+
+    %% Client calls
+    Web -->|HTTP / WS| GW
+    Bruno -->|HTTP| GW
+
+    %% Gateway dispatch
+    GW -->|"REST (Auth Proxy) / gRPC (Admin)"| Identity
+    GW -->|"gRPC + Delegated Service Token"| Order
+    GW -->|"gRPC + Delegated Service Token"| Inv
+    GW -->|"gRPC + Delegated Service Token"| Fin
+    GW -->|"gRPC + Delegated Service Token"| Livestock
+    GW -->|"gRPC + Delegated Service Token"| Health
+    GW -->|"gRPC + Delegated Service Token"| Reporting
+
+    %% Inter-service calls (SAGA)
+    Order ==>|"gRPC (SAGA Forward/Compensate)"| Inv
+    Order ==>|"gRPC (SAGA Forward/Compensate)"| Fin
+
+    %% Event Streams
+    Identity -.->|"Outbox: Auth Invalidation"| MQTT
+    Order -.->|"Outbox: Order Events"| MQTT
+    Livestock -.->|"Outbox: Task Events"| MQTT
+    Health -.->|"Outbox: Health Alerts"| MQTT
+    MQTT -.->|"Event Bridge Push"| GW
+```
+
+---
+
+## 2. Bảng Ma Trận Công Nghệ (Tech Stack Matrix)
+
+Bảng phân bổ công nghệ cốt lõi trên từng service và thư viện trong toàn bộ dự án:
+
+| Module / Service | Spring Boot 4 | Spring gRPC | Spring WebFlux | Spring Data JPA | PostgreSQL (Shared Dev / Dedicated Prod) | Flyway Migration | Mosquitto MQTT | React 19 / Vite | Protobuf v3 | Spring Security / JWT |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `smartfarm-web` | — | — | — | — | — | — | — | ✅ | — | ✅ (Token Client) |
+| `smartfarm-gateway` | ✅ | ✅ (Client) | ✅ | — | — | — | ✅ (Sub/WS) | — | ✅ | ✅ (Resource Server) |
+| `smartfarm-identity-service` | ✅ | ✅ (Server) | — | ✅ | ✅ | ✅ | ✅ (Outbox/Inbox)| — | ✅ | ✅ (Issuer/JWKS) |
+| `smartfarm-order-service` | ✅ | ✅ (Server/Client) | — | ✅ | ✅ | ✅ | ✅ (Outbox/CQRS) | — | ✅ | ✅ (Resource Server) |
+| `smartfarm-inventory-service` | ✅ | ✅ (Server) | — | ✅ | ✅ | ✅ | ✅ (Sub) | — | ✅ | ✅ (Resource Server) |
+| `smartfarm-finance-service` | ✅ | ✅ (Server) | — | ✅ | ✅ | ✅ | — | — | ✅ | ✅ (Resource Server) |
+| `smartfarm-livestock-service` | ✅ | ✅ (Server) | — | ✅ | ✅ | ✅ | ✅ (Outbox) | — | ✅ | ✅ (Resource Server) |
+| `smartfarm-health-service` | ✅ | ✅ (Server) | — | ✅ | ✅ | ✅ | ✅ (Outbox) | — | ✅ | ✅ (Resource Server) |
+| `smartfarm-reporting-service` | ✅ | ✅ (Server) | — | ✅ | ✅ | ✅ | — | — | ✅ | ✅ (Resource Server) |
+| `libs/smartfarm-security` | — | ✅ (Interceptors) | ✅ (WebFlux Guard) | — | — | — | ✅ (Envelope Verifier) | — | — | ✅ (Common Core) |
+| `libs/smartfarm-proto` | — | ✅ (Contracts) | — | — | — | — | — | — | ✅ | — |
+| `libs/smartfarm-common-kernel` | — | — | — | — | — | — | — | — | — | ✅ (Contract Claims) |
+
+---
+
+## 3. Kiến Trúc Cơ Sở Dữ Liệu: Tách Biệt Nghiệp Vụ vs Dev Dùng Chung
+
+```mermaid
+flowchart TD
+    subgraph TargetArchitecture["Kiến Trúc Chuẩn (Target / Production) — Database-Per-Service"]
+        direction TB
+        DB_ID[("PostgreSQL: identity_db\n(Schemas & Tables riêng)")]
+        DB_ORD[("PostgreSQL: order_db\n(Schemas & Tables riêng)")]
+        DB_INV[("PostgreSQL: inventory_db\n(Schemas & Tables riêng)")]
+        DB_FIN[("PostgreSQL: finance_db\n(Schemas & Tables riêng)")]
+        DB_OTH[("PostgreSQL: livestock_db / health_db")]
+
+        S_ID["Identity Service"] --> DB_ID
+        S_ORD["Order Service"] --> DB_ORD
+        S_INV["Inventory Service"] --> DB_INV
+        S_FIN["Finance Service"] --> DB_FIN
+        S_OTH["Livestock / Health"] --> DB_OTH
+    end
+
+    subgraph DevEnvironment["Hiện Trạng Môi Trường Dev (Local Development) — Shared Instance"]
+        direction TB
+        SharedPG[("PostgreSQL 17 Instance Dùng Chung\n(Port :5432 - Database: 'smartfarm')\n- sf_* : Bảng Identity\n- order_* : Bảng Orders & Saga\n- inv_* : Bảng Inventory\n- fin_* : Bảng Finance\n- live_* : Bảng Livestock")]
+
+        D_ALL["Mọi Service chạy Local (Identity, Order, Inventory, Finance...)"] -->|"${DB_URL:jdbc:postgresql://localhost:5432/smartfarm}"| SharedPG
+    end
+```
+
+### So Sánh Cơ Chế Lưu Trữ
+
+| Thuộc Tính | Môi Trường Phát Triển (Dev) | Mục Tiêu Triển Khai (Production / Target) |
+|---|---|---|
+| **Mô hình kết nối** | Dùng chung 1 PostgreSQL database instance (`smartfarm:5432`) | Database-per-service (Mỗi service sở hữu kết nối và DB riêng biệt) |
+| **Phân vùng dữ liệu** | Phân tách theo tiền tố bảng (`sf_*`, `order_*`, `inv_*`, `fin_*`...) | Tách biệt hoàn toàn ở cấp Database/Schema vật lý |
+| **Ràng buộc khóa ngoại (FK)** | Tuyệt đối **không tạo FK liên service** (giữ ranh giới microservice) | Hoàn toàn cô lập; không phụ thuộc lẫn nhau |
+| **Khởi tạo Schema** | Hibernate `ddl-auto: update` (Dev) hoặc H2 in-memory (Test) | Flyway Migration bắt buộc (`ddl-auto: validate`) |
+| **Lợi ích vận hành** | Nhẹ tài nguyên máy phát triển, khởi động nhanh qua 1 lệnh Docker | Tối đa hóa khả năng mở rộng, cô lập sự cố, bảo mật dữ liệu độc lập |
+
+---
+
+## 4. Bảng Danh Mục Service, Cổng Mạng & Giao Thức (Ports & Network)
+
+| Tên Dịch Vụ | Module Thư Mục | HTTP Port | gRPC Port | Giao Thức & Vai Trò Chính |
+|---|---|:---:|:---:|---|
+| **Gateway** | `apps/smartfarm-gateway` | `8080` | — | Ingress duy nhất: REST Proxy, GraphQL (`/graphql`), WebSocket Bridge (`/ws`) |
+| **Web Frontend** | `apps/smartfarm-web` | `5173` | — | Giao diện người dùng SPA (Vite Dev Server / Nginx build) |
+| **Identity Service** | `services/smartfarm-identity-service` | `8092` | `9092` | Cấp phát Token (Sync/Async), Quản trị RBAC, Session gRPC, Auth HTTP |
+| **Order Service** | `services/smartfarm-order-service` | `8085` | `9095` | Quản lý Đơn hàng, Điều phối SAGA Transaction qua gRPC & Outbox Relay |
+| **Inventory Service** | `services/smartfarm-inventory-service` | `8083` | `9093` | Quản lý Kho, Giữ tồn kho (`reserveStock`), Xuất kho (`commitReservation`) |
+| **Finance Service** | `services/smartfarm-finance-service` | `8084` | `9094` | Ghi nhận chi phí (`recordExpense`), Hoàn tác chi phí (`reverseExpense`) |
+| **Livestock Service** | `services/smartfarm-livestock-service` | `8081` | `9091` | Quản lý Đàn vật nuôi, Lịch tiêm, Nhiệm vụ chăm sóc |
+| **Health Service** | `services/smartfarm-health-service` | `8087` | `9097` | Hồ sơ sức khỏe, Theo dõi triệu chứng, Cảnh báo dịch bệnh |
+| **Reporting Service** | `services/smartfarm-reporting-service` | `8086` | `9096` | Tổng hợp báo cáo, Xử lý export file bất đồng bộ |
+| **MQTT Broker** | Hạ tầng (`compose.yaml`) | — | `1883` | Trao đổi sự kiện domain bất đồng bộ & Watermark Invalidation |
+
+---
+
+## 5. Quy Chuẩn Tích Hợp & Mở Rộng Tính Năng
+
+1. **Thêm API Mới:**
+   - Định nghĩa hợp đồng tại `libs/smartfarm-proto` (`.proto`).
+   - Biên dịch sinh mã: `mvn compile -pl libs/smartfarm-proto`.
+   - Cài đặt Server Impl trong Service nghiệp vụ; Gateway chỉ định tuyến qua gRPC stub tương ứng.
+2. **Bảo Mật API & Service Token:**
+   - Mọi Service nghiệp vụ phải include `libs/smartfarm-security`.
+   - Cuộc gọi gRPC từ Gateway hoặc Service-to-Service bắt buộc gắn `BearerCallCredentials` chứa Service Token được cấp từ Identity.
+   - Luồng bất đồng bộ (Background job, SAGA) dùng token với `is_async = true`.
+3. **Mở Rộng Sự Kiện (Events):**
+   - Sự kiện xuất bản dưới dạng Protobuf `DomainEvent`.
+   - Sử dụng Transactional Outbox Pattern để cam kết dữ liệu DB và xuất bản MQTT đồng nhất.

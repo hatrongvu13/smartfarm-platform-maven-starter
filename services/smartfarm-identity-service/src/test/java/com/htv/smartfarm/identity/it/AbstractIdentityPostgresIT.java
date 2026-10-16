@@ -42,7 +42,6 @@ import java.util.Set;
                 "smartfarm.identity.issuer=http://localhost:8092",
                 "smartfarm.identity.private-key-path=classpath:.local/identity-private.pem",
                 "smartfarm.identity.public-key-path=classpath:.local/identity-public.pem",
-                "smartfarm.identity.bootstrap-password=",
                 "smartfarm.security.jwt.issuer=http://localhost:8092",
                 "smartfarm.security.jwt.jwk-set-uri=http://localhost:8092/.well-known/jwks.json",
                 "smartfarm.security.jwt.audiences=smartfarm-identity",

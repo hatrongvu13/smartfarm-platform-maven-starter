@@ -7,17 +7,13 @@ import com.htv.smartfarm.identity.token.grant.GrantType;
 import com.htv.smartfarm.identity.token.grant.TokenContext;
 import com.htv.smartfarm.identity.token.grant.TokenGrantFacade;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class ServiceTokenService {
-
-    private static final Logger AUDIT = LoggerFactory.getLogger(
-            "smartfarm.audit.service-token"
-    );
 
     private final ServiceTokenSettings settings;
     private final TokenGrantFacade tokenGrants;
@@ -51,22 +47,33 @@ public class ServiceTokenService {
             String tenantId,
             String actorId
     ) {
+        return issue(clientId, secret, audience, tenantId, actorId, false);
+    }
+
+    public Grant issue(
+            String clientId,
+            String secret,
+            String audience,
+            String tenantId,
+            String actorId,
+            boolean isAsync
+    ) {
         requireText(clientId, "client_id");
         requireText(audience, "audience");
         requireText(tenantId, "tenant_id");
         ServiceTokenSettings.Client client = settings.clients().get(clientId);
         if (client == null || secret == null
                 || !encoder.matches(secret, client.secret())) {
-            AUDIT.warn(
-                    "service_token_denied reason=bad_credentials client_id={} audience={} tenant={} actor_id={}",
-                    clientId, audience, tenantId, safe(actorId)
+            log.warn(
+                    "service_token_denied reason=bad_credentials client_id={} audience={} tenant={} actor_id={} async={}",
+                    clientId, audience, tenantId, safe(actorId), isAsync
             );
             throw new SecurityException("invalid service client credentials");
         }
         if (!client.mayTarget(audience)) {
-            AUDIT.warn(
-                    "service_token_denied reason=audience_not_allowed client_id={} audience={} tenant={} actor_id={}",
-                    clientId, audience, tenantId, safe(actorId)
+            log.warn(
+                    "service_token_denied reason=audience_not_allowed client_id={} audience={} tenant={} actor_id={} async={}",
+                    clientId, audience, tenantId, safe(actorId), isAsync
             );
             throw new SecurityException("service audience is not allowed");
         }
@@ -75,9 +82,9 @@ public class ServiceTokenService {
                 ? null
                 : actorId.trim();
         if (normalizedActor != null && !client.delegationEnabled()) {
-            AUDIT.warn(
-                    "service_token_denied reason=delegation_not_allowed client_id={} audience={} tenant={} actor_id={}",
-                    clientId, audience, tenantId, safe(normalizedActor)
+            log.warn(
+                    "service_token_denied reason=delegation_not_allowed client_id={} audience={} tenant={} actor_id={} async={}",
+                    clientId, audience, tenantId, safe(normalizedActor), isAsync
             );
             throw new SecurityException(
                     "service client is not allowed to delegate an actor"
@@ -93,6 +100,7 @@ public class ServiceTokenService {
             subjectVersion = versions.subjectVersion();
             tenantVersion = versions.tenantVersion();
         }
+        var ttl = isAsync ? null : settings.ttl();
         var context = new TokenContext(
                 grantType,
                 "svc:" + clientId,
@@ -107,15 +115,17 @@ public class ServiceTokenService {
                 null,
                 java.time.Instant.now(),
                 java.util.List.of("client_secret"),
-                settings.ttl()
+                ttl,
+                isAsync
         );
         String token = tokenGrants.issue(context).accessToken().value();
-        AUDIT.info(
-                "service_token_granted client_id={} audience={} tenant={} actor_id={} scopes={} ttl_s={}",
+        long ttlSeconds = ttl != null ? ttl.toSeconds() : 0L;
+        log.info(
+                "service_token_granted client_id={} audience={} tenant={} actor_id={} scopes={} ttl_s={} async={}",
                 clientId, audience, tenantId, safe(actorId), scopes,
-                settings.ttl().toSeconds()
+                ttlSeconds, isAsync
         );
-        return new Grant(token, "Bearer", settings.ttl().toSeconds(), audience);
+        return new Grant(token, "Bearer", ttlSeconds, audience);
     }
 
     private static String safe(String value) {

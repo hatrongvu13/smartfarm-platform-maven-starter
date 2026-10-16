@@ -68,6 +68,51 @@ class SmartFarmJwtValidatorTest {
     }
 
     @Test
+    void acceptsAsyncTokenWithoutExpiry() {
+        Instant now = Instant.now();
+        Jwt asyncToken = new Jwt(
+                "token",
+                now.minusSeconds(5),
+                null,
+                Map.of("alg", "RS256"),
+                Map.of(
+                        "iss", ISSUER,
+                        "sub", "svc:order",
+                        "tenant_id", "tenant-001",
+                        "aud", List.of("smartfarm-order"),
+                        TokenClaimContract.TOKEN_TYPE, "service",
+                        TokenClaimContract.IS_ASYNC, true
+                )
+        );
+
+        assertThat(validator.validate(asyncToken).hasErrors()).isFalse();
+    }
+
+    @Test
+    void rejectsSyncTokenWithoutExpiry() {
+        Instant now = Instant.now();
+        Jwt syncTokenWithoutExpiry = new Jwt(
+                "token",
+                now.minusSeconds(5),
+                null,
+                Map.of("alg", "RS256"),
+                Map.of(
+                        "iss", ISSUER,
+                        "sub", "svc:gateway",
+                        "tenant_id", "tenant-001",
+                        "aud", List.of("smartfarm-order"),
+                        TokenClaimContract.TOKEN_TYPE, "user"
+                )
+        );
+
+        var result = validator.validate(syncTokenWithoutExpiry);
+        assertThat(result.hasErrors()).isTrue();
+        assertThat(result.getErrors())
+                .anySatisfy(error -> assertThat(error.getDescription())
+                        .isEqualTo("missing_expiry"));
+    }
+
+    @Test
     void rejectsMissingTokenTypeEvenForLegacyContractVersion() {
         Jwt token = jwt(List.of("smartfarm-order"));
         Map<String, Object> claims = new HashMap<>(token.getClaims());

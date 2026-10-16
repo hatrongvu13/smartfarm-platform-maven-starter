@@ -252,7 +252,8 @@ public class DefaultTenantIdentityAdministrationService
                 : List.of();
         RoleTypeData type = isPlatformCode(role.getCode()) ? RoleTypeData.PLATFORM
                 : role.isSystemRole() ? RoleTypeData.SYSTEM : RoleTypeData.TENANT;
-        return new RoleData(role.getId(), role.getTenant().getId(), role.getCode(), role.getName(), type,
+        return new RoleData(role.getId(), role.getTenant().getId(), role.getCode(), role.getName(),
+                role.getDescription(), type,
                 permissions, role.getCreatedAt(), role.getUpdatedAt(), role.getVersion());
     }
 

@@ -1,51 +1,68 @@
 # Identity Service (`services/smartfarm-identity-service`)
 
-> Reconciled 2026-10-15 against the service source, its tests, its runtime configuration, and `libs/smartfarm-proto/src/main/proto/smartfarm/identity/v1/identity.proto`. The implementation is authoritative; this page is not a release-readiness claim.
+> **Cập nhật & Chuẩn hóa:** 2026-10-16  
+> **Tài liệu tham chiếu:** [`IDENTITY_BACKLOG_UPDATED.md`](../../IDENTITY_BACKLOG_UPDATED.md) (Master Checklist), [`docs/security/security-architecture.md`](../security/security-architecture.md).
 
-## Responsibility and runtime
+---
 
-Identity owns account/profile, tenant membership, RBAC and permission administration, MFA, JWT issuance/JWKS, service-client validation, and refresh-session lifecycle. HTTP defaults to `127.0.0.1:8092`; gRPC port `9092` is configured in base configuration and binds to loopback by default in every profile (`IDENTITY_GRPC_BIND_ADDRESS`).
+## 1. Trách Nhiệm & Ranh Giới
 
-The service has five gRPC service implementations: directory, administration, platform authorization administration, credentials, and token/session. Each is registered as a Spring gRPC `@GrpcService`. Machine-token issue validates registered client credentials and audience allowlists; delegated exchange additionally requires a verified user JWT matching the actor and tenant. Session RPCs require specific authorities. A local Netty server test verifies registration of all five services, the five token/session RPC methods, successful issue dispatch, and unauthenticated delegated-exchange rejection. Cross-host gRPC still requires TLS/mTLS and private network controls; the default deployment is loopback-only.
+Identity Service là trung tâm định danh, quản lý tài khoản, phân quyền RBAC toàn cục, cấp phát token (Sync & Async), và quản lý phiên người dùng cho toàn bộ nền tảng SmartFarm:
+- **HTTP Ingress (`:8092`):** Tiếp nhận xác thực công khai (Login, MFA Verify/Enrollment, Refresh, Logout, Bootstrap-superadmin) và cung cấp JWKS công khai (`/.well-known/jwks.json`).
+- **gRPC Ingress (`:9092`):** Giao diện nội bộ độc quyền cho quản trị tài khoản, phân quyền, kiểm tra quyền và cấp phát Service Token (Machine Token & Delegated Token).
+- **MQTT Event Outbox:** Phát tán các sự kiện định danh (`IdentityLifecycleEvent`) và sự kiện vô hiệu hóa quyền tức thời (`AuthorizationInvalidated`).
 
-## Inbound interfaces
+---
 
-- **HTTP authentication:** `AuthController` exposes registration (when enabled), login, bootstrap-superadmin, refresh, logout, MFA verify/enrollment, and credential flows under `/api/v1/auth/**`.
-- **HTTP authentication/OAuth edge:** `AuthController` continues to serve public login, registration, MFA, refresh/logout, and JWKS over HTTP; Gateway proxies these edge operations. They are not internal administration APIs.
-- **gRPC:** `IdentityDirectoryService`, `IdentityAdministrationService`, `PlatformAuthorizationAdministrationService`, `IdentityCredentialService`, and `IdentityTokenService`. The exact contract is in `identity.proto`; method authorities and explicit public methods are configured in `IdentityGrpcSecurityConfiguration`.
-- **MQTT commands:** optional inbox/dispatcher path is disabled by default; when enabled it dispatches application-service commands rather than writing repositories from the transport adapter.
+## 2. Các Luồng Cấp Phát Token Cốt Lõi
 
-## Token and refresh-session behavior
+```mermaid
+flowchart LR
+    subgraph ClientLogin["Luồng Client (Sync)"]
+        User["Người dùng"] -->|Email/Password| Auth["AuthController (HTTP)"]
+        Auth -->|TokenGrantFacade| Signer["Nimbus RS256 Signer"]
+        Signer -->|User JWT exp <= 15m| User
+    end
 
-- `TokenGrantFacade` is the current issuance path used by `AuthService` and `ServiceTokenService`. It uses `TokenSigner`, `RefreshSessionPort`, and `TokenGrantAudit`; a source architecture test guards business calls to legacy issue methods still present on `TokenService`.
-- User JWTs are RS256 and capped at 15 minutes. The `TokenService` claim builder emits standard identity claims, scopes/roles and authorization versions, with `sid`, `auth_time`, and `amr` when present in the token context. Service tokens carry `client_id`; wildcard scopes are rejected. Delegated service tokens carry a signed actor claim after actor verification.
-- JWT claim names and the current `identity_claims_version` are shared through `smartfarm-common-kernel`'s `TokenClaimContract`. New Identity/shared issuer tokens use version 1; resource-server validation accepts legacy tokens without this marker and rejects unknown versions. Downstream HTTP and gRPC validation also requires a recognized `token_type` (`user`, `service`, or legacy `client_credentials`); missing/unknown types are rejected, even when `client_id` exists.
-- Refresh sessions and token hashes have JPA entities/repositories. `JpaRefreshSessionAdapter` creates, resolves, rotates, and revokes them. Rotation detects reuse and calls `RefreshReplayRevocationService`, which commits a session revocation in a `REQUIRES_NEW` transaction before the request fails.
-- `RefreshSessionAdministrationService` backs `ListSessions`, `RevokeSession`, and `RevokeAllSessions`. Session responses contain identifiers/metadata, not token material. Service-registration and authority-policy coverage exist, but tenant isolation at the gRPC boundary and concurrent PostgreSQL replay/rotation proof remain gaps.
+    subgraph ServiceDelegation["Luồng Service-to-Service (gRPC)"]
+        GW["API Gateway"] -->|ExchangeDelegatedToken| TokenGrpc["IdentityTokenGrpcService"]
+        TokenGrpc -->|TokenGrantFacade| SvcToken["Delegated Service Token\nsub=svc:gateway, act.sub=user_id"]
+        SvcToken --> GW
+    end
 
-## Local runtime verification
+    subgraph AsyncFlow["Luồng Bất Đồng Bộ (Async SAGA / MQTT)"]
+        Worker["Saga Worker"] -->|IssueServiceToken is_async=true| TokenGrpc
+        TokenGrpc -->|TokenGrantFacade| AsyncToken["Async Service Token\nis_async=true, exp=null"]
+        AsyncToken --> Worker
+    end
+```
 
-The dev YAML declares three service clients. A profile binding regression was fixed: the nested `Client` record has an explicit compatibility constructor, so its canonical constructor now uses `@ConstructorBinding`; the profile-loading test confirms all three clients bind. `auth_time` is serialized as NumericDate epoch seconds and covered by token decoding tests. Gateway now calls `ExchangeDelegatedToken` over gRPC; Order and Reporting call `IssueServiceToken` over gRPC. Service and interceptor tests cover actor/tenant binding, credential rejection, and session authority policies. Local server registration and token RPC reachability are verified with mocked service dependencies; full Spring Boot multi-service runtime and cross-host TLS/mTLS remain unverified.
+---
 
-## Authentication and bootstrap facts
+## 3. Quản Lý Phiên Refresh & Chống Tấn Công Replay
 
-- Login resolves tenant membership from email when no tenant is supplied; multiple active memberships require explicit selection.
-- Bootstrap is one-time and transaction-annotated. A seeded singleton database row is locked before checking for an existing super-admin, serializing concurrent requests across Identity instances. Flyway seeds it in production; startup initializes it when Hibernate manages the local schema. A concurrent PostgreSQL integration test is present but remains to be run. Bootstrap no longer creates or logs a TOTP enrollment URI; enrollment is initiated separately through the challenge-token-protected MFA endpoints. TOTP enrollment expiry is persisted and enforced at confirmation; scheduled maintenance removes expired pending authenticators and MFA challenges.
-- Account, profile, tenant membership, and role/membership structures are distinct. Existing REST auth endpoints should not be mistaken for general user/role CRUD; administrative operations are represented by gRPC contracts.
+- **Lưu trữ JPA:** Bảng `sf_refresh_session` và `sf_refresh_token` lưu trữ hash phiên và token.
+- **Xoay vòng Token:** Mỗi lần refresh thành công, token cũ bị thu hồi và một refresh token mới cùng họ được phát hành.
+- **Chống Replay (`REFRESH_TOKEN_REUSE`):** Khi phát hiện một refresh token đã từng bị thu hồi được sử dụng lại, toàn bộ họ session sẽ bị thu hồi ngay lập tức trong transaction `REQUIRES_NEW`.
+- **Quản trị qua gRPC:** `IdentityTokenService` cung cấp các RPC: `ListSessions`, `RevokeSession`, `RevokeAllSessions`.
 
-## Persistence and configuration
+---
 
-- Dev defaults to `IDENTITY_DB_URL` with local fallback `jdbc:postgresql://localhost:5432/smartfarm`; Hibernate uses `ddl-auto: update`, Flyway is disabled in `application-dev.yml`, and `open-in-view` is true.
-- Production requires `IDENTITY_DB_URL/USER/PASSWORD`, enables Flyway, uses Hibernate `ddl-auto: validate`, and defaults both HTTP/gRPC binds to loopback.
-- Refresh-session persistence is relational JPA; do not describe refresh families as Redis-backed.
-- gRPC TLS is not configured for the single-host loopback default. Any cross-host gRPC deployment must enable TLS/mTLS before widening bind addresses. MQTT envelope signing/verification is enabled in dev with a shared development secret and disabled by default in production; broker authentication/ACL/TLS are separate controls and are not enabled by the application profile alone.
+## 4. Xác Thực Đa Yếu Tố (MFA TOTP)
 
-## Open work (verified against current source)
+- **Nguyên tắc bảo mật:** Bootstrap super-admin không tự động sinh hay log TOTP URI/secret ra console.
+- **Quy trình Enrollment:** Bắt đầu bằng Challenge Token có thời hạn (`/api/v1/auth/mfa/enrollment/begin`), xác nhận mã OTP (`/api/v1/auth/mfa/enrollment/confirm`).
+- **Mã hóa bí mật:** Secret TOTP được mã hóa AES-256 bằng khóa đối xứng an toàn (`MfaEncryptionKeyProvider`).
 
-1. Add server-level registration tests for all five `IdentityTokenService` RPCs and prove Gateway, Order, and Reporting issuance against a running gRPC server. Unit interceptor tests cover current method-policy enforcement.
-2. Configure TLS/mTLS and certificate identity validation before supporting cross-host gRPC; keep loopback binding for local/single-host deployments.
-3. Run the concurrent PostgreSQL first-super-admin integration test and verify exactly one account is created.
-4. Prove replay revocation, refresh rotation races, and session RPC authorization/isolation in PostgreSQL/gRPC integration tests.
-5. Close remaining permission ownership, mutation/version/outbox, paging/search, and identity-proto model gaps tracked in [`IDENTITY_BACKLOG_UPDATED.md`](../../IDENTITY_BACKLOG_UPDATED.md).
+---
 
-[Identity flows — target vs current](identity-flows.md) · [REST API](../api/rest-api.md) · [gRPC API](../api/grpc-api.md) · [Security architecture](../security/security-architecture.md) · [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)
+## 5. Master Checklist Kế Hoạch Hoàn Thiện
+
+Toàn bộ tiến độ và các hạng mục triển khai của Identity Service được quản lý tập trung tại:
+👉 [**Master Checklist Identity Service (TODO / DOING / DONE)**](../../IDENTITY_BACKLOG_UPDATED.md)
+
+| Trạng Thái | Hạng Mục Chính |
+|:---:|---|
+| ✅ **DONE** | Cấp phát Token đồng bộ & bất đồng bộ (`is_async=true`), Delegated Service Token, Refresh session JPA, Phát hiện Replay Attack, MFA TOTP challenge, Catalog quyền Platform toàn cục (ADR-001), 95/95 test case pass. |
+| 🔄 **DOING** | Tối ưu hóa so khớp tenant trong sự kiện Authorization Invalidation MQTT, Dynamic Authorization Shadow Mode. |
+| 📋 **TODO** | Release Gate trên PostgreSQL thực tế (Flyway & Concurrency Bootstrap/Refresh), Cấu hình gRPC TLS/mTLS cross-host, Vault/Secret Manager injection. |

@@ -18,7 +18,8 @@ public interface PlatformAuthorizationAdministrationService {
             String roleName,
             String description,
             List<String> permissionCodes,
-            String actorId
+            String actorId,
+            String correlationId
     );
 
     RoleData grantPermission(

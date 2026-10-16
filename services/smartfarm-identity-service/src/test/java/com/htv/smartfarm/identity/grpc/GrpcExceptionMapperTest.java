@@ -7,6 +7,7 @@ import com.htv.smartfarm.common.exception.ForbiddenOperationException;
 import com.htv.smartfarm.common.exception.NotFoundException;
 import com.htv.smartfarm.common.exception.ValidationException;
 
+import io.grpc.Metadata;
 import io.grpc.Status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,8 @@ class GrpcExceptionMapperTest {
                 .isEqualTo(Status.Code.INVALID_ARGUMENT);
         assertThat(result.getStatus().getDescription())
                 .isEqualTo("INVALID_EMAIL: Email is invalid");
+        assertThat(result.getTrailers().get(errorCodeTrailer()))
+                .isEqualTo("INVALID_EMAIL");
     }
 
     @Test
@@ -84,5 +87,14 @@ class GrpcExceptionMapperTest {
                 .isEqualTo(Status.Code.INTERNAL);
         assertThat(result.getStatus().getDescription())
                 .isEqualTo("Internal identity service error");
+        assertThat(result.getTrailers().get(errorCodeTrailer()))
+                .isEqualTo("INTERNAL");
+    }
+
+    private static Metadata.Key<String> errorCodeTrailer() {
+        return Metadata.Key.of(
+                "identity-error-code",
+                Metadata.ASCII_STRING_MARSHALLER
+        );
     }
 }

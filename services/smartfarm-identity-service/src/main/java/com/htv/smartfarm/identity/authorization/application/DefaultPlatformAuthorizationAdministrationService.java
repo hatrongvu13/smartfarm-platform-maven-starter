@@ -78,7 +78,8 @@ public class DefaultPlatformAuthorizationAdministrationService
             String roleName,
             String description,
             List<String> permissionCodes,
-            String actorId) {
+            String actorId,
+            String correlationId) {
 
         TenantEntity tenant = platformTenant();
         String normalizedRoleCode = normalizeRoleCode(roleCode);
@@ -97,6 +98,7 @@ public class DefaultPlatformAuthorizationAdministrationService
                 roleName,
                 true,
                 actorId,
+                correlationId,
                 description);
 
         for (String permissionCode : uniquePermissionCodes) {
@@ -112,7 +114,7 @@ public class DefaultPlatformAuthorizationAdministrationService
                     normalizedRoleCode,
                     permissionCode,
                     actorId,
-                    null);
+                    correlationId);
         }
 
         RoleEntity role = findRoleById(roleId);
@@ -236,6 +238,7 @@ public class DefaultPlatformAuthorizationAdministrationService
                 role.getTenant().getId(),
                 role.getCode(),
                 role.getName(),
+                role.getDescription(),
                 RoleTypeData.PLATFORM,
                 permissions,
                 role.getCreatedAt(),

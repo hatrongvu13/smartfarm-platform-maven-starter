@@ -1,47 +1,69 @@
-# Service Communications — SmartFarm Platform
+# Ma Trận Giao Tiếp Dịch Vụ — SmartFarm Platform
 
-> Communication matrix based on current source; verify active configuration and runtime before treating a path as deployable.
+> **Chuẩn hóa:** 2026-10-16  
+> **Nguyên tắc:** Dùng bảng thống kê và biểu đồ luồng; loại bỏ text dư thừa; phân định rành mạch giữa giao tiếp đồng bộ (Sync - gRPC/REST) và bất đồng bộ (Async - MQTT/SAGA).
 
-## Ma tran (from -> to)
-| From → To | Protocol | Chi tiết | Status |
-|-----------|----------|----------|:------:|
-| client → gateway | REST + GraphQL + WS | edge ingress :8080 | 🟢 |
-| gateway → identity | REST (auth) + gRPC | auth proxy + directory/admin/credential | 🟢 |
-| gateway → order | gRPC | order + saga admin | 🟢 |
-| gateway → inventory | gRPC | dev-only facade | 🟡 |
-| gateway → reporting | gRPC | dev-only facade | 🟡 |
-| gateway → finance | gRPC | 2 dev-only GraphQL | 🟡 |
-| gateway → livestock | gRPC | dev-only facade | 🟡 |
-| gateway → health | gRPC | dev REST facade `/api/v1/health/*` (GW-01 fixed) | 🟡 |
-| order → inventory | gRPC | ReserveStock, CommitReservation, ReleaseReservation (saga) | 🟢 |
-| order → finance | gRPC | RecordExpense, ReverseExpense (saga) | 🟢 |
-| order → MQTT | event (outbox) | OrderChanged protobuf | 🟢 |
-| livestock → MQTT | event (outbox) | task-* protobuf | 🟢 |
-| health → MQTT | event (outbox) | health-* protobuf (all profiles, signed — EVT-03 fixed) | 🟢 |
-| identity → MQTT | event (outbox) | protobuf `IdentityLifecycleEvent` (EVT-01 fixed) | 🟢 |
-| MQTT → inventory | event (sub) | task-changed/v1 only | 🟡 |
-| MQTT → order | event (sub) | OrderChanged (CQRS) | 🟢 |
-| MQTT → identity | command (inbox) | admin commands, feature-flagged OFF by default | 🟡 |
-| MQTT → gateway | event (sub) | WS bridge → browser | 🟢 |
+---
 
-## Nguyên tắc
-- **Đồng bộ** (liền): REST client↔gateway, gateway↔identity auth, mọi gRPC.
-- **Bất đồng bộ** (nét đứt): MQTT outbox/inbox.
-- Không có vòng lặp; saga order→inventory/finance là cây 1 chiều + compensation.
+## 1. Sơ Đồ Ma Trận Giao Tiếp Tổng Thể
 
-## Inbound MQTT commands + command-ack (identity)
+```mermaid
+flowchart LR
+    GW["Gateway"]
+    ID["Identity"]
+    ORD["Order"]
+    INV["Inventory"]
+    FIN["Finance"]
+    BROKER([MQTT Mosquitto])
 
-`IdentityMqttCommandDispatcher` nhận **lệnh admin bất đồng bộ** qua MQTT inbox (role assign/revoke,
-membership enable/suspend/disable), gated bởi `smartfarm.identity.mqtt.commands.enabled` (mặc định
-**OFF**). Sau khi xử lý mỗi lệnh, nó phát một event kết quả:
+    %% Sync
+    GW -->|"gRPC: Auth / Token / Admin"| ID
+    GW -->|"gRPC: Orders / Saga Admin"| ORD
+    GW -->|"gRPC: Facades (dev)"| INV & FIN
 
-- **Event:** `identity.command.result`
-- **Topic:** `smartfarm/<tenant>/_global/domain/command.result/v1`
-- **Payload:** protobuf `DomainEvent` → `IdentityLifecycleEvent` (sau EVT-01), `data` =
-  `{commandId, commandType, status: PROCESSED|FAILED, errorCode?}`
-- **Consumer:** **không có consumer backend** — đây là **command-ack hướng WS**. Topic khớp filter WS
-  bridge của gateway (`smartfarm/+/+/domain/#`), nên result được đẩy tới **client FE** đã phát lệnh;
-  FE đối chiếu qua `commandId`/`correlationId`. Đây là mẫu async command → result-event → WS push,
-  **không phải orphan/bug** (ISSUE-06 reclassified **by-design**).
+    %% SAGA Inter-service
+    ORD ==>|"gRPC (Saga): Reserve / Commit / Release"| INV
+    ORD ==>|"gRPC (Saga): Record / Reverse"| FIN
 
-← [System Overview](system-overview.md) · [Request Flows](request-flows.md) · [Events](../api/events.md)
+    %% Async MQTT
+    ID -.->|"Outbox: Auth Invalidation"| BROKER
+    ORD -.->|"Outbox: Order Events"| BROKER
+    BROKER -.->|"Sub: WS Bridge"| GW
+    BROKER -.->|"Sub: CQRS Read-Model"| ORD
+```
+
+---
+
+## 2. Bảng Ma Trận Giao Tiếp Giữa Các Dịch Vụ (Service-to-Service Matrix)
+
+| Nguồn (From) | Đích (To) | Giao Thức | Endpoint / Action | Cơ Chế Bảo Mật & Xác Thực | Mục Đích Nghiệp Vụ |
+|---|---|:---:|---|---|---|
+| **Client** | **Gateway** | HTTP / WS | `/api/v1/*`, `/graphql`, `/ws` | Public hoặc Bearer User JWT (`exp <= 15m`) | Ingress cho Web App và Mobile/CLI |
+| **Gateway** | **Identity** | REST (HTTP) | `/api/v1/auth/*` | Public / Basic Proxy qua WebClient | Đăng ký, Đăng nhập, MFA Verify, Refresh |
+| **Gateway** | **Identity** | gRPC | `IdentityTokenService`, `IdentityAdmin*` | S2S Machine Token (`client_id=gateway`) | Đổi Delegated Token, Quản trị Roles & Users |
+| **Gateway** | **Order** | gRPC | `FarmOrderService`, `OrderSagaAdmin*` | Delegated Service Token (`sub=svc:gateway`) | Tạo draft, Submit đơn, Quản trị SAGA |
+| **Gateway** | **Inventory** | gRPC | `InventoryService` | Delegated Service Token | Tra cứu tồn kho, Quản lý kho hàng |
+| **Gateway** | **Finance** | gRPC | `FarmFinanceService` | Delegated Service Token | Tra cứu thu chi, Báo cáo dòng tiền |
+| **Gateway** | **Livestock** | gRPC | `LivestockRegistryService`, `TaskService` | Delegated Service Token | Đăng ký vật nuôi, Giao nhiệm vụ chăm sóc |
+| **Gateway** | **Health** | gRPC | `AnimalHealthService` | Delegated Service Token | Hồ sơ bệnh án, Khám chữa, Tiêm phòng |
+| **Gateway** | **Reporting** | gRPC | `ReportingService` | Delegated Service Token | Yêu cầu kết xuất báo cáo dữ liệu |
+| **Order (Saga)** | **Inventory** | gRPC | `ReserveStock`, `CommitReservation`, `ReleaseReservation` | Async Service Token (`is_async=true`) | Giữ chỗ kho, Xác nhận xuất kho, Hoàn kho khi hủy |
+| **Order (Saga)** | **Finance** | gRPC | `RecordExpense`, `ReverseExpense` | Async Service Token (`is_async=true`) | Hạch toán chi phí đơn, Hoàn tiền khi hủy |
+| **Identity** | **MQTT Broker** | MQTT | `events/identity/authorization-invalidated` | Message HMAC Envelope (ký ứng dụng) | Phát tán sự kiện thu hồi token/phiên tức thời |
+| **Order** | **MQTT Broker** | MQTT | `smartfarm/{tenant}/{farm}/domain/order/v1` | Protobuf `DomainEvent` | Thông báo đơn hàng tạo/thay đổi trạng thái |
+| **MQTT Broker** | **Gateway** | MQTT | `smartfarm/+/+/domain/#` | MQTT Subscription | Đẩy sự kiện realtime tới Web qua WebSocket bridge |
+| **MQTT Broker** | **Order** | MQTT | `smartfarm/{tenant}/{farm}/domain/order/v1` | MQTT Subscription (CQRS Consumer) | Cập nhật Read-Model Projection của đơn hàng |
+
+---
+
+## 3. Quy Tắc Giao Tiếp An Toàn (Security & Idempotency Rules)
+
+1. **Ủy Quyền Service-to-Service (S2S Delegation):**
+   - Không chuyển tiếp raw User Token vào mạng nội bộ.
+   - Gateway luôn gắn token do Identity cấp phát, mang `client_id=gateway` và người dùng thực hiện qua claim `act` (`act.sub = user_id`).
+2. **Khóa Chống Trùng Lặp (Idempotency Key):**
+   - Mọi thao tác ghi (POST/PUT/Saga step) qua gRPC đều bắt buộc mang `idempotency_key` trong `RequestContext`.
+   - Cấu trúc key trong Saga: `orderId + ":" + stepKey` (Ví dụ: `ORD-123:reserve:1`, `ORD-123:finance`).
+3. **Phân Biệt Rõ Luồng Đồng Bộ & Bất Đồng Bộ:**
+   - **Đồng bộ (REST / gRPC User-facing):** Bắt buộc có thời hạn ngắn $\le 15$ phút, timeout gRPC mặc định 5s.
+   - **Bất đồng bộ (Saga / MQTT Workers):** Sử dụng Async Token (`is_async=true`), không ràng buộc thời hạn hết hạn ngắn để đảm bảo worker retry và hàng đợi không bị gãy giữa chừng.

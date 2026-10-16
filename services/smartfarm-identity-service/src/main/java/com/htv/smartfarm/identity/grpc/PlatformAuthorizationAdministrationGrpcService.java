@@ -132,7 +132,9 @@ public class PlatformAuthorizationAdministrationGrpcService
                                             request.getDescription(),
                                             request
                                                     .getPermissionCodesList(),
-                                            secured.actorId()
+                                            secured.actorId(),
+                                            request.getContext()
+                                                    .getCorrelationId()
                                     );
 
                     log.info(

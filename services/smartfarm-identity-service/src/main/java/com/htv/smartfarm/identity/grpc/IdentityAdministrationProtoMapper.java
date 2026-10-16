@@ -42,6 +42,7 @@ public class IdentityAdministrationProtoMapper {
                 .setTenantId(safe(source.tenantId()))
                 .setCode(safe(source.code()))
                 .setName(safe(source.name()))
+                .setDescription(safe(source.description()))
                 .setType(toProtoRoleType(source.type()))
                 .setVersion(source.version())
                 .addAllPermissions(

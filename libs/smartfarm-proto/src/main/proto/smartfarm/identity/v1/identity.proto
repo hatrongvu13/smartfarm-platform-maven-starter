@@ -309,6 +309,7 @@ message RoleInfo {
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
   int64 version = 9;
+  string description = 10;
 }
 
 // ============================================================
@@ -825,6 +826,9 @@ message IssueServiceTokenRequest {
   //
   // Audience phải nằm trong allowlist của client.
   string audience = 4;
+
+  // Thuộc tính cấp phát token cho luồng bất đồng bộ (không bắt buộc thời hạn).
+  bool is_async = 5;
 }
 
 message ExchangeDelegatedTokenRequest {
@@ -848,6 +852,9 @@ message ExchangeDelegatedTokenRequest {
   // Giá trị này phải được Identity xác minh lại với account,
   // membership và authorization versions hiện tại.
   string actor_subject_id = 5;
+
+  // Thuộc tính cấp phát token cho luồng bất đồng bộ (không bắt buộc thời hạn).
+  bool is_async = 6;
 }
 
 message TokenGrantResponse {

@@ -33,9 +33,7 @@ class TokenServiceAuthTimeTest {
                 Duration.ofMinutes(15),
                 false,
                 "",
-                "farm-demo",
-                "admin@example.test",
-                "replace-with-a-long-random-password"
+                "farm-demo"
         );
         var service = new TokenService(
                 settings,
@@ -95,9 +93,7 @@ class TokenServiceAuthTimeTest {
                 Duration.ofMinutes(15),
                 false,
                 "",
-                "farm-demo",
-                "admin@example.test",
-                "replace-with-a-long-random-password"
+                "farm-demo"
         );
         var service = new TokenService(
                 settings,

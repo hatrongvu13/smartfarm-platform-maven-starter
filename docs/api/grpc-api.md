@@ -50,6 +50,10 @@ Synchronous internal operations and service-token issuance use gRPC. Public auth
 
 See [Identity service](../services/identity.md) and [Security architecture](../security/security-architecture.md).
 
+## Identity gRPC error details
+
+Identity maps domain failures to a gRPC status and attaches the stable machine-readable code in the `identity-error-code` trailing metadata field. Business exceptions preserve their domain code; generic failures use the corresponding gRPC status name, and unexpected internal errors expose only `INTERNAL`. Clients should branch on the trailer/status rather than parse the human-readable status description.
+
 ## Standardized error codes (gRPC → HTTP)
 
 `GrpcStatusHttpMapping` translates downstream status codes for Gateway REST and GraphQL facades.

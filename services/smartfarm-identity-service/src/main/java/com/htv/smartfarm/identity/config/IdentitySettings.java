@@ -48,11 +48,7 @@ public record IdentitySettings(
 
         String registrationTenant,
 
-        String bootstrapTenant,
-
-        String bootstrapEmail,
-
-        String bootstrapPassword
+        String bootstrapTenant
 ) {
 
     private static final Duration MAX_ACCESS_TTL =
