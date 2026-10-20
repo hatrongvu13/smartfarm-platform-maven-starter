@@ -8,6 +8,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import com.htv.smartfarm.identity.account.domain.UserAccountEntity;
 import com.htv.smartfarm.identity.account.repository.UserAccountRepository;
@@ -21,8 +25,10 @@ import com.htv.smartfarm.identity.token.grant.TokenContext;
 import com.htv.smartfarm.identity.token.session.RefreshSessionAdministrationService;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 
+@EnabledIfSystemProperty(named = "it.postgres.enabled", matches = "true")
 class RefreshSessionTenantIsolationIT extends AbstractIdentityPostgresIT {
     @Autowired private RefreshSessionPort refreshSessions;
     @Autowired private RefreshSessionAdministrationService administration;
@@ -44,6 +50,42 @@ class RefreshSessionTenantIsolationIT extends AbstractIdentityPostgresIT {
         assertThat(administration.list(tenantA, userId))
                 .extracting(value -> value.sessionId())
                 .containsExactly(grant.sessionId());
+    }
+
+    @Test
+    void concurrentRefreshAllowsOneRotationAndRevokesTheFamilyOnReplay() throws Exception {
+        String userId = "user-refresh-" + Long.toString(System.nanoTime(), 36);
+        String tenantId = seedTenantAndMembership(userId, "refresh");
+        var original = refreshSessions.create(context(userId, tenantId));
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        Callable<Object> attempt = () -> {
+            barrier.await();
+            try {
+                return refreshSessions.rotate(original.rawToken());
+            } catch (SecurityException failure) {
+                return failure;
+            }
+        };
+
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Object>> results = executor.invokeAll(List.of(attempt, attempt));
+            List<Object> rotations = List.of(results.get(0).get(), results.get(1).get());
+            var successful = rotations.stream()
+                    .filter(RefreshSessionPort.RefreshGrant.class::isInstance)
+                    .map(RefreshSessionPort.RefreshGrant.class::cast)
+                    .toList();
+
+            assertThat(successful).hasSize(1);
+            assertThat(rotations.stream()
+                    .filter(SecurityException.class::isInstance))
+                    .hasSize(1);
+            assertThatThrownBy(() -> refreshSessions.rotate(successful.get(0).rawToken()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("refresh token reuse detected");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private TokenContext context(String userId, String tenantId) {

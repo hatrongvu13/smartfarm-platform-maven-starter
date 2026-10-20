@@ -36,7 +36,7 @@ participant Audit as LoggingTokenGrantAudit
     TokenGrantFacade-->>Client: Phản hồi Token thành công
 ```
 
-- **Đã hoàn thành:** TokenGrantFacade tách biệt hoàn toàn logic kiểm tra lỗi cho từng Grant Type, tích hợp `TokenContext` hỗ trợ cờ `is_async = true`.
+- **Đã thay đổi:** Async exp-less token issuance đã bị loại bỏ khỏi contract và issuance flow; mọi JWT yêu cầu expiry hữu hạn. Các token grant custom hiện vẫn tồn tại trong lúc migration callers sang OAuth.
 - **Đã hoàn thành:** Cơ chế chống Replay Attack (`REFRESH_TOKEN_REUSE`) thu hồi toàn bộ session family trong transaction độc lập `REQUIRES_NEW`.
 
 ---

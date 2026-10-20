@@ -19,7 +19,7 @@ flowchart TD
     end
 
     subgraph SecurityHub["Trung Tâm Định Danh (Security & Identity)"]
-        Identity["smartfarm-identity-service (:8092 / :9092)\n- Cấp Token Đồng Bộ & Bất Đồng Bộ (is_async)\n- Xác thực RBAC, MFA, Session Management\n- JWKS Endpoint (/.well-known/jwks.json)"]
+        Identity["smartfarm-identity-service (:8092 / :9092)\n- OAuth2 Authorization Server / OIDC Provider + legacy token issuer\n- OAuth discovery/JWKS/UserInfo; legacy gRPC issuance remains\n- Finite-expiry tokens only; RBAC, MFA, session management"]
     end
 
     subgraph BusinessServices["Các Dịch Vụ Nghiệp Vụ Nội Bộ (Internal gRPC Services)"]
@@ -148,7 +148,7 @@ flowchart TD
 2. **Bảo Mật API & Service Token:**
    - Mọi Service nghiệp vụ phải include `libs/smartfarm-security`.
    - Cuộc gọi gRPC từ Gateway hoặc Service-to-Service bắt buộc gắn `BearerCallCredentials` chứa Service Token được cấp từ Identity.
-   - Luồng bất đồng bộ (Background job, SAGA) dùng token với `is_async = true`.
+   - Luồng bất đồng bộ (Background job, SAGA) dùng token có `exp` hữu hạn; worker reacquire token khi retry.
 3. **Mở Rộng Sự Kiện (Events):**
    - Sự kiện xuất bản dưới dạng Protobuf `DomainEvent`.
    - Sử dụng Transactional Outbox Pattern để cam kết dữ liệu DB và xuất bản MQTT đồng nhất.

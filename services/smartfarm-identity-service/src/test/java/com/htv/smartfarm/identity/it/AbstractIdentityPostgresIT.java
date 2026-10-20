@@ -2,7 +2,6 @@ package com.htv.smartfarm.identity.it;
 
 import com.htv.smartfarm.identity.authorization.application.FarmDirectoryPort;
 
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -48,7 +47,6 @@ import java.util.Set;
                 "smartfarm.security.jwt.allow-local-http=true"
         }
 )
-@EnabledIfSystemProperty(named = "it.postgres.enabled", matches = "true")
 abstract class AbstractIdentityPostgresIT {
 
     /**
@@ -65,11 +63,14 @@ abstract class AbstractIdentityPostgresIT {
         }
     }
 
-    private static final boolean EXTERNAL = System.getProperty("it.postgres.url") != null;
+    private static final boolean EXTERNAL = setting("it.postgres.url", "IDENTITY_IT_POSTGRES_URL") != null;
+    private static final boolean ENABLED = Boolean.parseBoolean(
+            System.getProperty("it.postgres.enabled", "false")
+    );
     private static PostgreSQLContainer<?> container;
 
     static {
-        if (!EXTERNAL) {
+        if (ENABLED && !EXTERNAL) {
             container = new PostgreSQLContainer<>(DockerImageName.parse("postgres:17-alpine"))
                     .withDatabaseName("identity_it").withUsername("postgres").withPassword("postgres");
             container.start();
@@ -78,16 +79,52 @@ abstract class AbstractIdentityPostgresIT {
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {
+        if (!ENABLED) {
+            throw new IllegalStateException(
+                    "PostgreSQL integration tests require -Dit.postgres.enabled=true"
+            );
+        }
         if (EXTERNAL) {
             registry.add("spring.datasource.url",
-                    () -> System.getProperty("it.postgres.url") + "?currentSchema=it_identity");
-            registry.add("spring.datasource.username", () -> System.getProperty("it.postgres.user", "postgres"));
-            registry.add("spring.datasource.password", () -> System.getProperty("it.postgres.pass", "root"));
+                    () -> withTestSchema(setting("it.postgres.url", "IDENTITY_IT_POSTGRES_URL")));
+            registry.add("spring.datasource.username",
+                    () -> requiredSetting("it.postgres.user", "IDENTITY_IT_POSTGRES_USER"));
+            registry.add("spring.datasource.password",
+                    () -> requiredSetting("it.postgres.pass", "IDENTITY_IT_POSTGRES_PASSWORD"));
         } else {
             registry.add("spring.datasource.url", container::getJdbcUrl);
             registry.add("spring.datasource.username", container::getUsername);
             registry.add("spring.datasource.password", container::getPassword);
         }
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    }
+
+    private static String setting(String property, String environmentVariable) {
+        String value = System.getProperty(property);
+        return value == null || value.isBlank()
+                ? System.getenv(environmentVariable)
+                : value;
+    }
+
+    private static String requiredSetting(
+            String property,
+            String environmentVariable
+    ) {
+        String value = setting(property, environmentVariable);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(
+                    "External PostgreSQL integration tests require " + environmentVariable
+            );
+        }
+        return value;
+    }
+
+    private static String withTestSchema(String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalStateException(
+                    "External PostgreSQL integration tests require IDENTITY_IT_POSTGRES_URL"
+            );
+        }
+        return url + (url.contains("?") ? "&" : "?") + "currentSchema=it_identity";
     }
 }

@@ -1,40 +1,43 @@
 # Identity Service (`services/smartfarm-identity-service`)
 
-> **Cập nhật & Chuẩn hóa:** 2026-10-16  
+> **Cập nhật & Chuẩn hóa:** 2026-10-20
 > **Tài liệu tham chiếu:** [`IDENTITY_BACKLOG_UPDATED.md`](../../IDENTITY_BACKLOG_UPDATED.md) (Master Checklist), [`docs/security/security-architecture.md`](../security/security-architecture.md).
 
 ---
 
 ## 1. Trách Nhiệm & Ranh Giới
 
-Identity Service là trung tâm định danh, quản lý tài khoản, phân quyền RBAC toàn cục, cấp phát token (Sync & Async), và quản lý phiên người dùng cho toàn bộ nền tảng SmartFarm:
+Identity Service là trung tâm định danh, quản lý tài khoản, tenant membership, MFA, RBAC và giao thức cấp quyền của nền tảng SmartFarm. **OAuth 2.0 Authorization Server/OIDC Provider đã được triển khai một phần trong service; chưa product-ready vì chưa migrate Gateway/Web/service clients, chưa có PKCE end-to-end và chưa verify PostgreSQL deployment.** Xem [thiết kế OAuth/OIDC mục tiêu và mapping class/method](../architecture/identity-oauth2-oidc-target.md) và checklist triển khai.
 - **HTTP Ingress (`:8092`):** Tiếp nhận xác thực công khai (Login, MFA Verify/Enrollment, Refresh, Logout, Bootstrap-superadmin) và cung cấp JWKS công khai (`/.well-known/jwks.json`).
 - **gRPC Ingress (`:9092`):** Giao diện nội bộ độc quyền cho quản trị tài khoản, phân quyền, kiểm tra quyền và cấp phát Service Token (Machine Token & Delegated Token).
 - **MQTT Event Outbox:** Phát tán các sự kiện định danh (`IdentityLifecycleEvent`) và sự kiện vô hiệu hóa quyền tức thời (`AuthorizationInvalidated`).
+
+### Ranh giới giao thức
+
+- Hiện tại: Identity cung cấp OAuth2 Authorization Server endpoints, OIDC discovery/JWKS/UserInfo, JDBC state, configured client credentials grant và authorization-only browser login/MFA journey. Gateway/Web và machine/delegated callers vẫn dùng custom endpoints/gRPC.
+- Mục tiêu: Authorization Code + PKCE qua Gateway BFF; service clients dùng client credentials; delegated access dùng RFC 8693; backend xác minh issuer, expiry, audience và scope.
+- Giữ gRPC cho directory, credential và administration nội bộ; không tạo identity provider thứ hai.
+- Xóa giao thức auth/token hiện tại khi clients đã được cập nhật đồng bộ; dự án đang phát triển nên không thiết kế legacy compatibility layer.
 
 ---
 
 ## 2. Các Luồng Cấp Phát Token Cốt Lõi
 
+Các luồng dưới đây mô tả migration đang diễn ra: custom public/gRPC token issuance còn hoạt động cho callers cũ, trong khi OAuth endpoints đã được thêm. `is_async`/exp-less token issuance đã bị loại bỏ.
+
 ```mermaid
 flowchart LR
-    subgraph ClientLogin["Luồng Client (Sync)"]
-        User["Người dùng"] -->|Email/Password| Auth["AuthController (HTTP)"]
-        Auth -->|TokenGrantFacade| Signer["Nimbus RS256 Signer"]
-        Signer -->|User JWT exp <= 15m| User
+    subgraph OAuth["OAuth/OIDC (đã có nền tảng; chưa migrate callers)"]
+        User["Người dùng"] -->|"Authorization Code + PKCE (cần E2E)"| AS["Spring Authorization Server"]
+        AS -->|"login + tenant/MFA"| Login["AuthorizationLoginController / AuthService"]
+        AS -->|"OIDC, access token exp hữu hạn"| Client["Client"]
     end
 
-    subgraph ServiceDelegation["Luồng Service-to-Service (gRPC)"]
-        GW["API Gateway"] -->|ExchangeDelegatedToken| TokenGrpc["IdentityTokenGrpcService"]
-        TokenGrpc -->|TokenGrantFacade| SvcToken["Delegated Service Token\nsub=svc:gateway, act.sub=user_id"]
-        SvcToken --> GW
+    subgraph Legacy["Custom callers (còn hoạt động, cần migration)"]
+        GW["Gateway / workers"] -->|custom login / token gRPC| LegacyToken["Legacy token services"]
     end
 
-    subgraph AsyncFlow["Luồng Bất Đồng Bộ (Async SAGA / MQTT)"]
-        Worker["Saga Worker"] -->|IssueServiceToken is_async=true| TokenGrpc
-        TokenGrpc -->|TokenGrantFacade| AsyncToken["Async Service Token\nis_async=true, exp=null"]
-        AsyncToken --> Worker
-    end
+    AS --> OAuthDB[("OAuth registered clients / authorizations / consents")]
 ```
 
 ---
@@ -63,6 +66,6 @@ Toàn bộ tiến độ và các hạng mục triển khai của Identity Servic
 
 | Trạng Thái | Hạng Mục Chính |
 |:---:|---|
-| ✅ **DONE** | Cấp phát Token đồng bộ & bất đồng bộ (`is_async=true`), Delegated Service Token, Refresh session JPA, Phát hiện Replay Attack, MFA TOTP challenge, Catalog quyền Platform toàn cục (ADR-001), 95/95 test case pass. |
+| ✅ **DONE** | Nền tảng Authorization Server/OIDC discovery/JWKS/UserInfo và machine-token protocol tests; custom token/login/MFA/session hiện tại; Catalog quyền Platform toàn cục (ADR-001); 97 unit/component tests pass. |
 | 🔄 **DOING** | Tối ưu hóa so khớp tenant trong sự kiện Authorization Invalidation MQTT, Dynamic Authorization Shadow Mode. |
-| 📋 **TODO** | Release Gate trên PostgreSQL thực tế (Flyway & Concurrency Bootstrap/Refresh), Cấu hình gRPC TLS/mTLS cross-host, Vault/Secret Manager injection. |
+| 📋 **TODO** | E2E Authorization Code + PKCE/login/MFA tests; Gateway BFF + Web cookie migration; client-credentials/RFC 8693 caller migration; PostgreSQL V4 + persistence release gate; gRPC TLS/mTLS nếu cross-host; secret injection/rotation; chốt Shadow → Enforce. Runtime startup smoke check thuộc platform operations (`scripts/health/`), không phải scope Identity hay Readiness Service. |

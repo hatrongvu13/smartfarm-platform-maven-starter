@@ -15,6 +15,7 @@ import com.htv.smartfarm.identity.tenant.repository.TenantRepository;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -27,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * The fail-closed production fallback is replaced in this test by a FarmDirectoryPort that knows
  * only farm-A / farm-B (see AbstractIdentityPostgresIT), so an unknown farm is still denied.
  */
+@EnabledIfSystemProperty(named = "it.postgres.enabled", matches = "true")
 class FarmAuthorizationIT extends AbstractIdentityPostgresIT {
 
     @Autowired private FarmScopeService farmScope;

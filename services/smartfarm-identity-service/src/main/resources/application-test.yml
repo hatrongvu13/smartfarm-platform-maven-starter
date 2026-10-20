@@ -18,8 +18,12 @@ spring:
     enabled: false
   sql:
     init:
-      mode: never
+      mode: always
+      schema-locations: classpath:oauth2-test-schema.sql
 smartfarm:
+  identity:
+    mqtt:
+      enabled: false
   security:
     jwt:
       issuer: http://localhost:8092

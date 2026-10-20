@@ -18,6 +18,25 @@ management:
       exposure:
         include: health,info
 spring.grpc.server.port: 9091
+smartfarm:
+  security:
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[smartfarm.livestock.v1.LivestockTaskService/CreateTask]": tasks:write
+        "[smartfarm.livestock.v1.LivestockTaskService/GetTask]": farm:read
+        "[smartfarm.livestock.v1.LivestockTaskService/ListTasks]": farm:read
+        "[smartfarm.livestock.v1.LivestockTaskService/AssignTask]": tasks:write
+        "[smartfarm.livestock.v1.LivestockTaskService/AcceptTask]": tasks:write
+        "[smartfarm.livestock.v1.LivestockTaskService/CompleteTask]": tasks:write
+        "[smartfarm.livestock.v1.LivestockTaskService/CancelTask]": tasks:write
+        "[smartfarm.livestock.v1.LivestockTaskService/CreateSchedule]": tasks:write
+        "[smartfarm.livestock.v1.LivestockTaskService/ListSchedules]": farm:read
+        "[smartfarm.livestock.v1.LivestockTaskService/RegisterAnimal]": tasks:write
+        "[smartfarm.livestock.v1.LivestockTaskService/GetAnimal]": farm:read
+        "[smartfarm.livestock.v1.LivestockTaskService/ListAnimals]": farm:read
+      authenticated-methods:
+        - smartfarm.livestock.v1.LivestockTaskService/Ping
 #smartfarm:
 #  security:
 

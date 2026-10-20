@@ -4,6 +4,7 @@ import java.util.Map;
 
 import com.htv.smartfarm.identity.bootstrap.SuperAdminBootstrapService;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,13 +22,10 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code POST /api/v1/auth/bootstrap-superadmin} flow.</p>
  */
 @RestController
+@RequiredArgsConstructor
 public class PlatformStateController {
 
     private final SuperAdminBootstrapService bootstrap;
-
-    public PlatformStateController(SuperAdminBootstrapService bootstrap) {
-        this.bootstrap = bootstrap;
-    }
 
     @GetMapping(
             value = "/api/v1/platform/deployment-state",

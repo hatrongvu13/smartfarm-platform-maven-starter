@@ -34,6 +34,13 @@ smartfarm:
       audiences:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-reporting}
       allow-local-http: false
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[smartfarm.reporting.v1.ReportingService/RequestExport]": report:write
+        "[smartfarm.reporting.v1.ReportingService/GetExportJob]": report:read
+        "[smartfarm.reporting.v1.ReportingService/ListExportJobs]": report:read
+        "[smartfarm.reporting.v1.ReportingService/GetDownloadLocation]": report:read
   reporting:
     grpc:
       livestock-deadline: ${REPORTING_LIVESTOCK_GRPC_DEADLINE:10s}

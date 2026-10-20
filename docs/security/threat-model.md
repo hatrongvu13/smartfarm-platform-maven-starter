@@ -5,6 +5,8 @@
 ## Trust boundaries
 1. **Internet → Gateway** (:8080): untrusted client. Mitigation: JWT RS256 + audience/tenant, permitAll chỉ auth/health/docs/ws.
 2. **Gateway → Identity** (HTTP authentication proxy; gRPC for internal administration and service-token issuance): semi-trusted internal. HTTP auth endpoints remain the public REST contract; token issuance is gRPC-only. `IssueServiceToken` validates an allowlisted client credential on the loopback listener; delegated exchange additionally requires a verified user JWT. Cross-host TLS/mTLS and server-level runtime proof remain open.
+
+> OAuth/OIDC endpoints and persistence have been added, but browser/client migration, PKCE end-to-end verification, PostgreSQL deployment verification, and operational client-secret rotation remain open. Both OAuth and legacy custom auth/token surfaces currently coexist; assess risks against the [Identity OAuth/OIDC target](../architecture/identity-oauth2-oidc-target.md), not as a completed migration.
 3. **Gateway → other services** (gRPC): semi-trusted internal. Mitigation: service token per audience, gRPC fail-closed authz. **Gap**: TLS off (plaintext).
 4. **Services ↔ MQTT broker**: App-level HMAC envelope implementation exists; dev profiles enable it and production profile defaults are off. **Gap**: broker `allow_anonymous true`, no TLS/ACL.
 5. **Services → databases/cache**: Mitigation: credentials via environment in production. **Gap**: development defaults are present in source; persistence/cache configuration varies by module and profile.

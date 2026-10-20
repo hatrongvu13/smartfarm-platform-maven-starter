@@ -28,6 +28,7 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 
 import org.springframework.core.io.Resource;
@@ -103,13 +104,15 @@ public class TokenService {
             boolean acceptedAudience = jwt.getAudience().contains(
                     settings.gatewayAudience()
             ) || jwt.getAudience().contains(settings.identityAudience());
-            boolean isAsync = Boolean.TRUE.equals(jwt.getClaim(TokenClaimContract.IS_ASYNC))
-                    || "true".equalsIgnoreCase(String.valueOf(jwt.getClaims().get(TokenClaimContract.IS_ASYNC)));
+            String tokenType = jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE);
+            boolean userToken = "user".equals(tokenType);
+            boolean recognizedTokenType = userToken || "service".equals(tokenType);
             if (!acceptedAudience || jwt.getSubject() == null
                     || jwt.getSubject().isBlank()
-                    || (!isAsync && jwt.getExpiresAt() == null)
-                    || jwt.getClaimAsString(TokenClaimContract.TENANT_ID) == null
-                    || jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE) == null
+                    || jwt.getExpiresAt() == null
+                    || !recognizedTokenType
+                    || (userToken
+                            && jwt.getClaimAsString(TokenClaimContract.TENANT_ID) == null)
                     || !TokenClaimContract.supportsVersion(
                             jwt.getClaims().get(
                                     TokenClaimContract.CONTRACT_VERSION_CLAIM
@@ -129,6 +132,10 @@ public class TokenService {
     }
 
     public JwtDecoder decoder() { return decoder; }
+
+    public JWKSource<SecurityContext> jwkSource() {
+        return new ImmutableJWKSet<>(new JWKSet(key));
+    }
 
     public String jwks() {
         return new JWKSet(key.toPublicJWK()).toString();
@@ -191,9 +198,7 @@ public class TokenService {
                 )
                 .claim(TokenClaimContract.ROLES, normalize(roles))
                 .claim(TokenClaimContract.TOKEN_TYPE, tokenType);
-        if (ttl != null) {
-            claims.expiresAt(now.plus(ttl));
-        }
+        claims.expiresAt(now.plus(ttl));
         if (authorizationVersion != null) {
             claims.claim(
                     TokenClaimContract.AUTHORIZATION_VERSION,
@@ -211,9 +216,6 @@ public class TokenService {
             claims.claim(TokenClaimContract.CLIENT_ID, clientId);
         }
         if (tokenContext != null) {
-            if (tokenContext.isAsync()) {
-                claims.claim(TokenClaimContract.IS_ASYNC, true);
-            }
             if (tokenContext.sessionId() != null
                     && !tokenContext.sessionId().isBlank()) {
                 claims.claim(

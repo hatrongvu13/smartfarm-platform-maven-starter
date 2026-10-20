@@ -47,17 +47,6 @@ public class ServiceTokenService {
             String tenantId,
             String actorId
     ) {
-        return issue(clientId, secret, audience, tenantId, actorId, false);
-    }
-
-    public Grant issue(
-            String clientId,
-            String secret,
-            String audience,
-            String tenantId,
-            String actorId,
-            boolean isAsync
-    ) {
         requireText(clientId, "client_id");
         requireText(audience, "audience");
         requireText(tenantId, "tenant_id");
@@ -65,15 +54,15 @@ public class ServiceTokenService {
         if (client == null || secret == null
                 || !encoder.matches(secret, client.secret())) {
             log.warn(
-                    "service_token_denied reason=bad_credentials client_id={} audience={} tenant={} actor_id={} async={}",
-                    clientId, audience, tenantId, safe(actorId), isAsync
+                    "service_token_denied reason=bad_credentials client_id={} audience={} tenant={} actor_id={}",
+                    clientId, audience, tenantId, safe(actorId)
             );
             throw new SecurityException("invalid service client credentials");
         }
         if (!client.mayTarget(audience)) {
             log.warn(
-                    "service_token_denied reason=audience_not_allowed client_id={} audience={} tenant={} actor_id={} async={}",
-                    clientId, audience, tenantId, safe(actorId), isAsync
+                    "service_token_denied reason=audience_not_allowed client_id={} audience={} tenant={} actor_id={}",
+                    clientId, audience, tenantId, safe(actorId)
             );
             throw new SecurityException("service audience is not allowed");
         }
@@ -83,8 +72,8 @@ public class ServiceTokenService {
                 : actorId.trim();
         if (normalizedActor != null && !client.delegationEnabled()) {
             log.warn(
-                    "service_token_denied reason=delegation_not_allowed client_id={} audience={} tenant={} actor_id={} async={}",
-                    clientId, audience, tenantId, safe(normalizedActor), isAsync
+                    "service_token_denied reason=delegation_not_allowed client_id={} audience={} tenant={} actor_id={}",
+                    clientId, audience, tenantId, safe(normalizedActor)
             );
             throw new SecurityException(
                     "service client is not allowed to delegate an actor"
@@ -100,7 +89,6 @@ public class ServiceTokenService {
             subjectVersion = versions.subjectVersion();
             tenantVersion = versions.tenantVersion();
         }
-        var ttl = isAsync ? null : settings.ttl();
         var context = new TokenContext(
                 grantType,
                 "svc:" + clientId,
@@ -115,15 +103,14 @@ public class ServiceTokenService {
                 null,
                 java.time.Instant.now(),
                 java.util.List.of("client_secret"),
-                ttl,
-                isAsync
+                settings.ttl()
         );
         String token = tokenGrants.issue(context).accessToken().value();
-        long ttlSeconds = ttl != null ? ttl.toSeconds() : 0L;
+        long ttlSeconds = settings.ttl().toSeconds();
         log.info(
-                "service_token_granted client_id={} audience={} tenant={} actor_id={} scopes={} ttl_s={} async={}",
+                "service_token_granted client_id={} audience={} tenant={} actor_id={} scopes={} ttl_s={}",
                 clientId, audience, tenantId, safe(actorId), scopes,
-                ttlSeconds, isAsync
+                ttlSeconds
         );
         return new Grant(token, "Bearer", ttlSeconds, audience);
     }

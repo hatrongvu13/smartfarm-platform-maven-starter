@@ -68,7 +68,7 @@ class SmartFarmJwtValidatorTest {
     }
 
     @Test
-    void acceptsAsyncTokenWithoutExpiry() {
+    void rejectsTokenWithoutExpiryEvenWhenMarkedAsync() {
         Instant now = Instant.now();
         Jwt asyncToken = new Jwt(
                 "token",
@@ -81,11 +81,34 @@ class SmartFarmJwtValidatorTest {
                         "tenant_id", "tenant-001",
                         "aud", List.of("smartfarm-order"),
                         TokenClaimContract.TOKEN_TYPE, "service",
-                        TokenClaimContract.IS_ASYNC, true
+                        "is_async", true
                 )
         );
 
-        assertThat(validator.validate(asyncToken).hasErrors()).isFalse();
+        var result = validator.validate(asyncToken);
+        assertThat(result.hasErrors()).isTrue();
+        assertThat(result.getErrors())
+                .anySatisfy(error -> assertThat(error.getDescription())
+                        .isEqualTo("missing_expiry"));
+    }
+
+    @Test
+    void acceptsMachineTokenWithoutTenantWhenItHasBoundedExpiry() {
+        Instant now = Instant.now();
+        Jwt machineToken = new Jwt(
+                "token",
+                now.minusSeconds(5),
+                now.plusSeconds(300),
+                Map.of("alg", "RS256"),
+                Map.of(
+                        "iss", ISSUER,
+                        "sub", "svc:order",
+                        "aud", List.of("smartfarm-order"),
+                        TokenClaimContract.TOKEN_TYPE, "service"
+                )
+        );
+
+        assertThat(validator.validate(machineToken).hasErrors()).isFalse();
     }
 
     @Test

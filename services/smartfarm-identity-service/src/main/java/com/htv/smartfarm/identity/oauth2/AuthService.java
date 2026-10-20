@@ -150,6 +150,68 @@ public class AuthService {
     public record TenantOption(String tenantId, String tenantCode, String tenantName) {
     }
 
+    public record AuthorizationLoginResponse(
+            String authenticationStatus,
+            String subjectId,
+            String tenantId,
+            String challengeToken,
+            List<String> availableMethods,
+            long challengeExpiresIn,
+            List<TenantOption> tenants,
+            List<String> authenticationMethods,
+            Instant authenticatedAt
+    ) {
+        public AuthorizationLoginResponse {
+            availableMethods = availableMethods == null
+                    ? List.of()
+                    : List.copyOf(availableMethods);
+            tenants = tenants == null ? List.of() : List.copyOf(tenants);
+            authenticationMethods = authenticationMethods == null
+                    ? List.of()
+                    : List.copyOf(authenticationMethods);
+        }
+    }
+
+    public record AuthorizationEnrollmentResponse(
+            String authenticatorId,
+            List<String> recoveryCodes,
+            AuthorizationLoginResponse authentication
+    ) {
+        public AuthorizationEnrollmentResponse {
+            recoveryCodes = List.copyOf(recoveryCodes);
+        }
+    }
+
+    private record EnrollmentOutcome(
+            String authenticatorId,
+            List<String> recoveryCodes,
+            UserAccountEntity account,
+            TenantMembershipEntity membership
+    ) {
+    }
+
+    private record LoginOutcome(
+            String status,
+            UserAccountEntity account,
+            TenantMembershipEntity membership,
+            String challengeToken,
+            List<String> methods,
+            long challengeExpiresIn,
+            List<TenantOption> tenants,
+            List<String> authenticationMethods
+    ) {
+        private static LoginOutcome completed(
+                UserAccountEntity account,
+                TenantMembershipEntity membership,
+                List<String> methods
+        ) {
+            return new LoginOutcome(
+                    COMPLETED, account, membership, null,
+                    List.of(), 0, List.of(), methods
+            );
+        }
+    }
+
     private final UserAccountRepository accounts;
     private final TenantRepository tenants;
     private final TenantMembershipRepository memberships;
@@ -327,6 +389,56 @@ public class AuthService {
             String rawEmail,
             String rawPassword
     ) {
+        LoginOutcome outcome = authenticatePassword(
+                tenantId,
+                rawEmail,
+                rawPassword
+        );
+        return switch (outcome.status()) {
+            case TENANT_SELECTION_REQUIRED -> AuthenticationResponse
+                    .tenantSelectionRequired(outcome.tenants());
+            case MFA_REQUIRED -> AuthenticationResponse.challenge(
+                    outcome.challengeToken(),
+                    outcome.methods(),
+                    outcome.challengeExpiresIn()
+            );
+            case MFA_ENROLLMENT_REQUIRED -> AuthenticationResponse
+                    .enrollmentRequired(
+                            outcome.challengeToken(),
+                            outcome.challengeExpiresIn()
+                    );
+            case COMPLETED -> AuthenticationResponse.completed(
+                    issue(
+                            outcome.account(),
+                            outcome.membership(),
+                            GrantType.USER_LOGIN
+                    )
+            );
+            default -> throw new IllegalStateException(
+                    "Unexpected authentication status"
+            );
+        };
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public AuthorizationLoginResponse loginForAuthorization(
+            String tenantId,
+            String rawEmail,
+            String rawPassword
+    ) {
+        LoginOutcome outcome = authenticatePassword(
+                tenantId,
+                rawEmail,
+                rawPassword
+        );
+        return authorizationResponse(outcome);
+    }
+
+    private LoginOutcome authenticatePassword(
+            String tenantId,
+            String rawEmail,
+            String rawPassword
+    ) {
         if (rawPassword == null) {
             throw unauthorized();
         }
@@ -391,13 +503,20 @@ public class AuthService {
                 throw unauthorized();
             }
             if (active.size() > 1) {
-                return AuthenticationResponse.tenantSelectionRequired(
+                return new LoginOutcome(
+                        TENANT_SELECTION_REQUIRED,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        0,
                         active.stream()
                                 .map(m -> new TenantOption(
                                         m.getTenant().getId(),
                                         m.getTenant().getCode(),
                                         m.getTenant().getName()))
-                                .toList()
+                                .toList(),
+                        List.of()
                 );
             }
             resolvedTenantId = active.get(0).getTenant().getId();
@@ -427,14 +546,19 @@ public class AuthService {
                     effectiveTenantId,
                     MfaChallengePurpose.LOGIN
             );
-            return AuthenticationResponse.challenge(
+            return new LoginOutcome(
+                    MFA_REQUIRED,
+                    null,
+                    null,
                     challenge.challengeToken(),
                     methods,
                     Math.max(
                             1,
                             challenge.expiresAt().getEpochSecond()
                                     - clock.instant().getEpochSecond()
-                    )
+                    ),
+                    List.of(),
+                    List.of()
             );
         }
 
@@ -444,13 +568,19 @@ public class AuthService {
                     effectiveTenantId,
                     MfaChallengePurpose.TOTP_ENROLLMENT
             );
-            return AuthenticationResponse.enrollmentRequired(
+            return new LoginOutcome(
+                    MFA_ENROLLMENT_REQUIRED,
+                    null,
+                    null,
                     challenge.challengeToken(),
+                    List.of("TOTP_ENROLLMENT"),
                     Math.max(
                             1,
                             challenge.expiresAt().getEpochSecond()
                                     - clock.instant().getEpochSecond()
-                    )
+                    ),
+                    List.of(),
+                    List.of()
             );
         }
 
@@ -461,8 +591,35 @@ public class AuthService {
                 "PASSWORD",
                 false
         );
-        return AuthenticationResponse.completed(
-                issue(account, membership, GrantType.USER_LOGIN)
+        return LoginOutcome.completed(account, membership, List.of("pwd"));
+    }
+
+    private AuthorizationLoginResponse authorizationResponse(
+            LoginOutcome outcome
+    ) {
+        if (!COMPLETED.equals(outcome.status())) {
+            return new AuthorizationLoginResponse(
+                    outcome.status(),
+                    null,
+                    null,
+                    outcome.challengeToken(),
+                    outcome.methods(),
+                    outcome.challengeExpiresIn(),
+                    outcome.tenants(),
+                    List.of(),
+                    null
+            );
+        }
+        return new AuthorizationLoginResponse(
+                COMPLETED,
+                outcome.account().getId(),
+                outcome.membership().getTenant().getId(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                outcome.authenticationMethods(),
+                clock.instant()
         );
     }
 
@@ -483,6 +640,52 @@ public class AuthService {
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public EnrollmentConfirmationResponse confirmRequiredTotpEnrollment(
+            String challengeToken,
+            String authenticatorId,
+            String code
+    ) {
+        EnrollmentOutcome outcome = completeRequiredTotpEnrollment(
+                challengeToken,
+                authenticatorId,
+                code
+        );
+        return new EnrollmentConfirmationResponse(
+                outcome.authenticatorId(),
+                outcome.recoveryCodes(),
+                AuthenticationResponse.completed(
+                        issue(
+                                outcome.account(),
+                                outcome.membership(),
+                                GrantType.MFA_COMPLETION
+                        )
+                )
+        );
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public AuthorizationEnrollmentResponse
+    confirmRequiredTotpEnrollmentForAuthorization(
+            String challengeToken,
+            String authenticatorId,
+            String code
+    ) {
+        EnrollmentOutcome outcome = completeRequiredTotpEnrollment(
+                challengeToken,
+                authenticatorId,
+                code
+        );
+        return new AuthorizationEnrollmentResponse(
+                outcome.authenticatorId(),
+                outcome.recoveryCodes(),
+                authorizationResponse(LoginOutcome.completed(
+                        outcome.account(),
+                        outcome.membership(),
+                        List.of("pwd", "otp")
+                ))
+        );
+    }
+
+    private EnrollmentOutcome completeRequiredTotpEnrollment(
             String challengeToken,
             String authenticatorId,
             String code
@@ -517,16 +720,11 @@ public class AuthService {
                 throw unauthorized();
             }
             account.recordLoginSuccess(clock.instant());
-            return new EnrollmentConfirmationResponse(
+            return new EnrollmentOutcome(
                     confirmation.authenticatorId(),
                     confirmation.recoveryCodes(),
-                    AuthenticationResponse.completed(
-                            issue(
-                                    account,
-                                    membership,
-                                    GrantType.MFA_COMPLETION
-                            )
-                    )
+                    account,
+                    membership
             );
         } catch (IllegalArgumentException exception) {
             throw unauthorized();
@@ -535,6 +733,38 @@ public class AuthService {
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public AuthenticationResponse verifyMfa(
+            String challengeToken,
+            String method,
+            String code
+    ) {
+        LoginOutcome outcome = completeMfa(
+                challengeToken,
+                method,
+                code
+        );
+        return AuthenticationResponse.completed(
+                issue(
+                        outcome.account(),
+                        outcome.membership(),
+                        GrantType.MFA_COMPLETION
+                )
+        );
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public AuthorizationLoginResponse verifyMfaForAuthorization(
+            String challengeToken,
+            String method,
+            String code
+    ) {
+        return authorizationResponse(completeMfa(
+                challengeToken,
+                method,
+                code
+        ));
+    }
+
+    private LoginOutcome completeMfa(
             String challengeToken,
             String method,
             String code
@@ -585,12 +815,15 @@ public class AuthService {
                     normalizedMethod,
                     true
             );
-            return AuthenticationResponse.completed(
-                    issue(
-                            account,
-                            membership,
-                            GrantType.MFA_COMPLETION
-                    )
+            String authenticationMethod =
+                    "TOTP".equals(normalizedMethod)
+                            || "RECOVERY_CODE".equals(normalizedMethod)
+                            ? "otp"
+                            : normalizedMethod.toLowerCase(Locale.ROOT);
+            return LoginOutcome.completed(
+                    account,
+                    membership,
+                    List.of("pwd", authenticationMethod)
             );
         } catch (IllegalArgumentException exception) {
             throw unauthorized();
@@ -788,7 +1021,7 @@ public class AuthService {
 
     private java.util.List<String> authenticationMethods(GrantType grantType) {
         return switch (grantType) {
-            case MFA_COMPLETION -> java.util.List.of("pwd", "totp");
+            case MFA_COMPLETION -> java.util.List.of("pwd", "otp");
             case REFRESH_ROTATION -> java.util.List.of("refresh_token");
             case BOOTSTRAP, USER_LOGIN -> java.util.List.of("pwd");
             default -> java.util.List.of();

@@ -10,7 +10,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "sf_user_profile")
 public class UserProfileEntity extends AuditableEntity {
@@ -95,39 +97,4 @@ public class UserProfileEntity extends AuditableEntity {
         this.timeZone = timeZone;
     }
 
-    public String getUserId() {
-        return userId;
-    }
-
-    public UserAccountEntity getAccount() {
-        return account;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
-
-    public String getAvatarUrl() {
-        return avatarUrl;
-    }
-
-    public String getLocale() {
-        return locale;
-    }
-
-    public String getTimeZone() {
-        return timeZone;
-    }
 }

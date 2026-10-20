@@ -43,29 +43,19 @@ public class IdentityTokenGrpcService
     ) {
         exceptionMapper.executeUnary(observer, () -> {
             requireContext(request.hasContext());
-            var grant = request.getIsAsync()
-                    ? tokenService.issue(
-                            request.getClientId(),
-                            request.getClientSecret(),
-                            request.getAudience(),
-                            request.getContext().getTenantId(),
-                            null,
-                            true
-                    )
-                    : tokenService.issue(
-                            request.getClientId(),
-                            request.getClientSecret(),
-                            request.getAudience(),
-                            request.getContext().getTenantId(),
-                            null
-                    );
-            log.info(
-                    "Service token issued through internal gRPC: clientId={}, "
-                            + "audience={}, tenantId={}, async={}",
+            var grant = tokenService.issue(
                     request.getClientId(),
+                    request.getClientSecret(),
                     request.getAudience(),
                     request.getContext().getTenantId(),
-                    request.getIsAsync()
+                    null
+            );
+            log.info(
+                    "Service token issued through internal gRPC: clientId={}, "
+                            + "audience={}, tenantId={}",
+                    request.getClientId(),
+                    request.getAudience(),
+                    request.getContext().getTenantId()
             );
             return response(grant);
         });
@@ -89,30 +79,20 @@ public class IdentityTokenGrpcService
                         )
                         .asRuntimeException();
             }
-            var grant = request.getIsAsync()
-                    ? tokenService.issue(
-                            request.getClientId(),
-                            request.getClientSecret(),
-                            request.getAudience(),
-                            request.getContext().getTenantId(),
-                            request.getActorSubjectId(),
-                            true
-                    )
-                    : tokenService.issue(
-                            request.getClientId(),
-                            request.getClientSecret(),
-                            request.getAudience(),
-                            request.getContext().getTenantId(),
-                            request.getActorSubjectId()
-                    );
+            var grant = tokenService.issue(
+                    request.getClientId(),
+                    request.getClientSecret(),
+                    request.getAudience(),
+                    request.getContext().getTenantId(),
+                    request.getActorSubjectId()
+            );
             log.info(
                     "Delegated service token issued through internal gRPC: "
-                            + "clientId={}, audience={}, tenantId={}, actorId={}, async={}",
+                            + "clientId={}, audience={}, tenantId={}, actorId={}",
                     request.getClientId(),
                     request.getAudience(),
                     request.getContext().getTenantId(),
-                    request.getActorSubjectId(),
-                    request.getIsAsync()
+                    request.getActorSubjectId()
             );
             return response(grant);
         });

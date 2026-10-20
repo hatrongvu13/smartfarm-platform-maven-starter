@@ -1,6 +1,6 @@
 # Kiến Trúc Bảo Mật & Quản Lý Token — SmartFarm Platform
 
-> **Phiên bản:** Cập nhật 2026-10-16  
+> **Phiên bản:** Cập nhật 2026-10-20
 > **Cơ chế:** Quản lý và cấp phát Token tập trung qua Identity Service & thư viện dùng chung `libs/smartfarm-security` (Security Common).  
 > **Phân loại quản lý tiến độ:** Chuẩn **DONE / DOING / TODO**.
 
@@ -19,7 +19,7 @@ flowchart TD
     end
 
     subgraph SecurityHub["Trung Tâm Định Danh & Cấp Phát Token"]
-        Identity["Identity Service (:8092 / gRPC :9092)\n- TokenGrantFacade & Nimbus RS256 Signer\n- JWKS Endpoint (/.well-known/jwks.json)\n- Cấp Token Đồng Bộ (Sync) & Bất Đồng Bộ (Async)\n- Quản lý Refresh Session, MFA, RBAC"]
+        Identity["Identity Service (:8092 / gRPC :9092)\n- OAuth2 Authorization Server / OIDC Provider + legacy token issuer\n- OAuth discovery/JWKS/UserInfo; custom JWKS still active\n- Legacy gRPC token calls remain; no exp-less async tokens\n- Quản lý authorization state, account, MFA, RBAC"]
     end
 
     subgraph InternalServices["Các Dịch Vụ Nghiệp Vụ Nội Bộ (gRPC / S2S)"]
@@ -43,8 +43,8 @@ flowchart TD
     GW -->|"(4) S2S Delegated Token (gRPC)"| Order
     GW -->|"(4) S2S Delegated Token (gRPC)"| Other
 
-    Order -->|"(5) Async S2S Token (is_async=true)"| Inv
-    Order -->|"(5) Async S2S Token (is_async=true)"| Fin
+    Order -->|"(5) Finite-expiry S2S token; reacquire on retry"| Inv
+    Order -->|"(5) Finite-expiry S2S token; reacquire on retry"| Fin
 
     Identity -->|"(6) Broadcast Invalidation"| WatermarkTopic
     WatermarkTopic --> GW
@@ -86,9 +86,9 @@ sequenceDiagram
 
 ---
 
-## 3. Luồng Cấp Phát Token Bất Đồng Bộ & Điều Phối SAGA (Async Flow qua MQTT)
+## 3. SAGA Token Lifecycle
 
-Trong luồng xử lý bất đồng bộ (Background Workers, SAGA Pattern, Event-driven qua MQTT), các bước xử lý hoặc retry có thể kéo dài qua nhiều giờ. Do đó, token cấp cho luồng bất đồng bộ mang thuộc tính `is_async = true` và **không bị ràng buộc thời gian hết hạn (`exp = null`)**, tránh lỗi timeout giữa chừng làm đứt gãy luồng xử lý dữ liệu.
+Saga jobs may retry over a long period, but the access token must not outlive its finite `exp`. Exp-less `is_async` tokens were removed from the protobuf and issuance path; JWT validation always requires expiry. A worker obtains a short-lived token for each execution/retry. Migrating these gRPC callers to OAuth `client_credentials` remains open.
 
 ```mermaid
 sequenceDiagram
@@ -101,20 +101,20 @@ sequenceDiagram
     participant FIN as Finance Service
 
     GW->>TX: Kích hoạt đơn hàng (Place/Submit Order)
-    TX->>ID: IssueServiceToken(client_id="order", audience="smartfarm-inventory", is_async=true)
-    ID->>ID: Tạo TokenContext (isAsync=true, ttl=null, token_type="service")
-    ID-->>TX: Trả về Async Service Token (claim: is_async=true, không có exp)
+    TX->>ID: IssueServiceToken(client_id="order", audience="smartfarm-inventory")
+    ID->>ID: Tạo service token có TTL hữu hạn
+    ID-->>TX: Trả về Service Token có exp
 
     rect rgb(240, 248, 255)
-        Note over TX,INV: Giai đoạn Forward SAGA (Async Execution)
-        TX->>INV: reserveStock(Async Token)
-        Note over INV: SmartFarmJwtValidator kiểm tra:<br/>- is_async=true => Bỏ qua missing_expiry<br/>- Kiểm tra chữ ký RS256, tenant_id, client_id
+        Note over TX,INV: Giai đoạn thực thi/retry SAGA
+        TX->>INV: reserveStock(short-lived token)
+        Note over INV: SmartFarmJwtValidator kiểm tra chữ ký RS256,<br/>exp bắt buộc, tenant/client/audience policy
         INV-->>TX: Reservation OK (reservationId)
 
-        TX->>FIN: recordExpense(Async Token)
+        TX->>FIN: recordExpense(short-lived token)
         FIN-->>TX: Expense Recorded (transactionId)
 
-        TX->>INV: commitReservation(Async Token)
+        TX->>INV: commitReservation(short-lived token)
         INV-->>TX: Commit OK
     end
 
@@ -123,7 +123,7 @@ sequenceDiagram
     opt Khi có lỗi hoặc User bị thu hồi quyền trong lúc chạy Async
         ID->>MQTT: Publish AuthorizationInvalidated(tenantId, actorId, newVersion)
         MQTT-->>INV: Cập nhật In-Memory Watermark Store
-        Note over INV: Lần gọi tiếp theo của Async Token bị từ chối do Stale Version!
+        Note over INV: Lần gọi tiếp theo với token cũ có thể bị từ chối do Stale Version
     end
 ```
 
@@ -132,15 +132,18 @@ sequenceDiagram
 ## 4. Thống Nhất Cấu Hình Bảo Mật (Unified Security Common)
 
 Toàn bộ logic kiểm soát và xác thực bảo mật được chuẩn hóa tập trung tại:
-1. **`libs/smartfarm-common-kernel`:** Định nghĩa `TokenClaimContract` (`identity_claims_version`, `is_async`, `sub`, `tenant_id`, `act`, `token_type`...).
+1. **`libs/smartfarm-common-kernel`:** Định nghĩa `TokenClaimContract` (`identity_claims_version`, `sub`, `tenant_id`, `act`, `token_type`...); exp-less async token semantics đã bị loại bỏ.
 2. **`libs/smartfarm-security` (Security Common):**
-   - `SmartFarmJwtValidator`: Xác thực toàn bộ JWT trên toàn hệ thống. Hỗ trợ token sync (bắt buộc `exp`) và token async (bỏ qua `missing_expiry` khi `is_async = true`).
+   - `SmartFarmJwtValidator`: Xác thực toàn bộ JWT trên toàn hệ thống; mọi access token đều bắt buộc có `exp` hữu hạn.
    - `JwtServerInterceptor`: Interceptor gRPC tự động bắt và giải mã token, inject vào `GrpcSecurityContext`.
    - `AuthorizationVersionWatermarkStore`: Cache và kiểm soát việc thu hồi token tức thời (invalidation) qua MQTT mà không cần gọi ngược về DB Identity liên tục.
    - `MqttSecurityVerifier`: Đảm bảo tính toàn vẹn và chữ ký HMAC/token cho tin nhắn trao đổi trên MQTT.
 3. **Các Service Nghiệp Vụ (`order`, `inventory`, `finance`, `livestock`, `health`, `reporting`):**
-   - Chỉ include `smartfarm-security`.
-   - Không tự cấu hình logic xác thực token riêng lẻ.
+   - Dùng chung JWT validator và global gRPC authentication interceptor; không tự parse JWT hoặc tự kiểm tra chữ ký/expiry.
+   - Vẫn khai báo authority cho từng RPC, audience của resource, tenant-scoped data checks; HTTP security cần wiring riêng hiện tại.
+   - Outbound token provisioning/cache còn là logic riêng; `BearerCallCredentials` chỉ gắn credential, không lấy token từ Identity.
+
+Xem [Hướng dẫn tích hợp service với Identity và `smartfarm-security`](identity-service-integration.md) để biết cấu hình tối thiểu, giới hạn hiện hành, service matrix và đích cần đạt để giảm boilerplate.
 
 ---
 
@@ -150,11 +153,7 @@ Toàn bộ logic kiểm soát và xác thực bảo mật được chuẩn hóa 
 - [x] **Cấp phát & Xác thực Token 2 tầng:**
   - Client vào Gateway dùng User JWT ngắn hạn ($\le 15$ phút, RS256, bắt buộc `exp`).
   - Gateway gọi Service nội bộ (S2S) dùng Delegated Service Token cấp phát lại từ Identity qua gRPC `ExchangeDelegatedToken`.
-- [x] **Hỗ trợ Token Bất Đồng Bộ (Async Flow Token):**
-  - Khai báo claim `is_async` trong `TokenClaimContract`.
-  - Nâng cấp `SmartFarmJwtValidator` trong `smartfarm-security`: chấp nhận token async không có `exp` khi `is_async = true`.
-  - Bổ sung kiểm thử đơn vị `acceptsAsyncTokenWithoutExpiry` & `rejectsSyncTokenWithoutExpiry` (60/60 tests pass).
-  - Cập nhật `TokenContext`, `TokenService`, `ServiceTokenService`, và `IdentityTokenGrpcService` hỗ trợ cấp phát token async qua gRPC.
+- [x] **Bắt buộc token có thời hạn:** xóa async issuance khỏi `TokenContext`, `TokenService`, `ServiceTokenService`, gRPC contract và validator; mọi token đều cần `exp` hữu hạn. Worker reacquire credential khi retry.
 - [x] **Định danh & Ranh giới Quyền hạn Identity:**
   - Catalog quyền Platform toàn cục (`docs/adr/ADR-001-global-permission-catalog.md`).
   - Thu hồi các endpoint REST quản trị thừa thãi, chuyển toàn bộ quản trị nội bộ sang gRPC.

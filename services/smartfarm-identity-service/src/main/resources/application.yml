@@ -245,6 +245,8 @@ smartfarm:
     public-registration: false
     registration-tenant: ${IDENTITY_REGISTRATION_TENANT:}
     bootstrap-tenant: ${IDENTITY_BOOTSTRAP_TENANT:farm-demo}
+    superadmin-bootstrap:
+      token: ${IDENTITY_SUPERADMIN_BOOTSTRAP_TOKEN:}
     # Machine-to-machine service tokens. Default has NO clients — a profile (dev/prod)
     # must whitelist each caller before any service token can be minted.
 

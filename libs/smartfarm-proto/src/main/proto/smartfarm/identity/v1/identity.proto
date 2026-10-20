@@ -827,8 +827,8 @@ message IssueServiceTokenRequest {
   // Audience phải nằm trong allowlist của client.
   string audience = 4;
 
-  // Thuộc tính cấp phát token cho luồng bất đồng bộ (không bắt buộc thời hạn).
-  bool is_async = 5;
+  reserved 5;
+  reserved "is_async";
 }
 
 message ExchangeDelegatedTokenRequest {
@@ -853,8 +853,8 @@ message ExchangeDelegatedTokenRequest {
   // membership và authorization versions hiện tại.
   string actor_subject_id = 5;
 
-  // Thuộc tính cấp phát token cho luồng bất đồng bộ (không bắt buộc thời hạn).
-  bool is_async = 6;
+  reserved 6;
+  reserved "is_async";
 }
 
 message TokenGrantResponse {

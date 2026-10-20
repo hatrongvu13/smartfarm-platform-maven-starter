@@ -17,9 +17,10 @@
 | [`generate-secret.sh`](#6-generate-secretsh-randsh) | Cấu hình & Bảo mật | Sinh chuỗi ngẫu nhiên chuẩn mật mã (base64) cho HMAC, AES MFA, Cookies | 🟢 An toàn (Chỉ in ra stdout) |
 | [`run-all.sh`](#7-run-allsh) | Kiểm thử HTTP | Điều phối chạy bộ kiểm tra Health và Smoke qua Gateway | 🟢 An toàn (Read-only probe) |
 | [`health/test-health.sh`](#8-healthtest-healthsh) | Kiểm thử HTTP | Kiểm tra Actuator Health của Gateway và các service trực tiếp | 🟢 An toàn (Read-only probe) |
-| [`smoke/smoke-test.sh`](#9-smokesmoke-testsh) | Kiểm thử HTTP | Kiểm tra GraphQL `platformStatus`, OpenAPI docs và `/api/v1/me` | 🟢 An toàn (Read-only probe) |
-| [`config-forward.sh`](#10-config-forwardsh) | Mạng Dev | Forward các cổng TCP nội bộ (8022, 1883, 5432, 6379) sang thiết bị Android qua ADB | 🟡 Trung bình (Giữ kết nối ADB) |
-| [`dev/rebuild-restart.sh`](#11-devrebuild-restartsh) | Vận hành Dev | Kill các tiến trình JVM cũ trên cổng 8080-8097, build và khởi động lại ngầm | 🔴 Rất Cao (Kill process & spawn daemons) |
+| [`health/identity-runtime-gate.sh`](#9-healthidentity-runtime-gatesh) | Runtime gate | Tạm chạy Identity và kiểm tra DB/MQTT đã vận hành sẵn; tự dừng đúng tiến trình Identity do gate tạo | 🟡 Trung bình (Khởi chạy service tạm) |
+| [`smoke/smoke-test.sh`](#10-smokesmoke-testsh) | Kiểm thử HTTP | Kiểm tra GraphQL `platformStatus`, OpenAPI docs và `/api/v1/me` | 🟢 An toàn (Read-only probe) |
+| [`config-forward.sh`](#11-config-forwardsh) | Mạng Dev | Forward các cổng TCP nội bộ (8022, 1883, 5432, 6379) sang thiết bị Android qua ADB | 🟡 Trung bình (Giữ kết nối ADB) |
+| [`dev/rebuild-restart.sh`](#12-devrebuild-restartsh) | Vận hành Dev | Kill các tiến trình JVM cũ trên cổng 8080-8097, build và khởi động lại ngầm | 🔴 Rất Cao (Kill process & spawn daemons) |
 
 ---
 
@@ -245,7 +246,39 @@ Gửi yêu cầu HTTP GET thăm dò trạng thái Actuator (`/actuator/health`) 
 
 ---
 
-### 9. `smoke/smoke-test.sh`
+### 9. `health/identity-runtime-gate.sh`
+
+#### Mục đích
+Smoke check vận hành tùy chọn cho Identity trên profile prod, khi PostgreSQL và MQTT (ví dụ Termux) đã được người vận hành khởi chạy. Script kiểm tra Actuator `db` và `identityMqtt`; đây không phải test nghiệp vụ Identity hoặc test suite của `smartfarm-readiness-service`.
+
+#### Cách dùng
+```bash
+export IDENTITY_DB_URL='jdbc:postgresql://<host>:5432/<identity-db>'
+export IDENTITY_DB_USER='<identity-user>'
+export IDENTITY_DB_PASSWORD='<identity-password>'
+export IDENTITY_ISSUER='https://<identity-host>'
+export IDENTITY_JWK_SET_URI='https://<identity-host>/.well-known/jwks.json'
+export IDENTITY_KEY_ID='<active-key-id>'
+export IDENTITY_PRIVATE_KEY_PATH='<private-key-path>'
+export IDENTITY_PUBLIC_KEY_PATH='<public-key-path>'
+export IDENTITY_MFA_ENCRYPTION_KEY='<base64-32-byte-key>'
+export IDENTITY_MQTT_URL='tcp://<broker-host>:1883'
+./scripts/health/identity-runtime-gate.sh
+```
+
+#### Hệ quả thực thi
+- Build và khởi chạy Identity tạm trên loopback, HTTP `18092` / gRPC `19092`; yêu cầu các cổng chưa bị chiếm.
+- Dùng MQTT client ID riêng, clean session; tắt command subscription và outbox relay. Broker ACL có thể cần cho phép client ID của gate.
+- Dừng và `wait` đúng PID Identity do script tạo trên thành công, lỗi hoặc Ctrl-C. Không khởi chạy, dừng hay sửa PostgreSQL/MQTT.
+- Chỉ xác minh khả năng kết nối và Actuator health; không xác minh publish/consume MQTT end-to-end, TLS/mTLS gRPC hay release gate PostgreSQL.
+
+#### Lưu ý & Rủi ro
+- Đây là công cụ platform operations tùy chọn, không thuộc scope chức năng module Identity và không thay thế PostgreSQL integration tests trong module.
+- Giữ gRPC bind loopback; không override bind address bằng script kiểm tra.
+
+---
+
+### 10. `smoke/smoke-test.sh`
 
 #### Mục đích
 Kiểm tra luồng thông suốt (Smoke Test) nhanh chóng thông qua Gateway:
@@ -267,7 +300,7 @@ Kiểm tra luồng thông suốt (Smoke Test) nhanh chóng thông qua Gateway:
 
 ---
 
-### 10. `config-forward.sh`
+### 11. `config-forward.sh`
 
 #### Mục đích
 Hỗ trợ kiểm thử trên thiết bị di động Android hoặc máy ảo qua cổng USB kết nối với máy Mac phát triển. Tự động tìm kiếm thiết bị qua công cụ `adb` (Android Debug Bridge) và thiết lập ánh xạ cổng ngược (Port Forwarding) từ điện thoại về máy trạm cho các cổng:
@@ -292,7 +325,7 @@ Hỗ trợ kiểm thử trên thiết bị di động Android hoặc máy ảo q
 
 ---
 
-### 11. `dev/rebuild-restart.sh`
+### 12. `dev/rebuild-restart.sh`
 
 #### Mục đích
 Script hỗ trợ nâng cao dành riêng cho Developer khi cần **hard-restart** đồng bộ toàn bộ hoặc từng phần JVM của các microservice. Script giải quyết triệt để lỗi "Stale gRPC stub / Unimplemented RPC" xảy ra khi service JVM cũ chưa giải phóng cổng gRPC trước khi mã nguồn Proto mới được build.

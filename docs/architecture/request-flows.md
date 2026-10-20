@@ -1,7 +1,7 @@
 # Request Flows — SmartFarm Platform
 
 > **Chuẩn hóa:** 2026-10-16  
-> **Nguyên tắc:** Dùng sequence diagram trực quan, tinh giản giải thích; thể hiện chuẩn mô hình Hai Tầng Xác Thực (Two-Tier Auth) và Token Bất Đồng Bộ (Async Token) phục vụ SAGA/MQTT.
+> **Nguyên tắc:** Dùng sequence diagram trực quan; mọi access token đều có expiry hữu hạn, gồm cả worker/SAGA token.
 
 ---
 
@@ -51,8 +51,8 @@ sequenceDiagram
   GW->>GW: Xác thực User JWT qua SmartFarmJwtValidator
   Note over GW: User token hợp lệ & đúng thời hạn
 
-  GW->>ID: gRPC ExchangeDelegatedToken(userToken, targetService, scopes, is_async=false)
-  ID->>ID: Mint S2S Delegated Token (sub: svc:gateway, act: user, is_async: false)
+  GW->>ID: gRPC ExchangeDelegatedToken(userToken, targetService, scopes)
+  ID->>ID: Mint finite-expiry S2S Delegated Token (legacy contract)
   ID-->>GW: Delegated Service Token
 
   GW->>SVC: gRPC Call(payload) + Metadata Bearer S2S Delegated Token
@@ -66,9 +66,9 @@ sequenceDiagram
 
 ---
 
-## 3. Cấp Phát & Sử Dụng Token Bất Đồng Bộ (Async Token cho SAGA & Worker)
+## 3. Cấp Phát Token Có Hạn Cho SAGA & Worker
 
-Các luồng xử lý nền (SAGA retry, Batch job, MQTT subscriber) có thể kéo dài qua nhiều giờ mà không có tương tác trực tiếp của người dùng. Để không bị đứt gãy luồng do token hết hạn (`TokenExpiredException`), Identity cấp phát Async Token riêng:
+Các luồng xử lý nền (SAGA retry, Batch job, MQTT subscriber) có thể kéo dài qua nhiều giờ, nhưng access token vẫn phải có hạn hữu hạn. Flag `is_async` và luồng cấp token không có `exp` đã bị xóa. Worker lấy token thời hạn ngắn cho từng lần chạy/retry; migration các caller từ gRPC tùy biến sang OAuth `client_credentials` vẫn còn mở.
 
 ```mermaid
 sequenceDiagram
@@ -78,24 +78,21 @@ sequenceDiagram
   participant INV as Inventory :9093 (gRPC)
   participant FIN as Finance :9094 (gRPC)
 
-  W->>ID: gRPC IssueServiceToken(clientId, tenantId, scopes, is_async=true)
-  ID->>ID: Ký JWT chứa claim: "is_async": true (KHÔNG set exp, exp=null)
-  ID-->>W: Async Service Token
+  W->>ID: gRPC IssueServiceToken(clientId, tenantId, scopes)
+  ID->>ID: Ký JWT service có exp hữu hạn
+  ID-->>W: Short-lived service token
 
   Note over W,INV: Chuỗi giao dịch phân tán SAGA diễn ra
   W->>INV: gRPC ReserveStock(lines) + Bearer Async Token
-  INV->>INV: SmartFarmJwtValidator: is_async==true => Miễn kiểm tra exp!
+  INV->>INV: SmartFarmJwtValidator: verify signature, audience and finite exp
   INV-->>W: Stock Reserved OK
 
   W->>FIN: gRPC RecordExpense(amount) + Bearer Async Token
-  FIN->>FIN: SmartFarmJwtValidator: is_async==true => Miễn kiểm tra exp!
+  FIN->>FIN: SmartFarmJwtValidator: verify signature, audience and finite exp
   FIN-->>W: Expense Recorded OK
 ```
 
-- **Đặc tính Token Bất Đồng Bộ:**
-  - Claim `is_async: true`.
-  - Claim `exp`: không tồn tại (`null`).
-  - `SmartFarmJwtValidator` trong `libs/smartfarm-security` tự động bỏ qua kiểm tra `missing_expiry` khi phát hiện `is_async=true`.
+- **Vòng đời token:** Access token luôn có thời hạn. Worker xin token mới khi token hết hạn, không dùng bearer token vô hạn qua nhiều lần retry.
 
 ---
 

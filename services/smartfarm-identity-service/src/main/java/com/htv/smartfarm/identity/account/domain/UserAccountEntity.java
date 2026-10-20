@@ -11,7 +11,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(
         name = "sf_user_account",
@@ -128,38 +130,6 @@ public class UserAccountEntity extends AuditableEntity {
         return value;
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getNormalizedEmail() {
-        return normalizedEmail;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public int getFailedAttempts() {
-        return failedAttempts;
-    }
-
-    public Instant getLockedUntil() {
-        return lockedUntil;
-    }
-
-    public Instant getEmailVerifiedAt() { return emailVerifiedAt; }
-    public Instant getPhoneVerifiedAt() { return phoneVerifiedAt; }
-    public Instant getLastLoginAt() { return lastLoginAt; }
-    public Instant getPasswordChangedAt() { return passwordChangedAt; }
     public boolean isEmailVerified() { return emailVerifiedAt != null; }
     public boolean isPhoneVerified() { return phoneVerifiedAt != null; }
     public void recordLoginSuccess(Instant occurredAt) {

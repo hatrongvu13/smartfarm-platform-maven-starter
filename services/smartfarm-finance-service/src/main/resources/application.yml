@@ -40,5 +40,18 @@ smartfarm:
       audiences:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-finance}
       allow-local-http: false
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[smartfarm.finance.v1.FarmFinanceService/RecordExpense]": finance:write
+        "[smartfarm.finance.v1.FarmFinanceService/ReverseExpense]": finance:write
+        "[smartfarm.finance.v1.FarmFinanceService/RecordIncome]": finance:write
+        "[smartfarm.finance.v1.FarmFinanceService/GetTransaction]": finance:read
+        "[smartfarm.finance.v1.FarmFinanceService/ListTransactions]": finance:read
+        "[smartfarm.finance.v1.FarmFinanceService/RecordPayable]": finance:write
+        "[smartfarm.finance.v1.FarmFinanceService/RecordReceivable]": finance:write
+        "[smartfarm.finance.v1.FarmFinanceService/SettleDebt]": finance:write
+        "[smartfarm.finance.v1.FarmFinanceService/GetBatchCost]": finance:read
+        "[smartfarm.finance.v1.FarmFinanceService/GetCashFlow]": finance:read
   mqtt:
     url: ${MQTT_URL:tcp://localhost:1883}

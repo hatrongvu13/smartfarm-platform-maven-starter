@@ -17,10 +17,12 @@ import com.htv.smartfarm.identity.token.session.entity.RefreshTokenEntity;
 import com.htv.smartfarm.identity.token.session.repository.RefreshSessionJpaRepository;
 
 import com.htv.smartfarm.identity.token.session.repository.RefreshTokenJpaRepository;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.util.ReflectionTestUtils;
 
+@EnabledIfSystemProperty(named = "it.postgres.enabled", matches = "true")
 class RefreshSessionCleanupIT extends AbstractIdentityPostgresIT {
     @Autowired private RefreshSessionCleanupService cleanup;
     @Autowired private RefreshSessionJpaRepository sessions;

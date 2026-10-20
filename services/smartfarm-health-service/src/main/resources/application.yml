@@ -45,3 +45,16 @@ smartfarm:
       audiences:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-health}
       allow-local-http: false
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[smartfarm.health.v1.AnimalHealthService/RecordObservation]": health:write
+        "[smartfarm.health.v1.AnimalHealthService/ListObservations]": health:read
+        "[smartfarm.health.v1.AnimalHealthService/ScheduleExamination]": health:write
+        "[smartfarm.health.v1.AnimalHealthService/CompleteExamination]": health:write
+        "[smartfarm.health.v1.AnimalHealthService/RecordVaccination]": health:write
+        "[smartfarm.health.v1.AnimalHealthService/ListVaccinations]": health:read
+        "[smartfarm.health.v1.AnimalHealthService/RecordTreatment]": health:write
+        "[smartfarm.health.v1.AnimalHealthService/ListTreatments]": health:read
+        "[smartfarm.health.v1.AnimalHealthService/ListAlerts]": health:read
+        "[smartfarm.health.v1.AnimalHealthService/AcknowledgeAlert]": health:write

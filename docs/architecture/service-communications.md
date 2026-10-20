@@ -47,8 +47,8 @@ flowchart LR
 | **Gateway** | **Livestock** | gRPC | `LivestockRegistryService`, `TaskService` | Delegated Service Token | Đăng ký vật nuôi, Giao nhiệm vụ chăm sóc |
 | **Gateway** | **Health** | gRPC | `AnimalHealthService` | Delegated Service Token | Hồ sơ bệnh án, Khám chữa, Tiêm phòng |
 | **Gateway** | **Reporting** | gRPC | `ReportingService` | Delegated Service Token | Yêu cầu kết xuất báo cáo dữ liệu |
-| **Order (Saga)** | **Inventory** | gRPC | `ReserveStock`, `CommitReservation`, `ReleaseReservation` | Async Service Token (`is_async=true`) | Giữ chỗ kho, Xác nhận xuất kho, Hoàn kho khi hủy |
-| **Order (Saga)** | **Finance** | gRPC | `RecordExpense`, `ReverseExpense` | Async Service Token (`is_async=true`) | Hạch toán chi phí đơn, Hoàn tiền khi hủy |
+| **Order (Saga)** | **Inventory** | gRPC | `ReserveStock`, `CommitReservation`, `ReleaseReservation` | Short-lived service token; worker reacquires on retry (OAuth client migration pending) | Giữ chỗ kho, Xác nhận xuất kho, Hoàn kho khi hủy |
+| **Order (Saga)** | **Finance** | gRPC | `RecordExpense`, `ReverseExpense` | Short-lived service token; worker reacquires on retry (OAuth client migration pending) | Hạch toán chi phí đơn, Hoàn tiền khi hủy |
 | **Identity** | **MQTT Broker** | MQTT | `events/identity/authorization-invalidated` | Message HMAC Envelope (ký ứng dụng) | Phát tán sự kiện thu hồi token/phiên tức thời |
 | **Order** | **MQTT Broker** | MQTT | `smartfarm/{tenant}/{farm}/domain/order/v1` | Protobuf `DomainEvent` | Thông báo đơn hàng tạo/thay đổi trạng thái |
 | **MQTT Broker** | **Gateway** | MQTT | `smartfarm/+/+/domain/#` | MQTT Subscription | Đẩy sự kiện realtime tới Web qua WebSocket bridge |
@@ -66,4 +66,4 @@ flowchart LR
    - Cấu trúc key trong Saga: `orderId + ":" + stepKey` (Ví dụ: `ORD-123:reserve:1`, `ORD-123:finance`).
 3. **Phân Biệt Rõ Luồng Đồng Bộ & Bất Đồng Bộ:**
    - **Đồng bộ (REST / gRPC User-facing):** Bắt buộc có thời hạn ngắn $\le 15$ phút, timeout gRPC mặc định 5s.
-   - **Bất đồng bộ (Saga / MQTT Workers):** Sử dụng Async Token (`is_async=true`), không ràng buộc thời hạn hết hạn ngắn để đảm bảo worker retry và hàng đợi không bị gãy giữa chừng.
+   - **Bất đồng bộ (Saga / MQTT Workers):** Không sử dụng token không hết hạn. Dùng credential của worker để lấy token có `exp` hữu hạn trước mỗi lần chạy/retry; quá trình retry phải độc lập với vòng đời của access token. Migration worker sang OAuth `client_credentials` đang chờ.

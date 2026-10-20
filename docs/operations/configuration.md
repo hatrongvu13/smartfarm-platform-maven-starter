@@ -1,6 +1,6 @@
 # Configuration — SmartFarm Platform
 
-> Reconciled 2026-10-15 against current service profile files.
+> Reconciled 2026-10-20 against current service profile files and `smartfarm-security` configuration properties.
 
 ## Profile model
 - `application.yml` (base): `spring.profiles.active: ${SPRING_PROFILES_ACTIVE:dev}` — mặc định cứng `dev`.
@@ -18,8 +18,19 @@ smartfarm:
       jwk-set-uri: ${SMARTFARM_JWKS_URI}
       audiences:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-<service>}
+      allow-local-http: ${SMARTFARM_SECURITY_ALLOW_LOCAL_HTTP:false}
+    grpc:
+      enabled: true
+      audit-enabled: true
+      correlation-enabled: true
 ```
 > ⚠️ Dạng **flat** (`smartfarm.security.issuer`) khiến `jwt` bind null → service không boot. Đây là nguyên nhân ISSUE-01/CFG-01.
+
+The gRPC server auto-configuration installs JWT/correlation/audit interceptors when a Spring gRPC `BindableService` exists. Configure per-method authorities under `smartfarm.security.grpc.authorities` and set `require-explicit-policy: true`; startup then fails for unclassified or stale method mappings. Without a custom method policy, the fallback only authenticates. Servlet/reactive HTTP resource security is auto-imported but opt-in with `smartfarm.security.http.enabled: true`; existing Gateway/Identity filter chains take precedence. Full steps and limitations are in [Identity/service integration](../security/identity-service-integration.md).
+
+For outbound gRPC, `BearerCallCredentials` only attaches a token that its caller supplies. It does not obtain an OAuth token from Identity or refresh/cache it. `smartfarm.security.grpc.default-deadline` is a validated setting but is not automatically applied to every stub; set deadlines on outgoing stubs/calls as the service already does.
+
+Identity's `smartfarm.identity.oauth2.clients` config defaults to an empty list. Client credentials only become usable after Identity provisions a confidential client with explicit grant, scope, and exactly one audience. Current downstream service callers still use custom gRPC token issuance; OAuth client migration and RFC 8693 delegation are not done.
 
 ## Biến môi trường chính
 | Nhóm | Biến |
@@ -28,7 +39,8 @@ smartfarm:
 | gRPC endpoints | `*_GRPC_HOST`, `*_GRPC_PORT` (identity 9092, livestock 9091, inventory 9093, finance 9094, order 9095, reporting 9096) |
 | DB | Identity uses `IDENTITY_DB_URL/USER/PASSWORD` (local fallback only in dev; required in prod); each other module has its own datasource configuration |
 | MQTT | `SMARTFARM_MQTT_URL`, `SMARTFARM_MQTT_EVENTS_ENABLED`, `SMARTFARM_MQTT_TOPIC_FILTER` |
-| Identity service-token gRPC | `IDENTITY_GRPC_HOST/PORT`, `GATEWAY_SERVICE_CLIENT_SECRET`, `ORDER_SERVICE_SECRET`, `REPORTING_SERVICE_SECRET`; gRPC binds to loopback by default, with TLS/mTLS required for cross-host deployment |
+| Identity service-token gRPC (legacy callers) | `IDENTITY_GRPC_HOST/PORT`, `GATEWAY_SERVICE_CLIENT_SECRET`, `ORDER_SERVICE_SECRET`, `REPORTING_SERVICE_SECRET`; gRPC binds to loopback by default, with TLS/mTLS required for cross-host deployment |
+| Identity OAuth clients (not yet used by all services) | `smartfarm.identity.oauth2.clients` deployment configuration; client id/secret, grant types, exact redirects where applicable, scopes and one resource audience |
 | Gateway | `GATEWAY_SERVICE_CLIENT_ID/SECRET`, `GATEWAY_*_GRPC_DEADLINE` |
 
 ## Known config issues

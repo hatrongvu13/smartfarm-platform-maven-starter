@@ -61,6 +61,25 @@ smartfarm:
       audiences:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-order}
       allow-local-http: ${SMARTFARM_SECURITY_ALLOW_LOCAL_HTTP:false}
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[smartfarm.order.v1.FarmOrderService/PlaceOrder]": orders:write
+        "[smartfarm.order.v1.FarmOrderService/GetOrder]": orders:read
+        "[smartfarm.order.v1.FarmOrderService/ListOrders]": orders:read
+        "[smartfarm.order.v1.FarmOrderService/CancelOrder]": orders:write
+        "[smartfarm.order.v1.FarmOrderService/CreateDraftOrder]": orders:write
+        "[smartfarm.order.v1.FarmOrderService/UpdateDraftOrder]": orders:write
+        "[smartfarm.order.v1.FarmOrderService/DeleteDraftOrder]": orders:write
+        "[smartfarm.order.v1.FarmOrderService/SubmitDraftOrder]": orders:write
+        "[smartfarm.order.v1.OrderSagaAdministrationService/GetOrderSaga]": orders:saga:read
+        "[smartfarm.order.v1.OrderSagaAdministrationService/GetOrderSagaByOrder]": orders:saga:read
+        "[smartfarm.order.v1.OrderSagaAdministrationService/RetryOrderSagaStep]": orders:saga:admin
+        "[smartfarm.order.v1.OrderSagaAdministrationService/ResumeOrderSaga]": orders:saga:admin
+        "[smartfarm.order.v1.OrderSagaAdministrationService/ForceCompensateOrder]": orders:saga:admin
+        "[smartfarm.order.v1.OrderSagaAdministrationService/ForceCancelOrder]": orders:saga:admin
+        "[smartfarm.order.v1.OrderSagaAdministrationService/ForceCompleteOrder]": orders:saga:admin
+        "[smartfarm.order.v1.OrderSagaAdministrationService/MarkOrderSagaResolved]": orders:saga:admin
   identity:
     grpc-host: ${IDENTITY_GRPC_HOST:localhost}
     grpc-port: ${IDENTITY_GRPC_PORT:9092}

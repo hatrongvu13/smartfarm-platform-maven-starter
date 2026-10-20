@@ -1,47 +1,63 @@
 package com.htv.smartfarm.identity.api;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Map;
 
+import com.htv.smartfarm.identity.config.SuperAdminBootstrapProperties;
 import com.htv.smartfarm.identity.oauth2.AuthService;
 import com.htv.smartfarm.identity.token.TokenService;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService auth;
     private final TokenService tokens;
+    private final SuperAdminBootstrapProperties bootstrapProperties;
 
-    public AuthController(AuthService auth, TokenService tokens) {
-        this.auth = auth;
-        this.tokens = tokens;
+    public record Registration(String email, String password) {
     }
 
-    public record Registration(String email, String password) { }
-    public record Login(String tenantId, String email, String password) { }
-    public record BootstrapSuperAdmin(String email, String password) { }
-    public record Refresh(String refreshToken) { }
+    public record Login(String tenantId, String email, String password) {
+    }
+
+    public record BootstrapSuperAdmin(String email, String password) {
+    }
+
+    public record Refresh(String refreshToken) {
+    }
+
     public record MfaVerification(
             String challengeToken,
             String method,
             String code
-    ) { }
+    ) {
+    }
+
     public record TotpEnrollmentBegin(
             String challengeToken,
             String displayName
-    ) { }
+    ) {
+    }
+
     public record TotpEnrollmentConfirm(
             String challengeToken,
             String authenticatorId,
             String code
-    ) { }
+    ) {
+    }
 
     @GetMapping(
             value = "/.well-known/jwks.json",
@@ -76,8 +92,24 @@ public class AuthController {
 
     @PostMapping("/api/v1/auth/bootstrap-superadmin")
     public ResponseEntity<?> bootstrapSuperAdmin(
+            @RequestHeader(
+                    name = "X-SmartFarm-Bootstrap-Token",
+                    required = false
+            ) String providedToken,
             @RequestBody BootstrapSuperAdmin request
     ) {
+        String configuredToken = bootstrapProperties.token();
+        if (configuredToken == null
+                || configuredToken.isBlank()
+                || providedToken == null
+                || !MessageDigest.isEqual(
+                        configuredToken.getBytes(StandardCharsets.UTF_8),
+                        providedToken.getBytes(StandardCharsets.UTF_8)
+                )) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Super-admin bootstrap is disabled or unauthorized"));
+        }
+
         try {
             return ResponseEntity.ok(
                     auth.bootstrapSuperAdmin(request.email(), request.password())

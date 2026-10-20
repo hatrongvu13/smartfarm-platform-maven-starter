@@ -53,10 +53,10 @@ class IdentityTokenGrpcServiceTest {
     }
 
     @Test
-    void issuesAsyncMachineToken() {
+    void issuesBoundedMachineTokenForLongRunningWorker() {
         when(tokenService.issue(
-                "order", "client-secret", "smartfarm-inventory", "tenant-1", null, true
-        )).thenReturn(grant("smartfarm-inventory", 0));
+                "order", "client-secret", "smartfarm-inventory", "tenant-1", null
+        )).thenReturn(grant("smartfarm-inventory", 300));
         var result = new Result<TokenGrantResponse>();
 
         service.issueServiceToken(
@@ -65,16 +65,15 @@ class IdentityTokenGrpcServiceTest {
                         .setClientId("order")
                         .setClientSecret("client-secret")
                         .setAudience("smartfarm-inventory")
-                        .setIsAsync(true)
                         .build(),
                 result
         );
 
         assertThat(result.error).isNull();
         assertThat(result.value.getAccessToken()).isEqualTo("service-jwt");
-        assertThat(result.value.getExpiresInSeconds()).isEqualTo(0);
+        assertThat(result.value.getExpiresInSeconds()).isEqualTo(300);
         verify(tokenService).issue(
-                "order", "client-secret", "smartfarm-inventory", "tenant-1", null, true
+                "order", "client-secret", "smartfarm-inventory", "tenant-1", null
         );
     }
 

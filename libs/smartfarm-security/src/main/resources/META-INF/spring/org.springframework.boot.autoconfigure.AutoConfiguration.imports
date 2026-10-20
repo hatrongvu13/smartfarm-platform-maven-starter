@@ -1,4 +1,6 @@
 com.htv.smartfarm.security.autoconfigure.SmartFarmSecurityPropertiesAutoConfiguration
 com.htv.smartfarm.security.grpc.autoconfigure.SmartFarmGrpcSecurityAutoConfiguration
+com.htv.smartfarm.security.web.ServletResourceSecurity
+com.htv.smartfarm.security.web.ReactiveResourceSecurity
 com.htv.smartfarm.security.autoconfigure.SmartFarmMqttSecurityAutoConfiguration
 com.htv.smartfarm.security.autoconfigure.SmartFarmAuthorizationFreshnessAutoConfiguration

@@ -24,45 +24,9 @@ public record TokenContext(
         String sessionId,
         Instant authenticatedAt,
         List<String> authenticationMethods,
-        Duration ttl,
-        boolean isAsync
+        Duration ttl
 ) {
     private static final Duration MAXIMUM_TOKEN_TTL = Duration.ofMinutes(15);
-
-    public TokenContext(
-            GrantType grantType,
-            String subjectId,
-            String tenantId,
-            String audience,
-            String clientId,
-            String actorSubjectId,
-            Set<String> scopes,
-            Set<String> roles,
-            long subjectAuthorizationVersion,
-            long tenantAuthorizationVersion,
-            String sessionId,
-            Instant authenticatedAt,
-            List<String> authenticationMethods,
-            Duration ttl
-    ) {
-        this(
-                grantType,
-                subjectId,
-                tenantId,
-                audience,
-                clientId,
-                actorSubjectId,
-                scopes,
-                roles,
-                subjectAuthorizationVersion,
-                tenantAuthorizationVersion,
-                sessionId,
-                authenticatedAt,
-                authenticationMethods,
-                ttl,
-                false
-        );
-    }
 
     public TokenContext {
         grantType = Objects.requireNonNull(grantType, "grantType");
@@ -73,13 +37,9 @@ public record TokenContext(
         roles = roles == null ? Set.of() : Set.copyOf(roles);
         authenticationMethods = authenticationMethods == null
                 ? List.of() : List.copyOf(authenticationMethods);
-        if (!isAsync) {
-            ttl = Objects.requireNonNull(ttl, "ttl");
-            if (ttl.isZero() || ttl.isNegative() || ttl.compareTo(MAXIMUM_TOKEN_TTL) > 0) {
-                throw new IllegalArgumentException("ttl must be between 1 second and 15 minutes");
-            }
-        } else if (ttl != null && (ttl.isZero() || ttl.isNegative())) {
-            throw new IllegalArgumentException("async ttl must be positive when supplied");
+        ttl = Objects.requireNonNull(ttl, "ttl");
+        if (ttl.isZero() || ttl.isNegative() || ttl.compareTo(MAXIMUM_TOKEN_TTL) > 0) {
+            throw new IllegalArgumentException("ttl must be between 1 second and 15 minutes");
         }
         if (subjectAuthorizationVersion < 0 || tenantAuthorizationVersion < 0) {
             throw new IllegalArgumentException("authorization versions must not be negative");

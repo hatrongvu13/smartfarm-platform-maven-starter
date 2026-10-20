@@ -10,18 +10,19 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.core.annotation.Order;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
         IdentitySettings.class,
         ServiceTokenSettings.class,
-        IdentityAuthorizationProperties.class
+        IdentityAuthorizationProperties.class,
+        SuperAdminBootstrapProperties.class
 })
 @EnableMethodSecurity
 public class IdentityConfiguration {
@@ -44,20 +45,23 @@ public class IdentityConfiguration {
     }
 
     @Bean
+    @Order(2)
     SecurityFilterChain identitySecurity(
             HttpSecurity http,
             JwtDecoder decoder
     ) {
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/auth/**"))
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/.well-known/jwks.json",
                                 "/api/v1/platform/deployment-state",
+                                "/oauth/login",
+                                "/oauth/login/**",
                                 "/actuator/health",
                                 "/actuator/health/**"
                         ).permitAll()

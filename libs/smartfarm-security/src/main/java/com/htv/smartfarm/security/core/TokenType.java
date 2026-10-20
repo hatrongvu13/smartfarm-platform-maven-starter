@@ -19,7 +19,7 @@ public enum TokenType {
 
         return switch (value.trim().toUpperCase(Locale.ROOT)) {
             case "USER" -> USER;
-            case "SERVICE", "CLIENT_CREDENTIALS" -> SERVICE;
+            case "SERVICE" -> SERVICE;
             default -> UNKNOWN;
         };
     }

@@ -1,227 +1,115 @@
-# Identity — Luồng mong muốn và luồng hiện tại
+# Identity flows: current custom implementation and OAuth/OIDC target
 
-> Sơ đồ mục tiêu là đề xuất kiến trúc, chưa phải trạng thái đã triển khai. Luồng hiện tại được đối chiếu với Gateway/Identity source và kiểm thử local gần nhất ngày 2026-10-15. Màu/nhãn `ĐÃ CÓ`, `CHƯA CÓ`, `CHƯA XÁC MINH` phân biệt source với bằng chứng runtime.
+> OAuth/OIDC protocol support is partially implemented; callers still use custom auth/token routes. PKCE/browser E2E, caller migration, RFC 8693 and PostgreSQL release verification remain open. See [the design decision, standards and class/method migration map](../architecture/identity-oauth2-oidc-target.md).
 
-## 1. Ranh giới trách nhiệm
+## 1. Boundaries
 
 ```mermaid
 flowchart LR
-    U[Browser / API client]
-    G[Gateway<br/>edge, route và kiểm tra JWT]
-    I[Identity<br/>credential, MFA, policy,<br/>token và session authority]
-    S[Backend services<br/>audience + scope + actor checks]
-    DB[(Identity relational DB<br/>account, membership,<br/>authenticator, refresh session)]
-    JWKS[JWKS public keys]
-
-    U -->|REST / GraphQL / WS| G
-    G -->|REST proxy auth| I
-    G -->|JWT/JWKS validation| JWKS
-    I --> DB
-    I -->|phát JWT| U
-    I -->|cấp service token| G
-    G -->|service JWT + request context| S
-    S -->|JWT/JWKS validation| JWKS
-    I -->|/.well-known/jwks.json| JWKS
+    Browser["SmartFarm Web"] -->|"OIDC Authorization Code + PKCE"| Gateway["Gateway BFF"]
+    Mobile["Future native app"] -->|"OIDC Authorization Code + PKCE"| Identity["Identity OAuth AS / OIDC Provider"]
+    Gateway -->|"OAuth2 client; RFC 8693 exchange"| Identity
+    Worker["Order / Reporting worker"] -->|"client_credentials"| Identity
+    Identity --> DB[("Identity DB\naccount / tenant / MFA / RBAC /\nclients / authorization grants")]
+    Identity -->|"discovery / JWKS / UserInfo"| Gateway
+    Gateway -->|"session cookie"| Browser
+    Gateway -->|"resource-audience access token"| Service["Resource services"]
+    Worker -->|"short-lived client access token"| Service
+    Admin["Internal admin clients"] -->|"directory/admin gRPC"| Identity
+    Identity --> MQTT["Transactional domain-event outbox"]
 ```
 
-Identity là nguồn quyết định danh tính, membership, quyền và token. Gateway là ingress cho client và là service caller; backend phải xác minh token theo audience/scope của chính nó, không tin các trường actor do client tự gửi. Refresh session/token hash lưu trong relational database của Identity; không phải Redis.
+Identity remains one service and the authority for credentials, tenant, MFA, authorization and tokens. Gateway owns the public ingress and browser BFF session. Resource services validate issuer, expiry, audience and scopes for their own resources. The readiness service aggregates probes; it does not own Identity domain tests or process orchestration.
 
-## 2. Luồng người dùng mục tiêu
+## 2. Browser flow target: Authorization Code + PKCE through BFF
 
-Thiết kế này giữ public authentication tại Gateway/REST, còn quyết định credential, tenant, MFA và token thuộc Identity.
+Gateway is a confidential OIDC client/BFF. Use Authorization Code, PKCE `S256`, exact redirect URI matching, `state`, `nonce`, one-time short-lived codes and server-side token storage. Tenant selection and required MFA complete at Identity before it issues an authorization code.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Browser / API client
+    actor User as Browser
+    participant GW as Gateway BFF
+    participant ID as Identity Authorization Server
+    participant DB as Identity PostgreSQL
+    participant RS as Resource service
+
+    User->>GW: GET /oauth2/authorize?response_type=code&scope=openid&state=...&nonce=...&code_challenge=...
+    GW->>ID: Redirect OIDC request (registered client + PKCE S256)
+    ID->>DB: Validate account, tenant membership, MFA policy
+    ID-->>User: Identity login / tenant selection / MFA journey
+    User->>ID: Complete credentials, selected tenant and required MFA
+    ID->>DB: Persist bound authorization and authentication context
+    ID-->>GW: Registered callback with one-time authorization code + state
+    GW->>ID: /oauth2/token (code + verifier + confidential client authentication)
+    ID->>DB: Consume code; persist authorization and refresh grant
+    ID-->>GW: ID token + audience-bound access token + refresh grant
+    GW-->>User: Secure, HttpOnly, SameSite session cookie
+    User->>GW: Same-origin API call + session cookie
+    GW->>RS: Call with short-lived access token for target audience
+    RS-->>GW: Resource response
+    GW-->>User: Resource response
+```
+
+Do not expose refresh tokens to browser JavaScript or use an ID token as an API bearer token. If deployment constraints prevent BFF, a native/public client uses Authorization Code + PKCE in the system browser and must never persist a refresh token in browser-accessible storage.
+
+## 3. Machine and delegated flows target
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Worker as Order / Reporting worker
     participant GW as Gateway
-    participant ID as Identity Auth API
-    participant DB as Identity DB
-    participant RS as Backend service
+    participant ID as Identity OAuth AS
+    participant RS as Resource service
 
-    User->>GW: POST /api/v1/auth/login (email, password, tenant?)
-    GW->>ID: Proxy login body
-    ID->>DB: Kiểm tra credential, trạng thái account và membership
-    alt Cần chọn tenant
-        ID-->>GW: TENANT_SELECTION_REQUIRED + tenant options
-        GW-->>User: Trả lựa chọn tenant
-        User->>GW: Gửi lại login với tenantId
-        GW->>ID: Proxy login
-        ID->>DB: Xác nhận membership thuộc tenant
-    end
-    alt Cần MFA
-        ID->>DB: Tạo challenge có hạn dùng
-        ID-->>GW: MFA_REQUIRED hoặc MFA_ENROLLMENT_REQUIRED
-        GW-->>User: Trả challenge (chưa có access token)
-        User->>GW: POST MFA verify hoặc enrollment begin/confirm
-        GW->>ID: Proxy challenge request
-        ID->>DB: Xác minh TOTP/recovery code, hoàn tất challenge
-    end
-    ID->>DB: Tạo refresh session/token hash
-    ID-->>GW: Access JWT + refresh token (khi authentication hoàn tất)
-    GW-->>User: Trả token grant
-    User->>GW: Gọi API với access JWT
-    GW->>GW: Xác minh chữ ký/issuer/audience
-    GW->>ID: Lấy service token phù hợp với user, tenant và audience
-    GW->>RS: Gọi downstream bằng service JWT + request context
-    RS->>RS: Xác minh audience/scope, xác nhận actor/context
-    RS-->>GW: Kết quả
-    GW-->>User: Kết quả
+    Worker->>ID: /oauth2/token grant_type=client_credentials
+    ID->>ID: Authenticate confidential client; check audience/resource and allowed scopes
+    ID-->>Worker: Short-lived access token (client subject, aud, exp)
+    Worker->>RS: Request with audience-restricted access token
+
+    GW->>ID: RFC 8693 token exchange (verified user subject_token)
+    ID->>ID: Authenticate Gateway client; validate subject token, tenant and delegation policy
+    ID-->>GW: Delegated access token (sub=user, act.sub=service, aud, exp, limited scope)
+    GW->>RS: Request with delegated access token
 ```
 
-### Refresh, logout và JWKS
+Client credentials represent a confidential service acting on its own behalf; they do not represent an end user. For delegation, verify the user subject token and the authenticated service actor separately. The receiving resource validates the audience and scope and uses the subject/actor claims for authorization and audit. Long-running jobs reacquire short-lived machine tokens; Identity must not issue non-expiring async bearer tokens.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Browser / API client
-    participant GW as Gateway
-    participant ID as Identity
-    participant DB as Identity DB
-    participant RS as Backend service
+## 4. Implementation status and remaining migration
 
-    User->>GW: API request + access JWT
-    GW->>ID: Đọc JWKS public key khi cần xác minh/cập nhật cache
-    GW->>RS: Chuyển tiếp request đã xác thực
-    User->>GW: POST /api/v1/auth/refresh (refresh token)
-    GW->>ID: Proxy refresh
-    ID->>DB: Resolve session, kiểm tra trạng thái và rotate token
-    alt Token hợp lệ
-        ID-->>GW: Access JWT mới + refresh token mới
-        GW-->>User: Token grant mới
-    else Token replay / session không còn hợp lệ
-        ID->>DB: Thu hồi session/family theo policy
-        ID-->>GW: Từ chối refresh
-        GW-->>User: Lỗi xác thực
-    end
-    User->>GW: POST /api/v1/auth/logout (refresh token)
-    GW->>ID: Proxy logout
-    ID->>DB: Thu hồi refresh session/token
-    ID-->>GW: 204 No Content
-```
+| Area | Current source | Target |
+|---|---|---|
+| Browser login | OAuth `/oauth2/authorize` and authorization-only login/tenant/MFA journey exist; Gateway `AuthProxyController` still forwards `/api/v1/auth/login`; Web posts email/password | E2E-test redirect/callback with PKCE, then migrate to Gateway BFF |
+| Browser token state | `apps/smartfarm-web/src/lib/api.ts` stores refresh token in `localStorage`; `auth.tsx` performs refresh | Server-side BFF token storage, Secure/HttpOnly/SameSite cookie |
+| User/session | Identity `AuthController` and `AuthService` custom login/MFA/refresh/logout | OIDC code, ID/access token split, OAuth authorization/refresh grant and OIDC logout policy |
+| Machine grants | OAuth `client_credentials` is implemented for configured clients; `ServiceTokenService` and `IdentityTokenService` gRPC still serve existing callers | Provision clients securely and migrate each service to the OAuth token endpoint |
+| Delegation | Custom delegated gRPC token path | RFC 8693 subject-token exchange, `sub=user`, `act.sub=service` |
+| Async access | Unbounded `is_async` token issuance has been removed; custom gRPC service tokens are expiry-bounded | Workers reacquire credentials on retry; migrate to client credentials |
+| Discovery | OIDC discovery, `/oauth2/jwks`, and UserInfo are implemented; legacy `/.well-known/jwks.json` remains | Verify interoperability and publish only configured issuer/client metadata |
+| Admin and directory | Internal gRPC directory, credential, tenant and platform administration | Retain these domain APIs; token issuance moves to OAuth endpoints |
 
-Trong luồng mục tiêu, access token ngắn hạn; logout/revoke tác động vào refresh session. Thu hồi refresh session không đồng nghĩa tự động vô hiệu hoá mọi access JWT đã phát trước đó, trừ khi downstream có cơ chế kiểm tra authorization version/session revocation tương ứng.
+OIDC endpoints are now present, but interoperability has not been established by the current test coverage. Existing custom endpoints and token formats remain for callers not yet migrated; remove them only after their OAuth replacements and downstream claim contracts are verified. Keep tenant/MFA/RBAC/account/event-outbox behavior unless the linked target design explicitly changes its protocol interface.
 
-## 3. Luồng cấp service token hiện tại
+## 5. Security and release gates
 
-Luồng cấp service token hiện dùng duy nhất gRPC `IdentityTokenService`. Gateway, Order và Reporting không còn gọi endpoint HTTP cấp service token. Machine issue xác thực client bằng credential allowlist; delegated exchange bổ sung user JWT đã xác minh. Listener loopback là ranh giới hiện tại; TLS/mTLS và kiểm thử server thật vẫn là điều kiện trước khi triển khai cross-host/production.
+- No implicit or resource-owner-password grant. Authorization code + PKCE `S256` for interactive clients.
+- Public-client refresh tokens must be sender-constrained or rotated; this project target uses rotation and replay-family revocation.
+- `client_credentials` is for confidential clients only; configure explicit audience/resource and least-privilege scope.
+- RFC 8693 exchange requires a verified subject token and authenticated trusted actor; never trust a caller-supplied actor/user ID alone.
+- ID token is for the OIDC client; access token is for a resource server. Every access token has `aud` and finite `exp`.
+- Report MFA authentication context where applicable (`auth_time`, `amr`, optionally `acr`); these claims do not replace Identity's MFA enforcement policy.
+- Do not expose cross-host gRPC before TLS/mTLS. Keep current loopback boundary during migration.
+- Validate discovery, redirect URI/state/nonce/PKCE handling, token claims, client authentication, refresh replay, tenant isolation, MFA step-up and negative authorization with protocol-level tests.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Client
-    participant GW as Gateway
-    participant ID as Identity gRPC
-    participant CFG as Allowlist / policy
-    participant S as Target service
+## References
 
-    User->>GW: Request + user access JWT
-    GW->>GW: Xác minh JWT, lấy subject, tenant và authorization versions từ claims
-    GW->>ID: ExchangeDelegatedToken + caller JWT metadata (TLS/mTLS khi cross-host)
-    Note over GW,ID: Body gồm clientId/secret, audience, context và actor subject,<br/>Gateway chỉ gửi actor/tenant đã xác minh từ JWT
-    ID->>ID: Kiểm tra client credential; với delegated exchange xác minh JWT và actor/tenant binding
-    ID->>CFG: Xác thực client, allowlist audience/scope, delegation và trạng thái actor/membership
-    alt Policy hợp lệ
-        ID-->>GW: Service JWT ngắn hạn (client_id + actor claim khi delegated)
-        GW->>S: gRPC call + service JWT + context.correlation_id / actor_id
-        S->>S: Xác minh issuer, audience, scope, delegated actor và correlation
-        S-->>GW: Kết quả
-        GW-->>User: Kết quả
-    else Không hợp lệ hoặc cấu hình client thiếu
-        ID-->>GW: UNAUTHENTICATED / PERMISSION_DENIED
-        GW-->>User: Lỗi được chuẩn hoá, không gọi service đích
-    end
-```
-
-### Mục tiêu bảo mật cần giữ
-
-- Không cấp token nếu Identity chưa nạp được client allowlist; khởi động hoặc cấp token phải fail-closed, không dùng cấu hình rỗng như trạng thái thành công.
-- Actor, tenant và authorization version phải lấy từ JWT đã xác minh; client không được tự chọn giá trị tuỳ ý.
-- Audience và scope do Identity allowlist quyết định; token có thời hạn ngắn, không chứa secret.
-- Gọi machine issue bằng client credential trên listener loopback; delegated exchange phải kèm JWT user hợp lệ.
-- Bảo vệ kênh gRPC bằng TLS/mTLS trước khi dùng cross-host; credential và caller JWT không thay thế mã hoá transport.
-- Luồng HTTP `/internal/service-token` đã được gỡ; chỉ giữ lại service-token gRPC. Trước production cần bổ sung kiểm thử server runtime và TLS/mTLS nếu triển khai khác host.
-
-## 4. Luồng đang triển khai
-
-### Người dùng: Gateway proxy sang Identity HTTP
-
-Đây là ngoại lệ HTTP có chủ đích cho public authentication REST contract: Gateway giữ ingress và proxy login/MFA/refresh/logout sang Identity. Các luồng cấp service token và API nội bộ không dùng HTTP. POM hiện không có Spring Authorization Server; không có endpoint mặc định `/oauth2/authorize` hoặc `/oauth2/token` cần bọc/chuyển đổi.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Browser / API client
-    participant GW as Gateway AuthProxyController
-    participant ID as Identity AuthController / AuthService
-    participant DB as Identity DB
-
-    User->>GW: /api/v1/auth/login, register, MFA, refresh hoặc logout
-    GW->>ID: Proxy REST body đến Identity
-    ID->>DB: Xác thực/ghi account, membership, challenge hoặc refresh session
-    alt Credential + policy đạt và không cần MFA
-        ID->>DB: Persist refresh session/token hash qua grant flow
-        ID-->>GW: AuthenticationResponse với token grant
-    else Chọn tenant hoặc MFA/enrollment cần thiết
-        ID-->>GW: Tenant options hoặc challenge, chưa phát access token
-    end
-    GW-->>User: Trả status/body của Identity
-```
-
-`GET /.well-known/jwks.json` được Identity cung cấp; Gateway cấu hình issuer, audience và JWKS URI để xác minh JWT. Bootstrap superadmin là endpoint one-time riêng và khóa một dòng singleton trong DB trước khi kiểm tra trạng thái, tránh hai Identity instance đồng thời tạo superadmin. Bootstrap không tạo hoặc ghi log TOTP enrollment URI; MFA enrollment sau đó đi qua challenge endpoints. Test PostgreSQL đồng thời đã được thêm nhưng chưa chạy.
-
-### Gateway cấp delegated service token hiện tại: gRPC
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Client
-    participant GW as Gateway
-    participant ID as Identity gRPC
-    participant ST as ServiceTokenService
-    participant S as Target service
-
-    User->>GW: Request + user JWT
-    GW->>GW: Xác minh JWT
-    GW->>ID: ExchangeDelegatedToken + JWT metadata<br/>clientId/secret, audience, actor/tenant từ JWT
-    ID->>ID: Xác minh JWT, actor/tenant khớp caller
-    ID->>ST: Xác thực client, audience và delegation
-    ST->>ST: Kiểm tra actor, membership và phiên bản quyền hiện tại
-    ST-->>ID: Grant delegated service token
-    ID-->>GW: TokenGrantResponse
-    GW->>S: Downstream gRPC + service token + request context
-    S-->>GW: Kết quả hoặc lỗi
-    GW-->>User: Kết quả
-```
-
-Các tiến trình backend không có user JWT (ví dụ Order saga và Reporting worker) dùng `IssueServiceToken` qua gRPC với credential riêng được allowlist; actor audit được truyền trong `RequestContext`, không được coi là delegated identity.
-
-**Trạng thái source và giới hạn:**
-
-| Hạng mục | Trạng thái |
-|---|---|
-| Gateway delegated token client | Dùng `ExchangeDelegatedToken` gRPC, metadata mang JWT đã xác minh |
-| Actor/tenant delegated binding | RPC yêu cầu actor và tenant trùng với verified user caller; có unit regression test |
-| Machine token clients | Order và Reporting dùng `IssueServiceToken` gRPC với credential riêng |
-| HTTP machine-token endpoint | Đã gỡ khỏi Identity |
-| Identity gRPC bind mặc định | Loopback ở base config; phải giữ private |
-| TLS/mTLS cross-host | Chưa cấu hình; không mở listener ra mạng trước khi hoàn thiện |
-| RPC server registration/live flow | Chưa có bằng chứng gRPC server end-to-end cho Gateway/Order/Reporting |
-
-## 5. Khoảng cách và thứ tự triển khai
-
-1. **P0 — Chứng minh đăng ký/enforcement gRPC runtime.** Test server cho token/session RPC và thử Gateway, Order, Reporting trên server thật.
-2. **P0 — Bảo vệ cross-host transport.** Cấu hình TLS/mTLS và kiểm tra danh tính client trước khi listener Identity không còn loopback.
-3. **P1 — Hoàn thiện user/session flows.** Kiểm thử PostgreSQL cho bootstrap đồng thời, tenant selection, MFA, refresh rotation/replay, logout/revoke và race conditions.
-4. **P1/P2 — Hoàn thiện domain/API gaps.** Permission ownership, authorization-version/outbox atomicity, paging/search và proto gaps theo [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md).
-
-## Tham chiếu source
-
-- Gateway proxy: `apps/smartfarm-gateway/src/main/java/com/htv/smartfarm/gateway/identity/AuthProxyController.java`
-- Gateway service-token client: `apps/smartfarm-gateway/src/main/java/com/htv/smartfarm/gateway/identity/ServiceTokenClient.java`
-- Identity auth API/service: `services/smartfarm-identity-service/src/main/java/com/htv/smartfarm/identity/api/AuthController.java`, `oauth2/AuthService.java`
-- Gateway, Order, Reporting gRPC token clients: `ServiceTokenClient.java` trong từng module `identity`/`grpc`
-- gRPC token adapter/policy: `grpc/IdentityTokenGrpcService.java`, `config/IdentityGrpcSecurityConfiguration.java`
-- gRPC contract: `libs/smartfarm-proto/src/main/proto/smartfarm/identity/v1/identity.proto`
-
-[Identity overview](identity.md) · [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md) · [REST API](../api/rest-api.md) · [gRPC API](../api/grpc-api.md) · [Security architecture](../security/security-architecture.md)
+- [RFC 9700 — OAuth 2.0 Security Best Current Practice](https://www.rfc-editor.org/rfc/rfc9700.html)
+- [RFC 7636 — PKCE](https://www.rfc-editor.org/rfc/rfc7636.html)
+- [RFC 8252 — OAuth 2.0 for Native Apps](https://www.rfc-editor.org/rfc/rfc8252.html)
+- [RFC 8693 — OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693.html)
+- [RFC 8176 — Authentication Method Reference Values](https://www.rfc-editor.org/rfc/rfc8176.html)
+- [RFC 9470 — Step-Up Authentication Challenge Protocol](https://www.rfc-editor.org/rfc/rfc9470.html)
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html)
+- [OAuth 2.1 Internet-Draft](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/) (not a published RFC)
+- [Spring Security 7 Authorization Server reference](https://docs.spring.io/spring-security/reference/servlet/oauth2/authorization-server/index.html)

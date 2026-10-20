@@ -48,23 +48,21 @@ public final class SmartFarmJwtValidator
             return fail("missing_subject");
         }
 
-        boolean isAsync = Boolean.TRUE.equals(jwt.getClaim(TokenClaimContract.IS_ASYNC))
-                || "true".equalsIgnoreCase(String.valueOf(jwt.getClaims().get(TokenClaimContract.IS_ASYNC)));
-
-        if (!isAsync && jwt.getExpiresAt() == null) {
+        if (jwt.getExpiresAt() == null) {
             return fail("missing_expiry");
+        }
+
+        TokenType tokenType = TokenType.fromClaim(
+                jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE)
+        );
+        if (tokenType == TokenType.UNKNOWN) {
+            return fail("missing_or_invalid_token_type");
         }
 
         String tenant = jwt.getClaimAsString(TokenClaimContract.TENANT_ID);
 
-        if (tenant == null || tenant.isBlank()) {
+        if (tokenType == TokenType.USER && (tenant == null || tenant.isBlank())) {
             return fail("missing_tenant");
-        }
-
-        if (TokenType.fromClaim(
-                jwt.getClaimAsString(TokenClaimContract.TOKEN_TYPE)
-        ) == TokenType.UNKNOWN) {
-            return fail("missing_or_invalid_token_type");
         }
 
         Object contractVersion = jwt.getClaims().get(

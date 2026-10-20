@@ -33,6 +33,29 @@ smartfarm:
       audiences:
         - ${SMARTFARM_JWT_AUDIENCE:smartfarm-inventory}
       allow-local-http: false
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[smartfarm.inventory.v1.InventoryService/CreateItem]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/UpdateItem]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/SetItemStatus]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/UpdateWarehouse]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/SetWarehouseStatus]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/GetItem]": inventory:read
+        "[smartfarm.inventory.v1.InventoryService/ListItems]": inventory:read
+        "[smartfarm.inventory.v1.InventoryService/CreateWarehouse]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/GetWarehouse]": inventory:read
+        "[smartfarm.inventory.v1.InventoryService/ListWarehouses]": inventory:read
+        "[smartfarm.inventory.v1.InventoryService/ListWarehouseItems]": inventory:read
+        "[smartfarm.inventory.v1.InventoryService/ReceiveStock]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/IssueStock]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/AdjustStock]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/ReserveStock]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/ReleaseReservation]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/CommitReservation]": inventory:write
+        "[smartfarm.inventory.v1.InventoryService/GetStockBalance]": inventory:read
+        "[smartfarm.inventory.v1.InventoryService/ListLowStock]": inventory:read
+        "[smartfarm.inventory.v1.InventoryService/TraceLot]": inventory:read
   inventory:
     mqtt:
       enabled: false

@@ -10,6 +10,10 @@ post {
   auth: none
 }
 
+headers {
+  X-SmartFarm-Bootstrap-Token: {{bootstrapToken}}
+}
+
 body:json {
   {
     "email": "root@system.test",
@@ -29,6 +33,8 @@ tests {
     if (res.getStatus() === 200) {
       expect(res.getBody().authenticationStatus).to.equal("COMPLETED");
       expect(res.getBody().accessToken).to.be.a("string");
+    } else if (res.getStatus() === 403) {
+      expect(res.getBody().error).to.match(/disabled or unauthorized/);
     } else {
       expect(res.getStatus()).to.equal(409);
     }
@@ -36,12 +42,16 @@ tests {
 }
 
 docs {
-  ONE-TIME system super-admin registration. Run this ONCE on a fresh system (no super-admin yet):
+  ONE-TIME system super-admin registration. Configure the Bruno `bootstrapToken` environment
+  variable with the same random secret as `IDENTITY_SUPERADMIN_BOOTSTRAP_TOKEN`, then run this
+  ONCE on a fresh system (no super-admin yet):
   it creates the first SUPERADMIN (email + password), grants the wildcard `*` scope, and returns a
   COMPLETED access token immediately (D1 — no TOTP gate). `accessToken` is auto-saved, so you can
   use every protected request right away.
 
   - Second and later calls return **409** ("bootstrap is closed") — the gate is one-shot.
+  - If the bootstrap token is missing or incorrect, the endpoint returns **403** without creating
+    an account. The endpoint stays closed when Identity has no configured bootstrap secret.
   - Bootstrap does not enroll TOTP or print an enrollment secret. `ADMIN`, `PLATFORM_ADMIN`, and
     `SUPERADMIN` accounts must enroll TOTP after bootstrap through the challenge-token-protected
     enrollment flow; the otpauth URI is returned only by `02 - mfa-enrollment-begin`.

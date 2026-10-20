@@ -1,6 +1,8 @@
 # gRPC API — SmartFarm Platform
 
 > Reconciled 2026-10-15 against `libs/smartfarm-proto/src/main/proto` and server implementations. There are 14 declared gRPC services and 127 RPC methods; 116 have handlers, while 11 remain unimplemented (5 `FarmDirectoryService`, 6 `AnimalHealthService`). A proto method or Java bean alone does not prove runtime registration, caller coverage, or production security.
+>
+> The machine/delegated token RPC details below describe the current custom implementation. The adopted target replaces token grants with OAuth endpoints; directory and administration gRPC remain in scope.
 
 ## Service traceability
 
@@ -38,17 +40,17 @@ Ports are defaults; inspect the active profile and environment overrides before 
 
 ## Service-token issuance and security
 
-Synchronous internal operations and service-token issuance use gRPC. Public authentication/OAuth-facing HTTP, JWKS, health, and operations endpoints remain HTTP.
+Synchronous internal operations and legacy custom service-token issuance currently use gRPC. Public custom authentication routes, OAuth/OIDC protocol endpoints, JWKS, health, and operations endpoints use HTTP. OAuth client credentials are available for configured clients, but existing service clients remain on gRPC; RFC 8693 exchange and caller migration are not yet implemented.
 
 - **`IdentityTokenService.IssueServiceToken`** is used by machine clients such as Order and Reporting. Identity validates registered client credentials, the audience allowlist, and configured scopes before minting a short-lived service JWT. This is the bootstrap token path and does not require an existing bearer JWT. It must stay on the private gRPC listener; Identity binds to loopback by default.
 - **`IdentityTokenService.ExchangeDelegatedToken`** is used by Gateway for user-originated calls. It requires a verified user JWT in gRPC metadata; Identity requires the requested actor and tenant to match the JWT and then revalidates account, membership, client delegation, audience, and authorization versions.
 - Callers cache the returned token and attach it to downstream calls with `BearerCallCredentials`. Secrets and token payloads must not be logged.
-- Newly issued Identity JWTs carry `identity_claims_version: 1`, defined by the shared `TokenClaimContract`; resource servers continue accepting legacy tokens without the version claim and reject versions they do not support. All downstream HTTP and gRPC boundaries require a recognized `token_type` (`user`, `service`, or the legacy `client_credentials` alias); a `client_id` does not substitute for the type claim.
+- Newly issued custom Identity JWTs carry `identity_claims_version: 1`, defined by the shared `TokenClaimContract`; resource servers continue accepting legacy tokens without the version claim and reject versions they do not support. Async/exp-less tokens are no longer issued, and validators require finite expiry. OAuth tokens are separately audience-bound; migrate and validate downstream claim handling before retiring the custom token contract.
 - **Session RPCs** require their specific session authorities and do not return raw refresh-token material.
 - TLS/mTLS is required before cross-host deployment; loopback binding is the current single-host boundary, not a substitute for transport security on a network.
 - Focused unit tests cover token RPC actor binding, policy, and the Gateway client. Dedicated server registration/enforcement and live multi-service tests remain release gates.
 
-See [Identity service](../services/identity.md) and [Security architecture](../security/security-architecture.md).
+For new gRPC resource services, `smartfarm-security` auto-registers the inbound JWT interceptor but does not infer per-method scopes, provide an OAuth token client, or enforce database tenant isolation. See the [service integration guide](../security/identity-service-integration.md), [Identity service](../services/identity.md), and [Security architecture](../security/security-architecture.md).
 
 ## Identity gRPC error details
 

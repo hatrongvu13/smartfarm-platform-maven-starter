@@ -5,7 +5,11 @@ import com.htv.smartfarm.security.jwt.JwtAuthorities;
 import com.htv.smartfarm.security.jwt.JwtSecurityFactory;
 
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -15,7 +19,14 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration
+@ConditionalOnClass({HttpSecurity.class, jakarta.servlet.Servlet.class})
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@ConditionalOnProperty(
+        prefix = "smartfarm.security.http",
+        name = "enabled",
+        havingValue = "true"
+)
 public class ServletResourceSecurity {
 
     @Bean
@@ -26,6 +37,7 @@ public class ServletResourceSecurity {
     }
 
     @Bean
+    @ConditionalOnMissingBean(SecurityFilterChain.class)
     SecurityFilterChain smartFarmServletChain(
             HttpSecurity http,
             JwtDecoder decoder

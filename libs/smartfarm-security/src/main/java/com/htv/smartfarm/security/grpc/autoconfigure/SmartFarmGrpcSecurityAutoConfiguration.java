@@ -7,6 +7,8 @@ import com.htv.smartfarm.security.TokenVerifier;
 import com.htv.smartfarm.security.authorization.AuthorizationVersionWatermarkStore;
 import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
 import com.htv.smartfarm.security.grpc.GrpcMethodPolicy;
+import com.htv.smartfarm.security.grpc.GrpcMethodPolicyCoverage;
+import com.htv.smartfarm.security.grpc.GrpcMethodPolicyProperties;
 import com.htv.smartfarm.security.grpc.GrpcSecurityContext;
 import com.htv.smartfarm.security.grpc.JwtServerInterceptor;
 import com.htv.smartfarm.security.grpc.dynamic.GrpcAuthorizationMode;
@@ -32,6 +34,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +43,7 @@ import org.springframework.grpc.server.GlobalServerInterceptor;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 
 @AutoConfiguration
+@EnableConfigurationProperties(GrpcMethodPolicyProperties.class)
 @ConditionalOnClass({
         BindableService.class,
         GlobalServerInterceptor.class
@@ -73,8 +77,27 @@ public class SmartFarmGrpcSecurityAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(GrpcMethodPolicy.class)
-    GrpcMethodPolicy smartFarmGrpcMethodPolicy() {
-        return GrpcMethodPolicy.authenticatedByDefault();
+    GrpcMethodPolicy smartFarmGrpcMethodPolicy(
+            GrpcMethodPolicyProperties properties
+    ) {
+        GrpcMethodPolicy.Builder builder = GrpcMethodPolicy.builder();
+        properties.authorities().forEach(builder::requireAuthority);
+        properties.authenticatedMethods().forEach(builder::requireAuthenticated);
+        properties.publicMethods().forEach(builder::permitAll);
+        return builder.build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "smartfarm.security.grpc",
+            name = "require-explicit-policy",
+            havingValue = "true"
+    )
+    GrpcMethodPolicyCoverage smartFarmGrpcMethodPolicyCoverage(
+            java.util.List<BindableService> services,
+            GrpcMethodPolicyProperties properties
+    ) {
+        return new GrpcMethodPolicyCoverage(services, properties);
     }
 
     @Bean

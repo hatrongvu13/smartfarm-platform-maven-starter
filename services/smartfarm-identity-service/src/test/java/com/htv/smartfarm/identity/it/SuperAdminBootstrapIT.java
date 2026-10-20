@@ -16,11 +16,13 @@ import com.htv.smartfarm.identity.bootstrap.IdentityBootstrapLockEntity;
 import com.htv.smartfarm.identity.bootstrap.SuperAdminBootstrapService;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+@EnabledIfSystemProperty(named = "it.postgres.enabled", matches = "true")
 class SuperAdminBootstrapIT extends AbstractIdentityPostgresIT {
 
     @Autowired

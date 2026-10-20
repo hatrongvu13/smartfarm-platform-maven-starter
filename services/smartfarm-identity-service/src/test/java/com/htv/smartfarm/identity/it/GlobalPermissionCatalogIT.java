@@ -8,9 +8,11 @@ import java.util.UUID;
 import com.htv.smartfarm.common.exception.ConflictException;
 import com.htv.smartfarm.identity.authorization.application.GlobalPermissionCatalogAdministrationService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+@EnabledIfSystemProperty(named = "it.postgres.enabled", matches = "true")
 class GlobalPermissionCatalogIT extends AbstractIdentityPostgresIT {
     @Autowired private GlobalPermissionCatalogAdministrationService service;
     @Autowired private JdbcTemplate jdbc;

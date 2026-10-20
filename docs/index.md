@@ -10,9 +10,10 @@
 | Tài Liệu | Mô Tả & Nội Dung Chính | Trạng Thái |
 |---|---|:---:|
 | [**System Overview**](architecture/system-overview.md) | Kiến trúc tổng thể tinh giản, Sơ đồ liên kết service, Ma trận công nghệ (Tech Stack Matrix), Thiết kế Database (Dedicated vs Dev Shared). | ✅ Chuẩn hóa |
-| [**Security Architecture & Master Checklist**](security/security-architecture.md) | Kiến trúc bảo mật tập trung qua Identity & `smartfarm-security`, Phân biệt Token Sync (có hạn) và Async (không hạn), **Master Checklist TODO / DOING / DONE**. | ✅ Chuẩn hóa |
+| [**Security Architecture & Master Checklist**](security/security-architecture.md) | Kiến trúc bảo mật Identity + `smartfarm-security`, token expiry hữu hạn, **Master Checklist TODO / DOING / DONE**. | ✅ Đồng bộ |
+| [**Identity / Security Common Integration**](security/identity-service-integration.md) | Hướng dẫn tích hợp resource service; tách phần JWT/gRPC common xử lý, policy/audience/tenant cần khai báo, trạng thái OAuth client và lộ trình giảm boilerplate. | ✅ Reconciled 2026-10-20 |
 | [**Service Communications**](architecture/service-communications.md) | Bảng ma trận giao tiếp giữa các service (S2S), Giao thức (REST/gRPC/MQTT), Phân luồng đồng bộ & bất đồng bộ. | ✅ Chuẩn hóa |
-| [**Request Flows**](architecture/request-flows.md) | Sơ đồ luồng yêu cầu chi tiết: Đăng nhập, Mô hình 2 Tầng Xác thực (Two-Tier Auth), Token Bất đồng bộ (Async Token), Chuỗi phân tán SAGA PlaceOrder. | ✅ Chuẩn hóa |
+| [**Request Flows**](architecture/request-flows.md) | Sơ đồ luồng yêu cầu chi tiết: Đăng nhập, Mô hình 2 Tầng Xác thực, token hữu hạn cho worker và Chuỗi phân tán SAGA PlaceOrder. | ✅ Chuẩn hóa |
 | [**Order Saga Architecture**](architecture/order-saga.md) | Đồ thị SAGA điều phối đơn hàng (Forward & Compensation), Persistent Worker, Idempotency keys. | ✅ Chuẩn hóa |
 | [**Gateway Mapping**](architecture/gateway-mapping.md) | Bảng tra cứu toàn bộ Routes REST, GraphQL và WebSocket trên API Gateway. | ✅ Chuẩn hóa |
 
@@ -23,7 +24,7 @@
 | Tài Liệu | Mục Tiêu & Kịch Bản | Trạng Thái |
 |---|---|:---:|
 | [**Hướng Dẫn Vận Hành Toàn Bộ Scripts**](../scripts/README.md) | Cẩm nang chi tiết mục đích, cách dùng, hệ quả tác động (file, database, process, keys) và cảnh báo rủi ro cho từng script trong `scripts/`. | ✅ Đã đồng nhất & hoàn thiện |
-| [**Async Token & Saga Test Scenarios**](../bruno/ASYNC_TOKEN_AND_SAGA_TEST_SCENARIO.md) | Hướng dẫn kiểm thử thủ công qua Bruno, Ghép nối giao diện Web (`apps/smartfarm-web`), Kịch bản tự động hóa CI/CD. | ✅ Đã tạo mới |
+| [**Finite Token & Saga Test Scenarios**](../bruno/ASYNC_TOKEN_AND_SAGA_TEST_SCENARIO.md) | Hướng dẫn kiểm thử thủ công qua Bruno, Ghép nối giao diện Web (`apps/smartfarm-web`), Kịch bản tự động hóa CI/CD. | ✅ Đã đồng bộ; không dùng async exp-less token |
 | [**Bruno API Collection**](../bruno/README.md) | Bộ sưu tập request Bruno đầy đủ cho Identity, Gateway, Order, Inventory, Livestock, Reporting. | ✅ Hoạt động |
 | [**Order Runbook & Operations**](operations/ORDER-OPERATIONS-RUNBOOK.md) | Hướng dẫn vận hành và khôi phục lỗi khi chạy Saga đơn hàng. | ✅ Chuẩn hóa |
 

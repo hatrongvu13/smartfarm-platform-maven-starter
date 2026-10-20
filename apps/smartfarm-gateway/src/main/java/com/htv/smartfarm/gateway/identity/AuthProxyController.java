@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -44,9 +45,23 @@ public class AuthProxyController {
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public Mono<ResponseEntity<String>> bootstrapSuperAdmin(
+            @RequestHeader(
+                    name = "X-SmartFarm-Bootstrap-Token",
+                    required = false
+            ) String bootstrapToken,
             @RequestBody(required = false) String body
     ) {
-        return post("/api/v1/auth/bootstrap-superadmin", body);
+        return identity.post()
+                .uri("/api/v1/auth/bootstrap-superadmin")
+                .headers(headers -> {
+                    if (bootstrapToken != null) {
+                        headers.set("X-SmartFarm-Bootstrap-Token", bootstrapToken);
+                    }
+                })
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .bodyValue(body == null ? "" : body)
+                .exchangeToMono(response -> response.toEntity(String.class));
     }
 
     @PostMapping(

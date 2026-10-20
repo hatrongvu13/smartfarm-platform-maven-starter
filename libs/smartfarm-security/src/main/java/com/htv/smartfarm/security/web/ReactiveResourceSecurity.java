@@ -4,8 +4,12 @@ import com.htv.smartfarm.security.config.SmartFarmSecurityProperties;
 import com.htv.smartfarm.security.jwt.JwtAuthorities;
 import com.htv.smartfarm.security.jwt.JwtSecurityFactory;
 
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -15,7 +19,14 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 
 import reactor.core.publisher.Flux;
 
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration
+@ConditionalOnClass({ServerHttpSecurity.class, ReactiveJwtDecoder.class})
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
+@ConditionalOnProperty(
+        prefix = "smartfarm.security.http",
+        name = "enabled",
+        havingValue = "true"
+)
 public class ReactiveResourceSecurity {
 
     @Bean
@@ -28,6 +39,7 @@ public class ReactiveResourceSecurity {
     }
 
     @Bean
+    @ConditionalOnMissingBean(SecurityWebFilterChain.class)
     SecurityWebFilterChain smartFarmReactiveChain(
             ServerHttpSecurity http,
             ReactiveJwtDecoder decoder
