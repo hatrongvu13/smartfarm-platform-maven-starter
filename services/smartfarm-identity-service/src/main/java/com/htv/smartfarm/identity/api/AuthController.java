@@ -1,10 +1,8 @@
 package com.htv.smartfarm.identity.api;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Map;
 
-import com.htv.smartfarm.identity.config.SuperAdminBootstrapProperties;
+import com.htv.smartfarm.identity.bootstrap.BootstrapTokenService;
 import com.htv.smartfarm.identity.oauth2.AuthService;
 import com.htv.smartfarm.identity.token.TokenService;
 
@@ -25,7 +23,7 @@ public class AuthController {
 
     private final AuthService auth;
     private final TokenService tokens;
-    private final SuperAdminBootstrapProperties bootstrapProperties;
+    private final BootstrapTokenService bootstrapTokens;
 
     public record Registration(String email, String password) {
     }
@@ -98,14 +96,7 @@ public class AuthController {
             ) String providedToken,
             @RequestBody BootstrapSuperAdmin request
     ) {
-        String configuredToken = bootstrapProperties.token();
-        if (configuredToken == null
-                || configuredToken.isBlank()
-                || providedToken == null
-                || !MessageDigest.isEqual(
-                        configuredToken.getBytes(StandardCharsets.UTF_8),
-                        providedToken.getBytes(StandardCharsets.UTF_8)
-                )) {
+        if (!bootstrapTokens.matches(providedToken)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Super-admin bootstrap is disabled or unauthorized"));
         }

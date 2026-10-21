@@ -122,7 +122,7 @@ export default function Authorization() {
 
     <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-200 bg-white p-3 text-sm shadow-sm">
       <span className="min-w-0 break-words text-stone-600">Trạng thái đồng bộ quyền được gửi vào chuông thông báo.</span>
-      <Badge tone={hasWarnings ? 'warn' : 'success'}>{hasWarnings ? 'Có cảnh báo' : 'Đã đồng bộ'}</Badge>
+      <Badge tone={hasWarnings ? 'warn' : 'ok'}>{hasWarnings ? 'Có cảnh báo' : 'Đã đồng bộ'}</Badge>
     </div>
 
     <div className="grid min-w-0 gap-4 lg:grid-cols-[repeat(2,minmax(0,1fr))]">

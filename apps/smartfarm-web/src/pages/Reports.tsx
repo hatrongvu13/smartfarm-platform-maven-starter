@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useFarm } from '../lib/farm'
-import { Badge, Button, Card, DevOnly, ErrorMsg, Field, Input, Json, PageHeader, statusTone } from '../components/ui'
+import { Badge, Button, Card, ErrorMsg, Field, Input, Json, PageHeader, statusTone } from '../components/ui'
 
 // DEV-only: POST /api/v1/reports {farmId,type,format} -> {jobId} · GET /{id} · GET /{id}/download -> {url,contentType,expiresAt?}
 export default function Reports() {

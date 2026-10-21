@@ -40,6 +40,7 @@ type Opts = {
   query?: Record<string, string | number | undefined | null>
   idempotent?: boolean      // thêm header Idempotency-Key (bắt buộc cho ghi: orders/drafts, inventory, tasks, reports)
   auth?: boolean            // mặc định true
+  headers?: Record<string, string>
 }
 
 function buildUrl(path: string, query?: Opts['query']) {
@@ -77,9 +78,9 @@ async function parse(res: Response) {
 }
 
 export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
-  const { method = 'GET', body, query, idempotent, auth = true } = opts
+  const { method = 'GET', body, query, idempotent, auth = true, headers: extraHeaders } = opts
   const run = () => {
-    const headers: Record<string, string> = { Accept: 'application/json' }
+    const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders }
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`
     if (idempotent) headers['Idempotency-Key'] = newIdempotencyKey()

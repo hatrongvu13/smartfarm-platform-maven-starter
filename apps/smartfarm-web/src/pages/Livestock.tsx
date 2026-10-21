@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useFarm } from '../lib/farm'
-import { Button, Card, DevOnly, ErrorMsg, Field, Input, Json, PageHeader } from '../components/ui'
+import { Button, Card, ErrorMsg, Field, Input, Json, PageHeader } from '../components/ui'
 
 // GET /api/v1/livestock/animals?farmId&limit -> { count, animals[] }   (farm:read)
 // POST /animals {farmId, tagCode, species?} (tasks:write) · POST /tasks {farmId,title,type?} (dev-only, Idempotency-Key)

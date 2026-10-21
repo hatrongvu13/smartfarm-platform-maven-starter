@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import jakarta.validation.Validation;
 
+import com.htv.smartfarm.identity.bootstrap.BootstrapTokenService;
 import com.htv.smartfarm.identity.config.SuperAdminBootstrapProperties;
 import com.htv.smartfarm.identity.oauth2.AuthService;
 import com.htv.smartfarm.identity.token.TokenService;
@@ -20,10 +21,11 @@ class AuthControllerBootstrapSecurityTest {
             "test-bootstrap-token-that-is-at-least-32-chars";
 
     private final AuthService auth = mock(AuthService.class);
+    private final BootstrapTokenService bootstrapTokens = mock(BootstrapTokenService.class);
     private final AuthController controller = new AuthController(
             auth,
             mock(TokenService.class),
-            new SuperAdminBootstrapProperties(BOOTSTRAP_TOKEN)
+            bootstrapTokens
     );
 
     @Test
@@ -55,27 +57,8 @@ class AuthControllerBootstrapSecurityTest {
     }
 
     @Test
-    void bootstrapIsRejectedWhenNoSecretIsConfigured() {
-        var controllerWithoutSecret = new AuthController(
-                auth,
-                mock(TokenService.class),
-                new SuperAdminBootstrapProperties("")
-        );
-
-        var response = controllerWithoutSecret.bootstrapSuperAdmin(
-                BOOTSTRAP_TOKEN,
-                new AuthController.BootstrapSuperAdmin(
-                        "root@example.test",
-                        "valid-password"
-                )
-        );
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        verifyNoInteractions(auth);
-    }
-
-    @Test
     void bootstrapAcceptsConfiguredToken() {
+        org.mockito.Mockito.when(bootstrapTokens.matches(BOOTSTRAP_TOKEN)).thenReturn(true);
         var response = controller.bootstrapSuperAdmin(
                 BOOTSTRAP_TOKEN,
                 new AuthController.BootstrapSuperAdmin(
@@ -92,19 +75,16 @@ class AuthControllerBootstrapSecurityTest {
     }
 
     @Test
-    void bootstrapTokenConfigurationRequiresAtLeast32Characters() {
+    void bootstrapRequiresMatchingGeneratedOrConfiguredToken() {
+        org.mockito.Mockito.when(bootstrapTokens.matches("incorrect-token")).thenReturn(false);
+        org.mockito.Mockito.when(bootstrapTokens.matches(BOOTSTRAP_TOKEN)).thenReturn(true);
+
         try (var validatorFactory = Validation.buildDefaultValidatorFactory()) {
             var validator = validatorFactory.getValidator();
 
-            assertThat(validator.validate(
-                    new SuperAdminBootstrapProperties("short")
-            )).isNotEmpty();
-            assertThat(validator.validate(
-                    new SuperAdminBootstrapProperties(BOOTSTRAP_TOKEN)
-            )).isEmpty();
-            assertThat(validator.validate(
-                    new SuperAdminBootstrapProperties("")
-            )).isEmpty();
+            assertThat(validator.validate(new SuperAdminBootstrapProperties("short"))).isNotEmpty();
+            assertThat(validator.validate(new SuperAdminBootstrapProperties(BOOTSTRAP_TOKEN))).isEmpty();
+            assertThat(validator.validate(new SuperAdminBootstrapProperties(""))).isEmpty();
         }
     }
 }

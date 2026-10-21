@@ -54,7 +54,7 @@ For new gRPC resource services, `smartfarm-security` auto-registers the inbound 
 
 ## Identity gRPC error details
 
-Identity maps domain failures to a gRPC status and attaches the stable machine-readable code in the `identity-error-code` trailing metadata field. Business exceptions preserve their domain code; generic failures use the corresponding gRPC status name, and unexpected internal errors expose only `INTERNAL`. Clients should branch on the trailer/status rather than parse the human-readable status description.
+Identity maps domain failures to a gRPC status and attaches the stable machine-readable code in the `identity-error-code` trailing metadata field. Business exceptions preserve their domain code; generic failures use the corresponding gRPC status name, and unexpected internal errors expose only `INTERNAL`. Gateway REST and GraphQL gRPC facades preserve this trailer as the client-facing error code, falling back to the shared gRPC-status mapping when the trailer is absent. Clients should branch on the code/status rather than parse the human-readable status description.
 
 ## Standardized error codes (gRPC → HTTP)
 

@@ -8,7 +8,7 @@
 
 The gateway exposes auth proxy routes under `/api/v1/auth/**`, `GET /api/v1/me`, order and order-saga REST routes, and development-profile facades for livestock, inventory, health, and reporting. Exact route-to-controller mappings and authorization annotations are maintained in [`gateway-mapping.md`](../architecture/gateway-mapping.md); do not infer a route from a proto RPC.
 
-Identity auth operations include login, register (when enabled), refresh, logout, bootstrap-superadmin, and MFA endpoints. Login accepts email/password and optional `tenantId`; identity resolves a single active tenant automatically or returns tenant-selection state when the account has multiple active memberships. Initial super-admin bootstrap is closed unless `IDENTITY_SUPERADMIN_BOOTSTRAP_TOKEN` is configured; the one-time request must include it in `X-SmartFarm-Bootstrap-Token`. Remove the configured secret after bootstrap.
+Identity auth operations include login, register (when enabled), refresh, logout, bootstrap-superadmin, and MFA endpoints. Login accepts email/password and optional `tenantId`; identity resolves a single active tenant automatically or returns tenant-selection state when the account has multiple active memberships. On a fresh database, Identity generates a one-time bootstrap key and prints it in the service log; enter it in the Gateway welcome screen. The request sends the key in `X-SmartFarm-Bootstrap-Token`; only its hash is stored and it is consumed after the first super-admin is created. Setting `IDENTITY_SUPERADMIN_BOOTSTRAP_TOKEN` explicitly overrides key generation.
 
 `GET /api/v1/me` is a thin identity (`subject`, `tenantId`) response, not the full profile or membership representation. The full principal/profile path is GraphQL/gRPC-backed.
 

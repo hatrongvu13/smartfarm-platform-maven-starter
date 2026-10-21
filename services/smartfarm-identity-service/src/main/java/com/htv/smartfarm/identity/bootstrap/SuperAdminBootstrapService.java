@@ -76,6 +76,7 @@ public class SuperAdminBootstrapService {
 
     private final AccountService accountService;
     private final IdentityBootstrapLockRepository bootstrapLockRepository;
+    private final BootstrapTokenService bootstrapTokenService;
     private final UserAccountRepository accountRepository;
     private final TenantRepository tenantRepository;
     private final TenantMembershipRepository membershipRepository;
@@ -159,6 +160,7 @@ public class SuperAdminBootstrapService {
                 superAdminRole,
                 account
         );
+        bootstrapTokenService.consume();
 
         log.info(
                 "System SUPERADMIN created successfully: "

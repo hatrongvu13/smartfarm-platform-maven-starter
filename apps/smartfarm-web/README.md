@@ -25,7 +25,7 @@ src/components/     ui.tsx (Button/Card/Field/Badge...), Layout.tsx
 
 ## Luồng auth (theo docs)
 
-1. `GET /api/v1/platform/deployment-state` → nếu `bootstrapRequired` thì gợi ý `/bootstrap`.
+1. `GET /api/v1/platform/deployment-state` → nếu `bootstrapRequired` thì tự mở màn chào mừng `/bootstrap`; nhập khóa một lần từ log `smartfarm-identity-service` cùng email/mật khẩu để tạo super-admin đầu tiên. Identity chỉ lưu hash khóa và tiêu thụ nó sau khi tạo tài khoản thành công.
 2. `POST /api/v1/auth/login {email,password,tenantId?}` → `COMPLETED | MFA_REQUIRED | MFA_ENROLLMENT_REQUIRED | TENANT_SELECTION_REQUIRED`; màn Login xử lý cả 4 (kèm QR đăng ký TOTP).
 3. Access token (15 phút) giữ trong memory; refresh token trong `localStorage`; 401 → tự `POST /auth/refresh` (rotating).
 4. Sau khi có token: **scopes giải mã trực tiếp từ JWT** (claim `scope` space-delimited và/hoặc `scopes`; super-admin mang `*`), còn **hồ sơ/membership lấy qua GraphQL `me`** (`subjectId`, `profile{...}`, `membership{roles,farmIds,...}`). Principal **không** có trường `scopes`; nếu `me` lỗi tạm thời thì vẫn `authenticated` bằng claim JWT, không đăng xuất.

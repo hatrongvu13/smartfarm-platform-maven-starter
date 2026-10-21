@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { api } from '../lib/api'
 import { useAuth, type AuthResponse } from '../lib/auth'
@@ -20,6 +20,7 @@ type Deployment = { initialized: boolean; superAdminExists: boolean; bootstrapRe
  */
 export default function Login() {
   const { completeLogin } = useAuth()
+  const navigate = useNavigate()
   const [step, setStep] = useState<Step>({ name: 'credentials' })
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,6 +31,10 @@ export default function Login() {
   useEffect(() => {
     api<Deployment>('/api/v1/platform/deployment-state', { auth: false }).then(setDep).catch(() => setDep(null))
   }, [])
+
+  useEffect(() => {
+    if (dep?.bootstrapRequired) navigate('/bootstrap', { replace: true })
+  }, [dep, navigate])
 
   async function handle(r: AuthResponse) {
     switch (r.authenticationStatus) {

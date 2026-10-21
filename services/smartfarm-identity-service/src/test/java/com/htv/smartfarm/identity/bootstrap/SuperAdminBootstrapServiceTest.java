@@ -28,6 +28,7 @@ class SuperAdminBootstrapServiceTest {
             new SuperAdminBootstrapService(
                     mock(AccountService.class),
                     lockRepository,
+                    mock(BootstrapTokenService.class),
                     mock(UserAccountRepository.class),
                     mock(TenantRepository.class),
                     mock(TenantMembershipRepository.class),
