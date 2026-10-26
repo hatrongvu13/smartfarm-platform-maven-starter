@@ -87,7 +87,7 @@ public class DefaultTenantIdentityAdministrationService
 
     @Override
     public PageResult<UserSummaryData> listUsers(String tenantId, int pageSize, String pageToken,
-            String searchText, MembershipStatus membershipStatus, String roleCode) {
+                                                 String searchText, MembershipStatus membershipStatus, String roleCode) {
         String search = searchText == null ? "" : searchText.trim().toLowerCase(Locale.ROOT);
         String normalizedRole = roleCode == null || roleCode.isBlank()
                 ? ""
@@ -248,7 +248,7 @@ public class DefaultTenantIdentityAdministrationService
     private RoleData toRoleData(RoleEntity role, boolean includePermissions) {
         List<PermissionData> permissions = includePermissions
                 ? rolePermissionRepository.findAllByIdRoleId(role.getId()).stream()
-                        .map(value -> toPermissionData(value.getPermission())).toList()
+                .map(value -> toPermissionData(value.getPermission())).toList()
                 : List.of();
         RoleTypeData type = isPlatformCode(role.getCode()) ? RoleTypeData.PLATFORM
                 : role.isSystemRole() ? RoleTypeData.SYSTEM : RoleTypeData.TENANT;
@@ -264,7 +264,8 @@ public class DefaultTenantIdentityAdministrationService
 
     private AccountStatusData accountStatus(UserAccountEntity account) {
         if (!account.isEnabled()) return AccountStatusData.DISABLED;
-        if (account.getLockedUntil() != null && account.getLockedUntil().isAfter(clock.instant())) return AccountStatusData.LOCKED;
+        if (account.getLockedUntil() != null && account.getLockedUntil().isAfter(clock.instant()))
+            return AccountStatusData.LOCKED;
         return AccountStatusData.ACTIVE;
     }
 
@@ -279,8 +280,10 @@ public class DefaultTenantIdentityAdministrationService
 
     private static void requireCommand(CreateTenantUserCommand command) {
         if (command == null) throw new IllegalArgumentException("command must not be null");
-        requireText(command.tenantId(), "tenantId"); requireText(command.actorId(), "actorId");
-        requireText(command.email(), "email"); requireText(command.displayName(), "displayName");
+        requireText(command.tenantId(), "tenantId");
+        requireText(command.actorId(), "actorId");
+        requireText(command.email(), "email");
+        requireText(command.displayName(), "displayName");
     }
 
     private static String requireText(String value, String field) {

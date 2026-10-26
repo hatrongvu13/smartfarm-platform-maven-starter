@@ -19,7 +19,8 @@ public record GrpcMethodPolicyProperties(
 
     private static final Set<String> DEFAULT_PUBLIC_METHODS = Set.of(
             "grpc.health.v1.Health/Check",
-            "grpc.health.v1.Health/Watch"
+            "grpc.health.v1.Health/Watch",
+            "grpc.reflection.v1.ServerReflection/ServerReflectionInfo"
     );
 
     public GrpcMethodPolicyProperties {

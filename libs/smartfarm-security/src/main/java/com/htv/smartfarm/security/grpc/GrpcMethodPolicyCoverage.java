@@ -11,9 +11,10 @@ import org.springframework.beans.factory.SmartInitializingSingleton;
 
 public final class GrpcMethodPolicyCoverage implements SmartInitializingSingleton {
 
-    private static final Set<String> DEFAULT_HEALTH_METHODS = Set.of(
+    private static final Set<String> DEFAULT_INFRASTRUCTURE_METHODS = Set.of(
             "grpc.health.v1.Health/Check",
-            "grpc.health.v1.Health/Watch"
+            "grpc.health.v1.Health/Watch",
+            "grpc.reflection.v1.ServerReflection/ServerReflectionInfo"
     );
 
     private final List<BindableService> services;
@@ -45,7 +46,7 @@ public final class GrpcMethodPolicyCoverage implements SmartInitializingSingleto
         unclassified.removeAll(classified);
         Set<String> unknown = new LinkedHashSet<>(classified);
         unknown.removeAll(methods);
-        unknown.removeAll(DEFAULT_HEALTH_METHODS);
+        unknown.removeAll(DEFAULT_INFRASTRUCTURE_METHODS);
 
         if (!unclassified.isEmpty() || !unknown.isEmpty()) {
             throw new IllegalStateException(
