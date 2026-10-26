@@ -1,8 +1,0 @@
-spring:
-  application:
-    name: smartfarm-farm-simulator
-  main:
-    web-application-type: none
-smartfarm:
-  mqtt:
-    url: ${MQTT_URL:tcp://localhost:1883}

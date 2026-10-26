@@ -7,10 +7,10 @@
       SmartFarm platform parent + aggregator (single-repo monorepo).
 
       This POM is BOTH the Maven parent (every module inherits from it) and the
-      reactor aggregator (it lists every module). All shared configuration lives
-      here exactly once: Spring Boot version, Java version, Spring gRPC BOM, the
-      internal-module versions, third-party pins, and plugin management. Modules
-      declare only what is specific to them.
+      reactor aggregator (it lists every module). Shared configuration lives here
+      exactly once: Spring Boot version, Java version, internal-module versions,
+      third-party pins, and plugin management. Add modules under <modules> as you
+      create them.
     -->
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -26,112 +26,19 @@
     <name>SmartFarm Platform</name>
     <description>Single-repo Maven monorepo for the SmartFarm microservices platform.</description>
 
-    <modules>
+    <!--
+      No modules yet. Add each new module here as you create it, e.g.:
         <module>libs/smartfarm-common-kernel</module>
-        <module>libs/smartfarm-security</module>
-        <module>libs/smartfarm-messaging</module>
-        <module>libs/smartfarm-proto</module>
-        <module>platform/smartfarm-readiness-service</module>
-        <module>platform/smartfarm-farm-simulator</module>
-        <module>services/smartfarm-livestock-service</module>
-        <module>services/smartfarm-health-service</module>
-        <module>services/smartfarm-inventory-service</module>
         <module>services/smartfarm-identity-service</module>
-        <module>services/smartfarm-finance-service</module>
-        <module>services/smartfarm-order-service</module>
-        <module>services/smartfarm-reporting-service</module>
         <module>apps/smartfarm-gateway</module>
+    -->
+    <modules>
     </modules>
 
     <properties>
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Shared third-party versions (single source of truth) -->
-        <spring-grpc.version>1.1.1</spring-grpc.version>
-        <!-- protoc-gen-grpc-java version for code generation only; runtime grpc
-             artifacts are governed by the spring-grpc BOM. Keep this aligned with
-             the BOM's grpc version to avoid codegen/runtime drift. -->
-        <grpc.version>1.83.1</grpc.version>
-        <paho.version>1.2.5</paho.version>
-        <testcontainers.version>2.0.5</testcontainers.version>
-        <!-- springdoc 3.x aligns with Spring Boot 4 / Spring Framework 7 -->
-        <springdoc.version>3.1.1</springdoc.version>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <!-- Spring gRPC BOM -->
-            <dependency>
-                <groupId>org.springframework.grpc</groupId>
-                <artifactId>spring-grpc-dependencies</artifactId>
-                <version>${spring-grpc.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <!-- Internal modules: managed here so modules omit <version> -->
-            <dependency>
-                <groupId>com.htv.smartfarm</groupId>
-                <artifactId>smartfarm-common-kernel</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.htv.smartfarm</groupId>
-                <artifactId>smartfarm-security</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.htv.smartfarm</groupId>
-                <artifactId>smartfarm-messaging</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.htv.smartfarm</groupId>
-                <artifactId>smartfarm-proto</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <!-- Third-party pins -->
-            <!--
-              NOTE: do NOT pin grpc-api here. The spring-grpc-dependencies BOM above
-              already manages the entire io.grpc group (api/core/netty/stub/protobuf)
-              at one coherent version. A manual grpc-api pin wins over the BOM and
-              desynchronises it from grpc-core, causing NoClassDefFoundError
-              (e.g. io/grpc/InternalFeatureFlags) at runtime.
-            -->
-            <dependency>
-                <groupId>org.eclipse.paho</groupId>
-                <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
-                <version>${paho.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
-    <!--
-      Inherited by every module (test scope). PostgreSQL integration tests use
-      Testcontainers so they run against a REAL PostgreSQL 17 (matching compose.yaml),
-      never H2. Versions are managed by the spring-boot-dependencies BOM (SB 4.1.1),
-      so no explicit <version> is needed here. Modules with no IT simply do not use them.
-    -->
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-junit-jupiter</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-postgresql</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
 
     <build>
         <pluginManagement>
