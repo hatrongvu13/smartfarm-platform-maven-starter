@@ -7,6 +7,7 @@ import { NotificationBell, NotificationProvider } from './notifications'
 // Kho, đơn hàng, báo cáo quay lại khi service tương ứng có REST (cấp 2–3).
 const nav = [
   { to: '/', label: 'Tổng quan', icon: '🌿', end: true },
+  { to: '/farms', label: 'Trang trại', icon: '🏡' },
   { to: '/livestock', label: 'Vật nuôi', icon: '🐾' },
 ]
 

@@ -39,6 +39,9 @@ export default function Users() {
       api(identity(`/users/${userId}/roles`), { method: 'PUT', body: { roles } }),
     onSuccess: refresh,
   })
+  const resetMfa = useMutation({
+    mutationFn: (userId: string) => api(identity(`/users/${userId}/mfa/reset`), { method: 'POST' }),
+  })
   const unlock = useMutation({
     mutationFn: (userId: string) => api(identity(`/users/${userId}/unlock`), { method: 'POST' }),
     onSuccess: refresh,
@@ -52,7 +55,7 @@ export default function Users() {
       <PageHeader title="Người dùng" sub={`Tổ chức ${me?.tenantCode ?? ''} · ${users.data?.page.totalElements ?? 0} người`} />
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Danh sách" className="xl:col-span-2">
-          <ErrorMsg error={users.error ?? setStatus.error ?? setRoles.error ?? unlock.error} />
+          <ErrorMsg error={users.error ?? setStatus.error ?? setRoles.error ?? unlock.error ?? resetMfa.error} />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b text-xs uppercase text-stone-500">
@@ -77,6 +80,7 @@ export default function Users() {
                         ? <Button variant="ghost" onClick={() => setStatus.mutate({ userId: u.userId, status: 'SUSPENDED' })}>Tạm khóa</Button>
                         : <Button variant="ghost" onClick={() => setStatus.mutate({ userId: u.userId, status: 'ACTIVE' })}>Mở lại</Button>)}
                       {canManage && u.locked && <Button variant="ghost" onClick={() => unlock.mutate(u.userId)}>Mở khóa</Button>}
+                      {canManage && u.userId !== me?.userId && <Button variant="ghost" title="Người dùng mất thiết bị authenticator" onClick={() => resetMfa.mutate(u.userId)}>Reset 2FA</Button>}
                     </td>
                   </tr>
                 ))}

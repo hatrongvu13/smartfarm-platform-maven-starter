@@ -28,6 +28,7 @@ export default function Dashboard() {
         </Card>
         <Card title="Đi tới">
           <ul className="list-disc pl-5 text-sm">
+            <li><Link className="underline" to="/farms">Trang trại và chuồng</Link></li>
             <li><Link className="underline" to="/livestock">Vật nuôi và công việc</Link></li>
             <li><Link className="underline" to="/profile">Hồ sơ của tôi</Link></li>
           </ul>

@@ -5,6 +5,7 @@ import { useAuth } from './lib/auth'
 import AuthShell from './pages/AuthShell'
 import Dashboard from './pages/Dashboard'
 import Livestock from './pages/Livestock'
+import Farms from './pages/Farms'
 import Profile from './pages/Profile'
 import Users from './pages/admin/Users'
 import Authorization from './pages/admin/Authorization'
@@ -27,6 +28,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="farms" element={<RequirePermission permission="farm:farm:read"><Farms /></RequirePermission>} />
         <Route path="livestock" element={<RequirePermission permission="livestock:animal:read"><Livestock /></RequirePermission>} />
         <Route path="profile" element={<Profile />} />
         <Route path="admin/users" element={<RequirePermission permission="identity:user:read"><Users /></RequirePermission>} />

@@ -2,11 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity } from '../lib/api'
 import { Button, Card, ErrorMsg, Field, Input, PageHeader } from '../components/ui'
+import TotpSettings from '../components/TotpSettings'
 
 type Me = { userId: string; email: string; displayName: string; locale: string; timeZone: string; roles: string[]; permissions: string[] }
 
 // GET/PATCH /api/identity/me · POST /api/identity/me/password
-// MFA (TOTP) tạm dừng: Spring Security 7.1.2 chưa có factor TOTP — chờ chọn hướng.
+// MFA: xem TotpSettings (factor FACTOR_TOTP ở identity-service).
 export default function Profile() {
   const qc = useQueryClient()
   const me = useQuery({ queryKey: ['identity-me'], queryFn: () => api<Me>(identity('/me')) })
@@ -47,6 +48,7 @@ export default function Profile() {
             <Button disabled={changePassword.isPending}>Đổi mật khẩu</Button>
           </form>
         </Card>
+        <TotpSettings />
       </div>
     </>
   )

@@ -75,6 +75,7 @@ export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
 /** Đường dẫn qua gateway: /api/<service>/... */
 export const identity = (path: string) => `/api/identity${path}`
 export const livestock = (path: string) => `/api/livestock${path}`
+export const farm = (path: string) => `/api/farm${path}`
 
 /** Trang Spring Data trả về (PagedModel). */
 export type Page<T> = { content: T[]; page: { size: number; number: number; totalElements: number; totalPages: number } }

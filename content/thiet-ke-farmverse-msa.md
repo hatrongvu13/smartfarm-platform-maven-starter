@@ -252,7 +252,7 @@ com.htv.farmverse.<svc>/
 | Cấp | Nội dung | Chạy được gì | Bằng chứng |
 |:-:|---|---|---|
 | 0 ✅ | Đổi tên, parent pom Boot 4.1.2 + Spring Cloud BOM, RabbitMQ trong compose, xóa readiness-service | `mvn -B test` xanh | build |
-| 1 ✅ | gateway (BFF) + identity (SAS) + livestock + web login (farm-service dời sang 1b) | Đăng nhập, CRUD trang trại/vật nuôi | IT login PKCE, 401/403 |
+| 1 ✅ | gateway (BFF) + identity (SAS) + livestock + web login + MFA TOTP + farm-service (1b) | Đăng nhập, CRUD trang trại/vật nuôi | IT login PKCE, 401/403 |
 | 2 | RabbitMQ + starter outbox/inbox; inventory (event sourcing), order (saga), payment, health | Đặt hàng có bù trừ | IT saga thành công/thất bại, consumer chạy 2 lần không trùng |
 | 3 | device + simulator, reporting (CQRS), notification, config-server, discovery, Resilience4j | Telemetry → cảnh báo → email | IT end-to-end bằng Testcontainers |
 | 4 | Tracing đầy đủ, contract test, dead-letter + replay | Thấy trace xuyên service trên Grafana | contract test xanh |
