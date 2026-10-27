@@ -1,5 +1,7 @@
 # FarmVerse — Hệ sinh thái học Microservices (MSA)
 
+> ⚠️ **Phạm vi đã thu hẹp (2026-10-27):** cấp 2–5 tạm bỏ. Kế hoạch hiện hành: `content/ke-hoach-hoan-thien.md`.
+>
 > Trạng thái: **ĐÃ DUYỆT 2026-10-27** — tên `farmverse`, RabbitMQ, Spring Boot 4.1.2 + Spring Cloud 2025.1.4, ưu tiên tự triển khai bằng hệ sinh thái Spring.
 > Cấp 0 (đổi tên, parent pom, BOM, broker) đã xong trên nhánh `feat/farmverse-level-0`.
 > Thay cho: `content/thiet-ke-chuan-keycloak.md` (không dùng Keycloak) và bản nháp modular monolith trước đó.
