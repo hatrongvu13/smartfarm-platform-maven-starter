@@ -14,7 +14,7 @@
     <name>FarmVerse Service Support</name>
     <description>
         Phần dùng chung cho mọi resource server: tên claim, đổi JWT thành authority,
-        kiểm audience, ProblemDetail. Không có auto-configuration: service tự gọi các lớp này.
+        kiểm audience, ProblemDetail, mTLS (kiểm danh tính service, client có cert). Không có auto-configuration: service tự gọi các lớp này.
     </description>
 
     <dependencies>
@@ -29,6 +29,16 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
+        </dependency>
+        <!-- SslBundle (mTLS) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

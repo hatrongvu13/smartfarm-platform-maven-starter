@@ -1,0 +1,36 @@
+# mTLS: chỉ api-gateway được gọi farm-service; farm tải JWKS từ identity bằng cert của mình.
+farmverse:
+  mtls:
+    dir: ${FARMVERSE_MTLS_DIR:../../.local/mtls}     # scripts/generate-dev-mtls.sh
+    allowed-callers: gateway                         # danh sách cách nhau bằng dấu phẩy
+
+spring:
+  ssl:
+    bundle:
+      pem:
+        farmverse:
+          reload-on-update: true                      # cert mới (gia hạn) được nạp không cần khởi động lại
+          keystore:
+            certificate: "file:${farmverse.mtls.dir}/farm.crt"
+            private-key: "file:${farmverse.mtls.dir}/farm.key"
+          truststore:
+            certificate: "file:${farmverse.mtls.dir}/ca.crt"
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${IDENTITY_ISSUER:https://localhost:8092}
+          jwk-set-uri: ${IDENTITY_JWKS_URI:https://localhost:8092/oauth2/jwks}
+
+server:
+  ssl:
+    bundle: farmverse
+    client-auth: need          # không có cert client hợp lệ → bắt tay TLS thất bại
+
+# Health/probe tách cổng riêng, không TLS, chỉ loopback (probe không cần cert).
+management:
+  server:
+    port: ${FARM_MANAGEMENT_PORT:9082}
+    address: 127.0.0.1
+    ssl:
+      enabled: false

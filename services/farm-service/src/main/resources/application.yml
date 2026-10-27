@@ -3,6 +3,10 @@ spring:
     name: farm-service
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+    # mTLS bật ở dev và prod (xem application-mtls.yml); test bật riêng khi cần.
+    group:
+      dev: [ mtls ]
+      prod: [ mtls ]
   jpa:
     open-in-view: false
     hibernate:
