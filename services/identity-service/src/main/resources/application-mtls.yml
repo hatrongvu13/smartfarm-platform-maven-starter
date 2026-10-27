@@ -1,0 +1,33 @@
+# mTLS cho identity:
+#  - Trình duyệt vào trang login / authorize / logout bằng TLS một chiều (không có cert client).
+#  - Đường máy-gọi-máy (token, JWKS, userinfo, REST quản trị) bắt buộc cert của gateway hoặc farm.
+farmverse:
+  mtls:
+    dir: ${FARMVERSE_MTLS_DIR:../../.local/mtls}
+    allowed-callers: gateway,farm
+  identity:
+    issuer: ${IDENTITY_ISSUER:https://localhost:8092}
+
+spring:
+  ssl:
+    bundle:
+      pem:
+        farmverse:
+          reload-on-update: true
+          keystore:
+            certificate: "file:${farmverse.mtls.dir}/identity.crt"
+            private-key: "file:${farmverse.mtls.dir}/identity.key"
+          truststore:
+            certificate: "file:${farmverse.mtls.dir}/ca.crt"
+
+server:
+  ssl:
+    bundle: farmverse
+    client-auth: want          # xin cert nhưng không bắt buộc ở tầng TLS; ServiceIdentityFilter quyết theo đường
+
+management:
+  server:
+    port: ${IDENTITY_MANAGEMENT_PORT:9092}
+    address: 127.0.0.1
+    ssl:
+      enabled: false

@@ -2,6 +2,7 @@ package com.htv.farmverse.gateway.config;
 
 import java.security.Principal;
 
+import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Mono;
 
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
@@ -96,8 +97,7 @@ public class SecurityConfiguration {
 
     /** Cookie session riêng tên {@code FV_SESSION}, HttpOnly, SameSite=Lax. */
     @Bean
-    WebSessionIdResolver webSessionIdResolver(
-            @org.springframework.beans.factory.annotation.Value("${farmverse.gateway.secure-cookie:false}") boolean secure) {
+    WebSessionIdResolver webSessionIdResolver(@Value("${farmverse.gateway.secure-cookie:false}") boolean secure) {
         CookieWebSessionIdResolver resolver = new CookieWebSessionIdResolver();
         resolver.setCookieName("FV_SESSION");
         resolver.addCookieInitializer(cookie -> cookie.httpOnly(true).secure(secure).sameSite("Lax").path("/"));
