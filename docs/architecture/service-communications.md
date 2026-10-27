@@ -1,4 +1,4 @@
-# Ma Trận Giao Tiếp Dịch Vụ — SmartFarm Platform
+# Ma Trận Giao Tiếp Dịch Vụ — FarmVerse Platform
 
 > **Chuẩn hóa:** 2026-10-16  
 > **Nguyên tắc:** Dùng bảng thống kê và biểu đồ luồng; loại bỏ text dư thừa; phân định rành mạch giữa giao tiếp đồng bộ (Sync - gRPC/REST) và bất đồng bộ (Async - MQTT/SAGA).
@@ -50,9 +50,9 @@ flowchart LR
 | **Order (Saga)** | **Inventory** | gRPC | `ReserveStock`, `CommitReservation`, `ReleaseReservation` | Short-lived service token; worker reacquires on retry (OAuth client migration pending) | Giữ chỗ kho, Xác nhận xuất kho, Hoàn kho khi hủy |
 | **Order (Saga)** | **Finance** | gRPC | `RecordExpense`, `ReverseExpense` | Short-lived service token; worker reacquires on retry (OAuth client migration pending) | Hạch toán chi phí đơn, Hoàn tiền khi hủy |
 | **Identity** | **MQTT Broker** | MQTT | `events/identity/authorization-invalidated` | Message HMAC Envelope (ký ứng dụng) | Phát tán sự kiện thu hồi token/phiên tức thời |
-| **Order** | **MQTT Broker** | MQTT | `smartfarm/{tenant}/{farm}/domain/order/v1` | Protobuf `DomainEvent` | Thông báo đơn hàng tạo/thay đổi trạng thái |
-| **MQTT Broker** | **Gateway** | MQTT | `smartfarm/+/+/domain/#` | MQTT Subscription | Đẩy sự kiện realtime tới Web qua WebSocket bridge |
-| **MQTT Broker** | **Order** | MQTT | `smartfarm/{tenant}/{farm}/domain/order/v1` | MQTT Subscription (CQRS Consumer) | Cập nhật Read-Model Projection của đơn hàng |
+| **Order** | **MQTT Broker** | MQTT | `farmverse/{tenant}/{farm}/domain/order/v1` | Protobuf `DomainEvent` | Thông báo đơn hàng tạo/thay đổi trạng thái |
+| **MQTT Broker** | **Gateway** | MQTT | `farmverse/+/+/domain/#` | MQTT Subscription | Đẩy sự kiện realtime tới Web qua WebSocket bridge |
+| **MQTT Broker** | **Order** | MQTT | `farmverse/{tenant}/{farm}/domain/order/v1` | MQTT Subscription (CQRS Consumer) | Cập nhật Read-Model Projection của đơn hàng |
 
 ---
 

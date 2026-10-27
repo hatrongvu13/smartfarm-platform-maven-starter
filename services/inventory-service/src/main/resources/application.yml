@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: inventory-service
+  profiles:
+    # Mặc định cứng = dev khi khởi chạy bình thường (mvn spring-boot:run / java -jar) mà không
+    # cần set biến môi trường. Override bằng SPRING_PROFILES_ACTIVE=prod|test khi cần.
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+server:
+  port: 8083
+  # SINGLE-INGRESS: internal service. Bind loopback only; the gateway is the sole public
+  # ingress. Override INVENTORY_BIND_ADDRESS only for a private cross-host mesh.
+  address: ${INVENTORY_BIND_ADDRESS:127.0.0.1}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+farmverse:
+  security:
+
+    authorization-invalidation:
+      mqtt:
+        enabled: ${AUTHORIZATION_INVALIDATION_MQTT_ENABLED:true}
+        broker-url: ${FARMVERSE_MQTT_URL:tcp://localhost:1883}
+        topic-filter: ${AUTHORIZATION_INVALIDATION_TOPIC_FILTER:farmverse/+/_global/domain/authorization-invalidated/v1}
+        client-id: ${AUTHORIZATION_INVALIDATION_CLIENT_ID:${spring.application.name}-authorization-watermark-${HOSTNAME:local}}
+        qos: ${AUTHORIZATION_INVALIDATION_QOS:1}
+        username: ${FARMVERSE_MQTT_USERNAME:}
+        password: ${FARMVERSE_MQTT_PASSWORD:}
+    jwt:
+      issuer: ${FARMVERSE_JWT_ISSUER}
+      jwk-set-uri: ${FARMVERSE_JWKS_URI}
+      audiences:
+        - ${FARMVERSE_JWT_AUDIENCE:farmverse-inventory}
+      allow-local-http: false
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[farmverse.inventory.v1.InventoryService/CreateItem]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/UpdateItem]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/SetItemStatus]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/UpdateWarehouse]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/SetWarehouseStatus]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/GetItem]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/ListItems]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/CreateWarehouse]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/GetWarehouse]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/ListWarehouses]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/ListWarehouseItems]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/ReceiveStock]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/IssueStock]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/AdjustStock]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/ReserveStock]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/ReleaseReservation]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/CommitReservation]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/GetStockBalance]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/ListLowStock]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/TraceLot]": inventory:read
+  inventory:
+    mqtt:
+      enabled: false

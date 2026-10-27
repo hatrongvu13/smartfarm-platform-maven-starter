@@ -1,13 +1,13 @@
-# Identity Service (`services/smartfarm-identity-service`)
+# Identity Service (`services/identity-service`)
 
 > **Cập nhật & Chuẩn hóa:** 2026-10-20
-> **Tài liệu tham chiếu:** [`IDENTITY_BACKLOG_UPDATED.md`](../../IDENTITY_BACKLOG_UPDATED.md) (Master Checklist), [`docs/security/security-architecture.md`](../security/security-architecture.md).
+> **Tài liệu tham chiếu:** [`docs/security/security-architecture.md`](../security/security-architecture.md).
 
 ---
 
 ## 1. Trách Nhiệm & Ranh Giới
 
-Identity Service là trung tâm định danh, quản lý tài khoản, tenant membership, MFA, RBAC và giao thức cấp quyền của nền tảng SmartFarm. **OAuth 2.0 Authorization Server/OIDC Provider đã được triển khai một phần trong service; chưa product-ready vì chưa migrate Gateway/Web/service clients, chưa có PKCE end-to-end và chưa verify PostgreSQL deployment.** Xem [thiết kế OAuth/OIDC mục tiêu và mapping class/method](../architecture/identity-oauth2-oidc-target.md) và checklist triển khai.
+Identity Service là trung tâm định danh, quản lý tài khoản, tenant membership, MFA, RBAC và giao thức cấp quyền của nền tảng FarmVerse. **OAuth 2.0 Authorization Server/OIDC Provider đã được triển khai một phần trong service; chưa product-ready vì chưa migrate Gateway/Web/service clients, chưa có PKCE end-to-end và chưa verify PostgreSQL deployment.** Xem [thiết kế OAuth/OIDC mục tiêu và mapping class/method](../architecture/identity-oauth2-oidc-target.md) và checklist triển khai.
 - **HTTP Ingress (`:8092`):** Tiếp nhận xác thực công khai (Login, MFA Verify/Enrollment, Refresh, Logout, Bootstrap-superadmin) và cung cấp JWKS công khai (`/.well-known/jwks.json`).
 - **gRPC Ingress (`:9092`):** Giao diện nội bộ độc quyền cho quản trị tài khoản, phân quyền, kiểm tra quyền và cấp phát Service Token (Machine Token & Delegated Token).
 - **MQTT Event Outbox:** Phát tán các sự kiện định danh (`IdentityLifecycleEvent`) và sự kiện vô hiệu hóa quyền tức thời (`AuthorizationInvalidated`).
@@ -59,10 +59,7 @@ flowchart LR
 
 ---
 
-## 5. Master Checklist Kế Hoạch Hoàn Thiện
-
-Toàn bộ tiến độ và các hạng mục triển khai của Identity Service được quản lý tập trung tại:
-👉 [**Master Checklist Identity Service (TODO / DOING / DONE)**](../../IDENTITY_BACKLOG_UPDATED.md)
+## 5. Trạng Thái Hạng Mục
 
 | Trạng Thái | Hạng Mục Chính |
 |:---:|---|

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-all.sh — SmartFarm unified test runner.
+# run-all.sh — FarmVerse unified test runner.
 #
 # Available phases: health and smoke. REST/GraphQL operation suites are not
 # present in this checkout.

@@ -13,7 +13,7 @@ Báo cáo lỗ hổng **riêng tư** cho chủ sở hữu repository (xem owner 
 
 ## Secret management
 - Không commit secret/token/private key. Dev dùng default trong `application-dev.yml` (postgres/root) — **chỉ dev**, không dùng ngoài local.
-- Prod: inject qua biến môi trường (`.env.production.example` làm template): `SMARTFARM_JWT_ISSUER`, `SMARTFARM_JWKS_URI`, `GATEWAY_SERVICE_CLIENT_SECRET`, `IDENTITY_DB_*`, broker credential.
+- Prod: inject qua biến môi trường (`.env.production.example` làm template): `FARMVERSE_JWT_ISSUER`, `FARMVERSE_JWKS_URI`, `GATEWAY_SERVICE_CLIENT_SECRET`, `IDENTITY_DB_*`, broker credential.
 
 ## Authentication
 RS256 JWT (cap 15 phút) + JWKS; rotating refresh token với reuse-detection; TOTP MFA. Chi tiết: [`docs/security/security-architecture.md`](docs/security/security-architecture.md).
@@ -37,4 +37,4 @@ Correlation ID (`x-correlation-id`) xuyên gateway→service. gRPC audit configu
 Hiện chưa có runbook incident chuyên biệt ngoài `docs/operations/ORDER-OPERATIONS-RUNBOOK.md`. Đầu việc còn thiếu.
 
 ## Security checklist / đầu việc còn thiếu
-Xem [`docs/security/security-architecture.md`](docs/security/security-architecture.md), [`IDENTITY_BACKLOG_UPDATED.md`](IDENTITY_BACKLOG_UPDATED.md), và [`docs/roadmap.md`](docs/roadmap.md).
+Xem [`docs/security/security-architecture.md`](docs/security/security-architecture.md).

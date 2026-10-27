@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart LR
-    Browser["SmartFarm Web"] -->|"OIDC Authorization Code + PKCE"| Gateway["Gateway BFF"]
+    Browser["FarmVerse Web"] -->|"OIDC Authorization Code + PKCE"| Gateway["Gateway BFF"]
     Mobile["Future native app"] -->|"OIDC Authorization Code + PKCE"| Identity["Identity OAuth AS / OIDC Provider"]
     Gateway -->|"OAuth2 client; RFC 8693 exchange"| Identity
     Worker["Order / Reporting worker"] -->|"client_credentials"| Identity
@@ -19,7 +19,7 @@ flowchart LR
     Identity --> MQTT["Transactional domain-event outbox"]
 ```
 
-Identity remains one service and the authority for credentials, tenant, MFA, authorization and tokens. Gateway owns the public ingress and browser BFF session. Resource services validate issuer, expiry, audience and scopes for their own resources. The readiness service aggregates probes; it does not own Identity domain tests or process orchestration.
+Identity remains one service and the authority for credentials, tenant, MFA, authorization and tokens. Gateway owns the public ingress and browser BFF session. Resource services validate issuer, expiry, audience and scopes for their own resources. Each service exposes its own Actuator readiness probe.
 
 ## 2. Browser flow target: Authorization Code + PKCE through BFF
 
@@ -81,7 +81,7 @@ Client credentials represent a confidential service acting on its own behalf; th
 | Area | Current source | Target |
 |---|---|---|
 | Browser login | OAuth `/oauth2/authorize` and authorization-only login/tenant/MFA journey exist; Gateway `AuthProxyController` still forwards `/api/v1/auth/login`; Web posts email/password | E2E-test redirect/callback with PKCE, then migrate to Gateway BFF |
-| Browser token state | `apps/smartfarm-web/src/lib/api.ts` stores refresh token in `localStorage`; `auth.tsx` performs refresh | Server-side BFF token storage, Secure/HttpOnly/SameSite cookie |
+| Browser token state | `apps/farmverse-web/src/lib/api.ts` stores refresh token in `localStorage`; `auth.tsx` performs refresh | Server-side BFF token storage, Secure/HttpOnly/SameSite cookie |
 | User/session | Identity `AuthController` and `AuthService` custom login/MFA/refresh/logout | OIDC code, ID/access token split, OAuth authorization/refresh grant and OIDC logout policy |
 | Machine grants | OAuth `client_credentials` is implemented for configured clients; `ServiceTokenService` and `IdentityTokenService` gRPC still serve existing callers | Provision clients securely and migrate each service to the OAuth token endpoint |
 | Delegation | Custom delegated gRPC token path | RFC 8693 subject-token exchange, `sub=user`, `act.sub=service` |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# doctor.sh — health check for the SmartFarm monorepo.
+# doctor.sh — health check for the FarmVerse monorepo.
 #
 # Verifies the toolchain and that every module listed in the root reactor POM
 # has a pom.xml on disk. This is a single Git repository, so there is no

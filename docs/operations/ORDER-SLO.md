@@ -15,9 +15,9 @@ This SLO covers the public Gateway Order surface and the Order service asynchron
 
 ## Measurement
 
-Use `up`, `smartfarm_order_outbox_oldest_pending_seconds`,
-`smartfarm_order_saga_oldest_active_seconds`, and
-`smartfarm_order_projection_gaps_oldest_seconds`. Do not aggregate by tenant or business identifiers.
+Use `up`, `farmverse_order_outbox_oldest_pending_seconds`,
+`farmverse_order_saga_oldest_active_seconds`, and
+`farmverse_order_projection_gaps_oldest_seconds`. Do not aggregate by tenant or business identifiers.
 
 ## Error-budget policy
 

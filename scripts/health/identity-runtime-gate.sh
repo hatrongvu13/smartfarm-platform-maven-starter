@@ -28,7 +28,7 @@ for command in mvn java curl python3; do
   fi
 done
 
-if [[ ! -f pom.xml || ! -f services/smartfarm-identity-service/pom.xml ]]; then
+if [[ ! -f pom.xml || ! -f services/identity-service/pom.xml ]]; then
   printf 'Run this script from the repository root.\n' >&2
   exit 2
 fi
@@ -41,7 +41,7 @@ fi
 http_port="${IDENTITY_GATE_HTTP_PORT:-18092}"
 grpc_port="${IDENTITY_GATE_GRPC_PORT:-19092}"
 wait_seconds="${IDENTITY_GATE_WAIT_SECONDS:-90}"
-mqtt_client_id="${IDENTITY_GATE_MQTT_CLIENT_ID:-smartfarm-identity-gate-$$}"
+mqtt_client_id="${IDENTITY_GATE_MQTT_CLIENT_ID:-farmverse-identity-gate-$$}"
 if [[ ! "$http_port" =~ ^[0-9]+$ || ! "$grpc_port" =~ ^[0-9]+$ \
   || ! "$wait_seconds" =~ ^[1-9][0-9]*$ ]]; then
   printf 'Identity gate ports and wait duration must be positive integers.\n' >&2
@@ -71,9 +71,9 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 printf 'Building Identity without starting PostgreSQL or MQTT.\n'
-"$maven" -pl services/smartfarm-identity-service -am -DskipTests package
+"$maven" -pl services/identity-service -am -DskipTests package
 
-artifact="services/smartfarm-identity-service/target/smartfarm-identity-service-0.1.0-SNAPSHOT.jar"
+artifact="services/identity-service/target/identity-service-0.1.0-SNAPSHOT.jar"
 if [[ ! -f "$artifact" ]]; then
   printf 'Expected runnable artifact was not produced: %s\n' "$artifact" >&2
   exit 1
@@ -86,11 +86,11 @@ java -jar "$artifact" \
   --server.port="$http_port" \
   --spring.grpc.server.address=127.0.0.1 \
   --spring.grpc.server.port="$grpc_port" \
-  --smartfarm.identity.mqtt.enabled=true \
-  --smartfarm.identity.mqtt.client-id="$mqtt_client_id" \
-  --smartfarm.identity.mqtt.clean-session=true \
-  --smartfarm.identity.mqtt.commands.enabled=false \
-  --smartfarm.identity.outbox.enabled=false \
+  --farmverse.identity.mqtt.enabled=true \
+  --farmverse.identity.mqtt.client-id="$mqtt_client_id" \
+  --farmverse.identity.mqtt.clean-session=true \
+  --farmverse.identity.mqtt.commands.enabled=false \
+  --farmverse.identity.outbox.enabled=false \
   --management.endpoint.health.show-components=always \
   --management.endpoint.health.show-details=always \
   >"$log_file" 2>&1 &

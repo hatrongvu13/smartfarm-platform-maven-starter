@@ -1,4 +1,4 @@
-# Local Development — SmartFarm Platform
+# Local Development — FarmVerse Platform
 
 > Reconciled 2026-10-15 against root POM, service profiles, and script contents.
 
@@ -16,7 +16,7 @@ Mọi module runnable (9) mặc định boot profile **`dev`** mà **không** c�
 ## Khởi động
 ```bash
 ./scripts/doctor.sh          # verify toolchain + reactor module POMs
-./scripts/build-all.sh       # mvn -B clean verify
+mvn -B clean verify
 docker compose up -d         # postgres:17, mosquitto:2, redis:8
 ```
 
@@ -34,21 +34,21 @@ docker compose up -d         # postgres:17, mosquitto:2, redis:8
 Thứ tự: identity trước (các service validate JWT qua JWKS của identity), rồi service, cuối cùng gateway.
 
 ```bash
-mvn -f services/smartfarm-identity-service/pom.xml  spring-boot:run
-mvn -f services/smartfarm-livestock-service/pom.xml spring-boot:run
-mvn -f apps/smartfarm-gateway/pom.xml               spring-boot:run
+mvn -f services/identity-service/pom.xml  spring-boot:run
+mvn -f services/livestock-service/pom.xml spring-boot:run
+mvn -f platform/api-gateway/pom.xml               spring-boot:run
 ```
 
 ## Database (dev)
-Identity dev defaults to `IDENTITY_DB_URL` or `jdbc:postgresql://localhost:5432/smartfarm`, `postgres/root`; `ddl-auto: update`, Flyway disabled, and `open-in-view: false` are explicit in `services/smartfarm-identity-service/src/main/resources/application-dev.yml`. H2 is used by the test profile. Identity production instead requires `IDENTITY_DB_URL/USER/PASSWORD`, enables Flyway, validates the schema, and uses loopback bind addresses by default. Other module database settings are per their own `application-*.yml`; do not infer production database isolation from this identity setting.
+Identity dev defaults to `IDENTITY_DB_URL` or `jdbc:postgresql://localhost:5432/farmverse`, `postgres/root`; `ddl-auto: update`, Flyway disabled, and `open-in-view: false` are explicit in `services/identity-service/src/main/resources/application-dev.yml`. H2 is used by the test profile. Identity production instead requires `IDENTITY_DB_URL/USER/PASSWORD`, enables Flyway, validates the schema, and uses loopback bind addresses by default. Other module database settings are per their own `application-*.yml`; do not infer production database isolation from this identity setting.
 
-Current service clients still use custom token issuance over Identity gRPC. HTTP also serves OAuth `/oauth2/authorize` and `/oauth2/token`, OIDC discovery/JWKS/UserInfo, while custom login/MFA/refresh routes remain during migration. OAuth clients are disabled unless `smartfarm.identity.oauth2.clients` is configured; PKCE end-to-end, Gateway BFF migration and PostgreSQL V4 verification remain open (see [Identity flows](../services/identity-flows.md)). The ignored root `.env` may supply database and client secrets; do not enable shell tracing (`set -x`) while loading or using secrets.
+Current service clients still use custom token issuance over Identity gRPC. HTTP also serves OAuth `/oauth2/authorize` and `/oauth2/token`, OIDC discovery/JWKS/UserInfo, while custom login/MFA/refresh routes remain during migration. OAuth clients are disabled unless `farmverse.identity.oauth2.clients` is configured; PKCE end-to-end, Gateway BFF migration and PostgreSQL V4 verification remain open (see [Identity flows](../services/identity-flows.md)). The ignored root `.env` may supply database and client secrets; do not enable shell tracing (`set -x`) while loading or using secrets.
 
 ```bash
 set -a
 . ./.env
 set +a
-mvn -f services/smartfarm-identity-service/pom.xml spring-boot:run
+mvn -f services/identity-service/pom.xml spring-boot:run
 ```
 
 Run the command in the first terminal and leave it in the foreground. In a second user-owned terminal, start Gateway in the foreground:
@@ -57,7 +57,7 @@ Run the command in the first terminal and leave it in the foreground. In a secon
 set -a
 . ./.env
 set +a
-mvn -f apps/smartfarm-gateway/pom.xml spring-boot:run
+mvn -f platform/api-gateway/pom.xml spring-boot:run
 ```
 
 Stop both processes with Ctrl-C after testing; do not start them in the background. Identity's dev profile has local-only client credentials; production secrets must be independently provisioned for Gateway, Order, and Reporting. Identity's gRPC listener defaults to loopback. Do not widen it to cross-host traffic until TLS/mTLS and network access controls are configured.
@@ -134,7 +134,7 @@ finally:
     password = None
 ```
 
-A successful `me` query exercises Gateway JWT validation, `ExchangeDelegatedToken` over gRPC, and Identity directory gRPC. If login requires MFA enrollment or tenant selection, complete that flow first and rerun with the selected tenant. Never use `curl -v` or print access/refresh tokens. Focused automated checks: `mvn -f services/smartfarm-identity-service/pom.xml -Dtest=IdentityTokenGrpcServiceTest,IdentityTokenGrpcPolicyTest,ServiceTokenSettingsDevProfileTest,TokenServiceAuthTimeTest test`; Gateway/Order/Reporting client checks: run `-Dtest=ServiceTokenClientTest test` from each module POM.
+A successful `me` query exercises Gateway JWT validation, `ExchangeDelegatedToken` over gRPC, and Identity directory gRPC. If login requires MFA enrollment or tenant selection, complete that flow first and rerun with the selected tenant. Never use `curl -v` or print access/refresh tokens. Focused automated checks: `mvn -f services/identity-service/pom.xml -Dtest=IdentityTokenGrpcServiceTest,IdentityTokenGrpcPolicyTest,ServiceTokenSettingsDevProfileTest,TokenServiceAuthTimeTest test`; Gateway/Order/Reporting client checks: run `-Dtest=ServiceTokenClientTest test` from each module POM.
 
 ## Smoke test
 ```bash

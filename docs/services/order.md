@@ -1,4 +1,4 @@
-# Service: Order (`services/smartfarm-order-service`)
+# Service: Order (`services/order-service`)
 
 > Implementation summary; :8085 / gRPC :9095. ← [System Overview](../architecture/system-overview.md)
 

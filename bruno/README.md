@@ -1,6 +1,6 @@
-# SmartFarm Platform — Bruno API Collection
+# FarmVerse Platform — Bruno API Collection
 
-A manual test collection for the SmartFarm platform, organized **one folder per
+A manual test collection for the FarmVerse platform, organized **one folder per
 service** with ordered `NN - name.bru` requests. Built for the case where the shell
 suite (`scripts/run-all.sh`) can't authenticate because the admin account is forced
 to use TOTP — here you drive the **TOTP enrollment** by hand and keep testing.

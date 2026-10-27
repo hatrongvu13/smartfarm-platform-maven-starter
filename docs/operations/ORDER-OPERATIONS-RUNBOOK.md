@@ -12,7 +12,7 @@
 - Confirm the Gateway process and `/actuator/health/readiness`.
 - Check JWT/JWKS configuration, service-token secret, TLS/DNS, and Order channel connectivity.
 - Restore configuration or restart only after preserving logs.
-- Recovery: `up{job="smartfarm-gateway"} == 1` for 10 minutes.
+- Recovery: `up{job="api-gateway"} == 1` for 10 minutes.
 
 ## Order service or database down
 
@@ -23,7 +23,7 @@
 
 ## Saga backlog or stale claim
 
-- Inspect `smartfarm_order_saga_active`, `smartfarm_order_saga_oldest_active_seconds`, and `smartfarm_order_saga_stale_claims`.
+- Inspect `farmverse_order_saga_active`, `farmverse_order_saga_oldest_active_seconds`, and `farmverse_order_saga_stale_claims`.
 - Confirm that the persistent worker is enabled and that Inventory/Finance gRPC endpoints are reachable.
 - For stale claims, use the authenticated internal recovery operation `POST /internal/order-sagas/recover-stale` with tenant and reason.
 - Recovery: stale claims return to zero and oldest active age decreases.
@@ -51,7 +51,7 @@
 
 ## Projection gap backlog
 
-- Inspect `smartfarm_order_projection_gaps_pending` and oldest-gap seconds.
+- Inspect `farmverse_order_projection_gaps_pending` and oldest-gap seconds.
 - Verify MQTT delivery, projection worker, event archive availability, and database health.
 - Allow automatic archive replay while the expected archived event exists.
 - Recovery: pending gap count and age decrease; read model version advances.
@@ -72,5 +72,5 @@ Escalate immediately for database data loss, partial Inventory commit, Finance r
 - Deploy immutable image digests with rolling update, `maxUnavailable=0`, and `maxSurge=1`.
 - Wait for both Gateway and Order rollouts, then verify readiness and backlog age metrics.
 - Keep a 45-second termination grace period; do not force-delete a terminating Order pod.
-- Roll back with `kubectl rollout undo deployment/smartfarm-order` or `smartfarm-gateway`.
+- Roll back with `kubectl rollout undo deployment/farmverse-order` or `api-gateway`.
 - After rollback, verify stale claims return to zero and no outbox event entered `DEAD`.

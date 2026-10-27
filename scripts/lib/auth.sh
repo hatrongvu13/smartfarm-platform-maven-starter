@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# auth.sh — authentication for the SmartFarm unified test suite.
+# auth.sh — authentication for the FarmVerse unified test suite.
 #
 # Source after common.sh + http.sh. Authenticates against the REAL identity
 # contract, verified from source:
@@ -11,7 +11,7 @@
 #               accessToken, tokenType, expiresIn, refreshToken,
 #               challengeToken, availableMethods[], challengeExpiresIn }
 #
-# (see services/smartfarm-identity-service/.../oauth2/AuthService.java and
+# (see services/identity-service/.../oauth2/AuthService.java and
 #  the gateway AuthProxyController that forwards /api/v1/auth/login.)
 #
 # Behavior:
@@ -24,8 +24,8 @@
 #
 # The token is NEVER printed or written to the repo. Only a masked prefix is logged.
 
-if [ -n "${_SMARTFARM_AUTH_SH:-}" ]; then return 0 2>/dev/null || true; fi
-_SMARTFARM_AUTH_SH=1
+if [ -n "${_FARMVERSE_AUTH_SH:-}" ]; then return 0 2>/dev/null || true; fi
+_FARMVERSE_AUTH_SH=1
 
 require_cmd jq
 

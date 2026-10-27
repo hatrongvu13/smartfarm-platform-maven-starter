@@ -1,4 +1,4 @@
-# Deployment — SmartFarm Platform
+# Deployment — FarmVerse Platform
 
 > Reconciled 2026-10-15 against Dockerfile, `.github/workflows/build-push.yml`, `deploy/kubernetes/`, and `compose.yaml`.
 
@@ -21,4 +21,4 @@
 - Observability cluster-wide + tracing.
 - `.env.production.example` → inject secret thật.
 
-← [Roadmap](../roadmap.md) · [Observability](observability.md)
+← [Observability](observability.md)

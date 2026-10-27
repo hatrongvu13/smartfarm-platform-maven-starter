@@ -1,4 +1,4 @@
-# Threat Model — SmartFarm Platform
+# Threat Model — FarmVerse Platform
 
 > Sơ bộ, reconciled 2026-10-15 against current source and configuration. Runtime deployment settings must be verified independently.
 
@@ -28,4 +28,4 @@
 ## Ưu tiên khắc phục
 P2: T6 (MQTT hardening), T7 (super-admin audit). P2/P3: T5 (gRPC TLS). V1: T8 (identity protobuf).
 
-← [Security Architecture](security-architecture.md) · [Identity backlog](../../IDENTITY_BACKLOG_UPDATED.md)
+← [Security Architecture](security-architecture.md)

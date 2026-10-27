@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: reporting-service
+  profiles:
+    # Mặc định cứng = dev khi khởi chạy bình thường (mvn spring-boot:run / java -jar) mà không
+    # cần set biến môi trường. Override bằng SPRING_PROFILES_ACTIVE=prod|test khi cần.
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+server:
+  port: 8086
+  # SINGLE-INGRESS: internal service. Bind loopback only; the gateway is the sole public
+  # ingress. Override REPORTING_BIND_ADDRESS only for a private cross-host mesh.
+  address: ${REPORTING_BIND_ADDRESS:127.0.0.1}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+spring.grpc.server.port: 9096
+farmverse:
+  security:
+
+    authorization-invalidation:
+      mqtt:
+        enabled: ${AUTHORIZATION_INVALIDATION_MQTT_ENABLED:true}
+        broker-url: ${FARMVERSE_MQTT_URL:tcp://localhost:1883}
+        topic-filter: ${AUTHORIZATION_INVALIDATION_TOPIC_FILTER:farmverse/+/_global/domain/authorization-invalidated/v1}
+        client-id: ${AUTHORIZATION_INVALIDATION_CLIENT_ID:${spring.application.name}-authorization-watermark-${HOSTNAME:local}}
+        qos: ${AUTHORIZATION_INVALIDATION_QOS:1}
+        username: ${FARMVERSE_MQTT_USERNAME:}
+        password: ${FARMVERSE_MQTT_PASSWORD:}
+    jwt:
+      issuer: ${FARMVERSE_JWT_ISSUER:}
+      jwk-set-uri: ${FARMVERSE_JWKS_URI:}
+      audiences:
+        - ${FARMVERSE_JWT_AUDIENCE:farmverse-reporting}
+      allow-local-http: false
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[farmverse.reporting.v1.ReportingService/RequestExport]": report:write
+        "[farmverse.reporting.v1.ReportingService/GetExportJob]": report:read
+        "[farmverse.reporting.v1.ReportingService/ListExportJobs]": report:read
+        "[farmverse.reporting.v1.ReportingService/GetDownloadLocation]": report:read
+  reporting:
+    grpc:
+      livestock-deadline: ${REPORTING_LIVESTOCK_GRPC_DEADLINE:10s}
+  identity:
+    grpc-host: ${IDENTITY_GRPC_HOST:localhost}
+    grpc-port: ${IDENTITY_GRPC_PORT:9092}
+    output-dir: ${REPORTING_OUTPUT_DIR:./.local/reports}
+    download-ttl-seconds: ${REPORTING_DOWNLOAD_TTL:900}
+    worker:
+      enabled: true
+      poll-ms: 5000

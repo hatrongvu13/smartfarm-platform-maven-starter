@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# assertions.sh — assertions for the SmartFarm unified test suite.
+# assertions.sh — assertions for the FarmVerse unified test suite.
 #
 # Source after common.sh + http.sh. Each assertion records a pass/fail via the
 # counters in common.sh and prints a clear message. GraphQL assertions check the
@@ -14,8 +14,8 @@
 #
 # All assertions read the globals HTTP_STATUS / HTTP_BODY set by http.sh.
 
-if [ -n "${_SMARTFARM_ASSERT_SH:-}" ]; then return 0 2>/dev/null || true; fi
-_SMARTFARM_ASSERT_SH=1
+if [ -n "${_FARMVERSE_ASSERT_SH:-}" ]; then return 0 2>/dev/null || true; fi
+_FARMVERSE_ASSERT_SH=1
 
 require_cmd jq
 

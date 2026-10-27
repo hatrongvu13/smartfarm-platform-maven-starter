@@ -1,4 +1,4 @@
-# Request Flows — SmartFarm Platform
+# Request Flows — FarmVerse Platform
 
 > **Chuẩn hóa:** 2026-10-16  
 > **Nguyên tắc:** Dùng sequence diagram trực quan; mọi access token đều có expiry hữu hạn, gồm cả worker/SAGA token.
@@ -48,7 +48,7 @@ sequenceDiagram
   participant SVC as Order / Inventory Service (gRPC)
 
   C->>GW: HTTP Request + Bearer User JWT (exp <= 15m)
-  GW->>GW: Xác thực User JWT qua SmartFarmJwtValidator
+  GW->>GW: Xác thực User JWT qua FarmVerseJwtValidator
   Note over GW: User token hợp lệ & đúng thời hạn
 
   GW->>ID: gRPC ExchangeDelegatedToken(userToken, targetService, scopes)
@@ -56,7 +56,7 @@ sequenceDiagram
   ID-->>GW: Delegated Service Token
 
   GW->>SVC: gRPC Call(payload) + Metadata Bearer S2S Delegated Token
-  SVC->>SVC: SmartFarmJwtValidator kiểm tra chữ ký & scope
+  SVC->>SVC: FarmVerseJwtValidator kiểm tra chữ ký & scope
   SVC-->>GW: gRPC Response
   GW-->>C: HTTP Response
 ```
@@ -84,11 +84,11 @@ sequenceDiagram
 
   Note over W,INV: Chuỗi giao dịch phân tán SAGA diễn ra
   W->>INV: gRPC ReserveStock(lines) + Bearer Async Token
-  INV->>INV: SmartFarmJwtValidator: verify signature, audience and finite exp
+  INV->>INV: FarmVerseJwtValidator: verify signature, audience and finite exp
   INV-->>W: Stock Reserved OK
 
   W->>FIN: gRPC RecordExpense(amount) + Bearer Async Token
-  FIN->>FIN: SmartFarmJwtValidator: verify signature, audience and finite exp
+  FIN->>FIN: FarmVerseJwtValidator: verify signature, audience and finite exp
   FIN-->>W: Expense Recorded OK
 ```
 
@@ -135,7 +135,7 @@ sequenceDiagram
   end
 
   WORKER->>ORD: Lưu Outbox Event (OrderChanged protobuf)
-  ORD->>MQTT: Outbox Relay publish topic smartfarm/{tenant}/{farm}/domain/order-changed/v1
+  ORD->>MQTT: Outbox Relay publish topic farmverse/{tenant}/{farm}/domain/order-changed/v1
   MQTT->>GW: WebSocket Bridge đẩy sự kiện realtime xuống Web Client
 ```
 

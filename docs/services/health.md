@@ -1,4 +1,4 @@
-# Service: Health (`services/smartfarm-health-service`)
+# Service: Health (`services/health-service`)
 
 > Reconciled 2026-10-15 from current source/profile configuration. Status: **PARTIAL** (gRPC 4/10 handlers; gateway facade is dev-only; event delivery is not claimed as live-verified). ← [System Overview](../architecture/system-overview.md)
 
@@ -11,7 +11,7 @@ Animal health: observation, examination, vaccination, treatment, alert.
 gRPC server port **:9097**.
 
 ## Gateway reach
-🟡 **Dev REST facade (GW-01 fixed):** gateway khai báo gRPC client `AnimalHealthService` (`HealthDevClientConfig`, `smartfarm.health.grpc-host/grpc-port` → :9097) và lộ `HealthDevController` (`@Profile("dev & !prod")`) tại `/api/v1/health/{observations,vaccinations,alerts}` (scope `health:read`, per-service token audience `smartfarm-health`). Mirror `ReportingDevController`. **Prod exposure chưa có** — chỉ dev facade.
+🟡 **Dev REST facade (GW-01 fixed):** gateway khai báo gRPC client `AnimalHealthService` (`HealthDevClientConfig`, `farmverse.health.grpc-host/grpc-port` → :9097) và lộ `HealthDevController` (`@Profile("dev & !prod")`) tại `/api/v1/health/{observations,vaccinations,alerts}` (scope `health:read`, per-service token audience `farmverse-health`). Mirror `ReportingDevController`. **Prod exposure chưa có** — chỉ dev facade.
 
 ## Event publish
 🟡 Publisher/outbox code is not restricted to the dev profile and its configuration includes an enabled-by-default outbox setting. The publisher emits protobuf `DomainEvent`; HMAC signing is profile-dependent (the prod profile defaults signing/verification off). Actual broker delivery and production rollout are not established by source configuration alone.

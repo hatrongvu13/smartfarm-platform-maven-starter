@@ -1,4 +1,4 @@
-# Service: Gateway (`apps/smartfarm-gateway`)
+# Service: Gateway (`platform/api-gateway`)
 
 > Implementation summary; verify current behavior against source and active configuration. ← [System Overview](../architecture/system-overview.md)
 
@@ -13,17 +13,17 @@ Edge/ingress duy nhất của hệ thống. Spring WebFlux reactive, :8080. Term
 ## Outbound dependency
 - gRPC → identity (:9092), order (:9095), inventory (:9093), reporting (:9096), finance (:9094), livestock (:9091), health (:9097, dev REST facade — GW-01).
 - REST → identity (:8092) cho auth.
-- MQTT sub `smartfarm/+/+/domain/#` (default `enabled=false`).
+- MQTT sub `farmverse/+/+/domain/#` (default `enabled=false`).
 
 ## Auth & authz
-- JWT RS256 validate (issuer/audience=`smartfarm-gateway`/JWKS). permitAll: `/actuator/health*`, docs, `/ws/**`, 5 auth endpoint. Còn lại `authenticated()`. Order/saga có `@PreAuthorize` scope.
+- JWT RS256 validate (issuer/audience=`api-gateway`/JWKS). permitAll: `/actuator/health*`, docs, `/ws/**`, 5 auth endpoint. Còn lại `authenticated()`. Order/saga có `@PreAuthorize` scope.
 - Service token per audience khi gọi downstream gRPC.
 
 ## Configuration chính
-`SMARTFARM_JWT_AUDIENCE`, `IDENTITY_ISSUER`, `IDENTITY_JWK_SET_URI`, `*_GRPC_HOST/PORT`, `SMARTFARM_MQTT_URL`, `SMARTFARM_MQTT_EVENTS_ENABLED`, `GATEWAY_SERVICE_CLIENT_SECRET`.
+`FARMVERSE_JWT_AUDIENCE`, `IDENTITY_ISSUER`, `IDENTITY_JWK_SET_URI`, `*_GRPC_HOST/PORT`, `FARMVERSE_MQTT_URL`, `FARMVERSE_MQTT_EVENTS_ENABLED`, `GATEWAY_SERVICE_CLIENT_SECRET`.
 
 ## Chạy local
-`mvn -f apps/smartfarm-gateway/pom.xml spring-boot:run` (profile `dev` tự nhận). Cần identity :8092 chạy trước.
+`mvn -f platform/api-gateway/pom.xml spring-boot:run` (profile `dev` tự nhận). Cần identity :8092 chạy trước.
 
 ## Health / observability
 `/actuator/health` (liveness/readiness). Application health instrumentation exists; Prometheus/Grafana deployment configuration is absent from this checkout. See [Observability](../operations/observability.md).

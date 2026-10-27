@@ -1,0 +1,316 @@
+package com.htv.farmverse.security.grpc;
+
+import java.util.UUID;
+
+import com.htv.farmverse.security.TokenVerifier;
+import com.htv.farmverse.security.authorization.AuthorizationFreshnessGuard;
+import com.htv.farmverse.security.authorization.AuthorizationVersionWatermarkStore;
+import com.htv.farmverse.security.authorization.InMemoryAuthorizationVersionWatermarkStore;
+import com.htv.farmverse.security.core.SecurityIdentity;
+import com.htv.farmverse.security.grpc.dynamic.GrpcAuthorizationDecision;
+import com.htv.farmverse.security.grpc.dynamic.GrpcAuthorizationMode;
+import com.htv.farmverse.security.grpc.dynamic.GrpcAuthorizationShadowObserver;
+import com.htv.farmverse.security.grpc.dynamic.GrpcDynamicAuthorizationEvaluator;
+
+import io.grpc.Context;
+import io.grpc.Contexts;
+import io.grpc.Metadata;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
+import io.grpc.Status;
+
+/**
+ * Fail-closed JWT authentication and exact-method authorization interceptor.
+ */
+public final class JwtServerInterceptor implements ServerInterceptor {
+
+    private static final Metadata.Key<String> AUTHORIZATION_HEADER =
+            Metadata.Key.of(
+                    "authorization",
+                    Metadata.ASCII_STRING_MARSHALLER
+            );
+
+    private static final Metadata.Key<String> CORRELATION_HEADER =
+            Metadata.Key.of(
+                    "x-correlation-id",
+                    Metadata.ASCII_STRING_MARSHALLER
+            );
+
+    private static final Metadata.Key<String> TENANT_HEADER =
+            Metadata.Key.of(
+                    "x-tenant-id",
+                    Metadata.ASCII_STRING_MARSHALLER
+            );
+
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final int MAX_CORRELATION_ID_LENGTH = 128;
+
+    private final TokenVerifier verifier;
+    private final GrpcMethodPolicy policy;
+    private final GrpcAuthorizationMode authorizationMode;
+    private final AuthorizationFreshnessGuard freshnessGuard;
+    private final GrpcDynamicAuthorizationEvaluator dynamicEvaluator;
+    private final GrpcAuthorizationShadowObserver shadowObserver;
+
+    public JwtServerInterceptor(
+            TokenVerifier verifier,
+            GrpcMethodPolicy policy
+    ) {
+        this(
+                verifier,
+                policy,
+                GrpcAuthorizationMode.OFF,
+                GrpcDynamicAuthorizationEvaluator.unavailable(),
+                new GrpcAuthorizationShadowObserver(),
+                new InMemoryAuthorizationVersionWatermarkStore()
+        );
+    }
+
+    public JwtServerInterceptor(
+            TokenVerifier verifier,
+            GrpcMethodPolicy policy,
+            GrpcAuthorizationMode authorizationMode,
+            GrpcDynamicAuthorizationEvaluator dynamicEvaluator,
+            GrpcAuthorizationShadowObserver shadowObserver,
+            AuthorizationVersionWatermarkStore watermarks
+    ) {
+        this.verifier = java.util.Objects.requireNonNull(verifier, "verifier");
+        this.policy = java.util.Objects.requireNonNull(policy, "policy");
+        this.authorizationMode = authorizationMode == null
+                ? GrpcAuthorizationMode.OFF
+                : authorizationMode;
+        this.dynamicEvaluator = dynamicEvaluator == null
+                ? GrpcDynamicAuthorizationEvaluator.unavailable()
+                : dynamicEvaluator;
+        this.shadowObserver = shadowObserver == null
+                ? new GrpcAuthorizationShadowObserver()
+                : shadowObserver;
+        this.freshnessGuard = new AuthorizationFreshnessGuard(watermarks);
+    }
+
+    /** Compatibility constructor retained for current callers/tests. */
+    public JwtServerInterceptor(TokenVerifier verifier, GrpcMethodPolicy policy,
+            GrpcAuthorizationMode mode, GrpcDynamicAuthorizationEvaluator evaluator,
+            GrpcAuthorizationShadowObserver observer) {
+        this(verifier, policy, mode, evaluator, observer,
+                new InMemoryAuthorizationVersionWatermarkStore());
+    }
+
+    public JwtServerInterceptor(TokenVerifier verifier) {
+        this(verifier, GrpcMethodPolicy.authenticatedByDefault());
+    }
+
+    @Override
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+            ServerCall<ReqT, RespT> call,
+            Metadata headers,
+            ServerCallHandler<ReqT, RespT> next
+    ) {
+        String fullMethodName = call
+                .getMethodDescriptor()
+                .getFullMethodName();
+
+        if (policy.isPublic(fullMethodName)) {
+            return next.startCall(call, headers);
+        }
+
+        String authorization = headers.get(AUTHORIZATION_HEADER);
+
+        if (!isValidBearerHeader(authorization)) {
+            return deny(
+                    call,
+                    Status.UNAUTHENTICATED.withDescription(
+                            "Missing or invalid bearer token"
+                    )
+            );
+        }
+
+        String rawToken = authorization
+                .substring(BEARER_PREFIX.length())
+                .trim();
+
+        SecurityIdentity identity;
+
+        try {
+            identity = verifier.verify(rawToken);
+        } catch (RuntimeException exception) {
+            return deny(
+                    call,
+                    Status.UNAUTHENTICATED.withDescription(
+                            "Bearer token verification failed"
+                    )
+            );
+        }
+
+        if (identity == null) {
+            return deny(
+                    call,
+                    Status.UNAUTHENTICATED.withDescription(
+                            "Verified identity is missing"
+                    )
+            );
+        }
+
+        AuthorizationFreshnessGuard.Decision freshness = freshnessGuard.evaluate(identity);
+        if (!freshness.allowed()) {
+            return deny(call, Status.UNAUTHENTICATED.withDescription(
+                    "Authorization is stale: " + freshness.reasonCode()));
+        }
+
+        String tenantHeader = normalize(headers.get(TENANT_HEADER));
+
+        if (tenantHeader != null
+                && !tenantHeader.equals(identity.tenantId())) {
+            return deny(
+                    call,
+                    Status.PERMISSION_DENIED.withDescription(
+                            "x-tenant-id does not match authenticated tenant"
+                    )
+            );
+        }
+
+        String requiredAuthority =
+                policy.requiredAuthority(fullMethodName);
+        boolean staticAllowed = hasRequiredAuthority(
+                identity,
+                requiredAuthority
+        );
+
+        if (authorizationMode != GrpcAuthorizationMode.OFF
+                && requiredAuthority != null
+                && !requiredAuthority.isBlank()) {
+            GrpcAuthorizationDecision dynamicDecision;
+            try {
+                dynamicDecision = dynamicEvaluator.evaluate(
+                        fullMethodName,
+                        requiredAuthority,
+                        identity
+                );
+                if (dynamicDecision == null) {
+                    dynamicDecision = GrpcAuthorizationDecision.unavailable(
+                            "DYNAMIC_EVALUATOR_RETURNED_NULL"
+                    );
+                }
+            } catch (RuntimeException exception) {
+                dynamicDecision = GrpcAuthorizationDecision.unavailable(
+                        "DYNAMIC_EVALUATOR_FAILED"
+                );
+            }
+
+            shadowObserver.observe(
+                    fullMethodName,
+                    identity,
+                    staticAllowed,
+                    dynamicDecision
+            );
+
+            if (authorizationMode == GrpcAuthorizationMode.ENFORCE
+                    && !dynamicDecision.allowed()) {
+                return deny(
+                        call,
+                        Status.PERMISSION_DENIED.withDescription(
+                                "Dynamic authorization denied: "
+                                        + dynamicDecision.reasonCode()
+                        )
+                );
+            }
+        }
+
+        if (!staticAllowed) {
+            return deny(
+                    call,
+                    Status.PERMISSION_DENIED.withDescription(
+                            "Missing required authority: "
+                                    + requiredAuthority
+                    )
+            );
+        }
+
+        String correlationId = resolveCorrelationId(headers);
+
+        Context context = Context.current()
+                .withValue(GrpcSecurityContext.IDENTITY, identity)
+                .withValue(
+                        GrpcSecurityContext.CORRELATION_ID,
+                        correlationId
+                )
+                /* Transitional legacy keys. Remove in phase 3B. */
+                .withValue(
+                        GrpcSecurityContext.SUBJECT,
+                        identity.subject()
+                )
+                .withValue(
+                        GrpcSecurityContext.TENANT,
+                        identity.tenantId()
+                )
+                .withValue(
+                        GrpcSecurityContext.AUTHORITIES,
+                        identity.authorities()
+                );
+
+        return Contexts.interceptCall(
+                context,
+                call,
+                headers,
+                next
+        );
+    }
+
+    private boolean hasRequiredAuthority(
+            SecurityIdentity identity,
+            String requiredAuthority
+    ) {
+        if (requiredAuthority == null
+                || requiredAuthority.isBlank()) {
+            return true;
+        }
+
+        return identity.hasAuthority(requiredAuthority)
+                || identity.isSuperAdmin();
+    }
+
+    private boolean isValidBearerHeader(String authorization) {
+        return authorization != null
+                && authorization.startsWith(BEARER_PREFIX)
+                && authorization.length() > BEARER_PREFIX.length()
+                && !authorization
+                .substring(BEARER_PREFIX.length())
+                .isBlank();
+    }
+
+    private String resolveCorrelationId(Metadata headers) {
+        String correlationId = normalize(
+                GrpcSecurityContext.CORRELATION_ID.get()
+        );
+
+        if (correlationId == null) {
+            correlationId = normalize(
+                    headers.get(CORRELATION_HEADER)
+            );
+        }
+
+        if (correlationId == null
+                || correlationId.length()
+                > MAX_CORRELATION_ID_LENGTH) {
+            return UUID.randomUUID().toString();
+        }
+
+        return correlationId;
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank()
+                ? null
+                : value.trim();
+    }
+
+    private static <ReqT, RespT> ServerCall.Listener<ReqT> deny(
+            ServerCall<ReqT, RespT> call,
+            Status status
+    ) {
+        call.close(status, new Metadata());
+        return new ServerCall.Listener<>() {
+        };
+    }
+}

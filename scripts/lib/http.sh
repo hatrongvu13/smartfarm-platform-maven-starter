@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# http.sh — thin curl wrapper for the SmartFarm unified test suite.
+# http.sh — thin curl wrapper for the FarmVerse unified test suite.
 #
 # Source after common.sh. Provides HTTP verb helpers that split status from body,
 # apply a timeout, attach a Bearer token when present, and MASK secrets in logs.
@@ -13,8 +13,8 @@
 # Auth: if AUTH_TOKEN is set (exported by auth.sh), an Authorization: Bearer
 # header is added automatically. Extra headers via the HTTP_EXTRA_HEADERS array.
 
-if [ -n "${_SMARTFARM_HTTP_SH:-}" ]; then return 0 2>/dev/null || true; fi
-_SMARTFARM_HTTP_SH=1
+if [ -n "${_FARMVERSE_HTTP_SH:-}" ]; then return 0 2>/dev/null || true; fi
+_FARMVERSE_HTTP_SH=1
 
 require_cmd curl
 

@@ -1,0 +1,59 @@
+spring:
+  graphql:
+    graphiql:
+      enabled: false
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+farmverse:
+  security:
+    jwt:
+      issuer: ${IDENTITY_ISSUER}
+      jwk-set-uri: ${IDENTITY_JWK_SET_URI}
+      audiences: [api-gateway]
+      allow-local-http: false
+    # PROD: app-level MQTT message auth (HMAC-SHA256). Default OFF; see rollout in docs/security/mqtt-acl-mtls.md.
+    mqtt:
+      sign-enabled: ${MQTT_SIGN_ENABLED:false}
+      verify-enabled: ${MQTT_VERIFY_ENABLED:false}
+      hmac-secret: ${MQTT_HMAC_SECRET:}
+      key-id: ${MQTT_HMAC_KEY_ID:default}
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
+  identity:
+    base-url: ${IDENTITY_HTTP_BASE_URL}
+    grpc-host: ${IDENTITY_GRPC_HOST}
+    grpc-port: ${IDENTITY_GRPC_PORT:9092}
+    grpc-audience: farmverse-identity
+  gateway:
+    service-client:
+      id: ${GATEWAY_SERVICE_CLIENT_ID:gateway}
+      secret: ${GATEWAY_SERVICE_CLIENT_SECRET}
+  mqtt:
+    url: ${FARMVERSE_MQTT_URL}
+    username: ${FARMVERSE_MQTT_USERNAME}
+    password: ${FARMVERSE_MQTT_PASSWORD}
+  events:
+    mqtt:
+      enabled: ${FARMVERSE_MQTT_EVENTS_ENABLED:true}
+      topic-filter: ${FARMVERSE_MQTT_TOPIC_FILTER:farmverse/+/+/domain/#}
+management:
+  endpoint:
+    health:
+      show-details: never
+  livestock:
+    grpc-host: ${LIVESTOCK_GRPC_HOST}
+    grpc-port: ${LIVESTOCK_GRPC_PORT:9091}
+  inventory:
+    grpc-host: ${INVENTORY_GRPC_HOST}
+    grpc-port: ${INVENTORY_GRPC_PORT:9093}
+  finance:
+    grpc-host: ${FINANCE_GRPC_HOST}
+    grpc-port: ${FINANCE_GRPC_PORT:9094}
+  reporting:
+    grpc-host: ${REPORTING_GRPC_HOST}
+    grpc-port: ${REPORTING_GRPC_PORT:9096}
+  health:
+    grpc-host: ${HEALTH_GRPC_HOST}
+    grpc-port: ${HEALTH_GRPC_PORT:9097}

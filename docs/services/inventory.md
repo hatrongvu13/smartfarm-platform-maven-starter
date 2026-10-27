@@ -1,4 +1,4 @@
-# Service: Inventory (`services/smartfarm-inventory-service`)
+# Service: Inventory (`services/inventory-service`)
 
 > Reconciled 2026-10-15 from the proto and `InventoryGrpcService`.
 
@@ -14,7 +14,7 @@ All 20 methods declared by `InventoryService` have handlers, including `AdjustSt
 
 ## Persistence
 
-Inventory owns relational persistence and the migrations under `services/smartfarm-inventory-service/src/main/resources/db/migration/`. Check that directory and its active profile configuration for exact schema/database behavior.
+Inventory owns relational persistence and the migrations under `services/inventory-service/src/main/resources/db/migration/`. Check that directory and its active profile configuration for exact schema/database behavior.
 
 ## Remaining work
 

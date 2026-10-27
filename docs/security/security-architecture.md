@@ -1,7 +1,7 @@
-# Kiến Trúc Bảo Mật & Quản Lý Token — SmartFarm Platform
+# Kiến Trúc Bảo Mật & Quản Lý Token — FarmVerse Platform
 
 > **Phiên bản:** Cập nhật 2026-10-20
-> **Cơ chế:** Quản lý và cấp phát Token tập trung qua Identity Service & thư viện dùng chung `libs/smartfarm-security` (Security Common).  
+> **Cơ chế:** Quản lý và cấp phát Token tập trung qua Identity Service & thư viện dùng chung `libs/farmverse-security` (Security Common).  
 > **Phân loại quản lý tiến độ:** Chuẩn **DONE / DOING / TODO**.
 
 ---
@@ -11,7 +11,7 @@
 ```mermaid
 flowchart TD
     subgraph External["Client & Web Apps"]
-        Client["Web Client (apps/smartfarm-web) / Bruno API"]
+        Client["Web Client (apps/farmverse-web) / Bruno API"]
     end
 
     subgraph Edge["Tầng Cổng (API Gateway)"]
@@ -32,7 +32,7 @@ flowchart TD
     subgraph EventMesh["Hạ Tầng Sự Kiện Bất Đồng Bộ (MQTT)"]
         Broker["MQTT Broker (Mosquitto)"]
         WatermarkTopic["events/identity/authorization-invalidated"]
-        SagaEvents["smartfarm/*/events"]
+        SagaEvents["farmverse/*/events"]
     end
 
     Client -->|"(1) User Access Token (exp <= 15m)"| GW
@@ -74,11 +74,11 @@ sequenceDiagram
     alt Token Client không hợp lệ hoặc đã hết hạn
         GW-->>User: 401 Unauthorized / missing_expiry / token_expired
     else Token Client hợp lệ
-        GW->>ID: ExchangeDelegatedToken(client_id="gateway", actor=user.sub, audience="smartfarm-order")
+        GW->>ID: ExchangeDelegatedToken(client_id="gateway", actor=user.sub, audience="farmverse-order")
         ID->>ID: Xác minh quyền Actor, Tenant & Allowlist Client
         ID-->>GW: Trả về Delegated Service Token (sub="svc:gateway", act.sub=user.sub, exp=300s)
         GW->>SVC: gRPC Unary Call + Bearer Delegated Service Token
-        Note over SVC: Xác thực Service Token qua libs/smartfarm-security (Tenant, Scopes, Freshness)
+        Note over SVC: Xác thực Service Token qua libs/farmverse-security (Tenant, Scopes, Freshness)
         SVC-->>GW: Kết quả xử lý nghiệp vụ
         GW-->>User: HTTP 200 OK + Payload
     end
@@ -101,14 +101,14 @@ sequenceDiagram
     participant FIN as Finance Service
 
     GW->>TX: Kích hoạt đơn hàng (Place/Submit Order)
-    TX->>ID: IssueServiceToken(client_id="order", audience="smartfarm-inventory")
+    TX->>ID: IssueServiceToken(client_id="order", audience="farmverse-inventory")
     ID->>ID: Tạo service token có TTL hữu hạn
     ID-->>TX: Trả về Service Token có exp
 
     rect rgb(240, 248, 255)
         Note over TX,INV: Giai đoạn thực thi/retry SAGA
         TX->>INV: reserveStock(short-lived token)
-        Note over INV: SmartFarmJwtValidator kiểm tra chữ ký RS256,<br/>exp bắt buộc, tenant/client/audience policy
+        Note over INV: FarmVerseJwtValidator kiểm tra chữ ký RS256,<br/>exp bắt buộc, tenant/client/audience policy
         INV-->>TX: Reservation OK (reservationId)
 
         TX->>FIN: recordExpense(short-lived token)
@@ -132,9 +132,9 @@ sequenceDiagram
 ## 4. Thống Nhất Cấu Hình Bảo Mật (Unified Security Common)
 
 Toàn bộ logic kiểm soát và xác thực bảo mật được chuẩn hóa tập trung tại:
-1. **`libs/smartfarm-common-kernel`:** Định nghĩa `TokenClaimContract` (`identity_claims_version`, `sub`, `tenant_id`, `act`, `token_type`...); exp-less async token semantics đã bị loại bỏ.
-2. **`libs/smartfarm-security` (Security Common):**
-   - `SmartFarmJwtValidator`: Xác thực toàn bộ JWT trên toàn hệ thống; mọi access token đều bắt buộc có `exp` hữu hạn.
+1. **`libs/farmverse-common-kernel`:** Định nghĩa `TokenClaimContract` (`identity_claims_version`, `sub`, `tenant_id`, `act`, `token_type`...); exp-less async token semantics đã bị loại bỏ.
+2. **`libs/farmverse-security` (Security Common):**
+   - `FarmVerseJwtValidator`: Xác thực toàn bộ JWT trên toàn hệ thống; mọi access token đều bắt buộc có `exp` hữu hạn.
    - `JwtServerInterceptor`: Interceptor gRPC tự động bắt và giải mã token, inject vào `GrpcSecurityContext`.
    - `AuthorizationVersionWatermarkStore`: Cache và kiểm soát việc thu hồi token tức thời (invalidation) qua MQTT mà không cần gọi ngược về DB Identity liên tục.
    - `MqttSecurityVerifier`: Đảm bảo tính toàn vẹn và chữ ký HMAC/token cho tin nhắn trao đổi trên MQTT.
@@ -143,7 +143,7 @@ Toàn bộ logic kiểm soát và xác thực bảo mật được chuẩn hóa 
    - Vẫn khai báo authority cho từng RPC, audience của resource, tenant-scoped data checks; HTTP security cần wiring riêng hiện tại.
    - Outbound token provisioning/cache còn là logic riêng; `BearerCallCredentials` chỉ gắn credential, không lấy token từ Identity.
 
-Xem [Hướng dẫn tích hợp service với Identity và `smartfarm-security`](identity-service-integration.md) để biết cấu hình tối thiểu, giới hạn hiện hành, service matrix và đích cần đạt để giảm boilerplate.
+Xem [Hướng dẫn tích hợp service với Identity và `farmverse-security`](identity-service-integration.md) để biết cấu hình tối thiểu, giới hạn hiện hành, service matrix và đích cần đạt để giảm boilerplate.
 
 ---
 
@@ -164,7 +164,6 @@ Xem [Hướng dẫn tích hợp service với Identity và `smartfarm-security`]
   - MFA TOTP enrollment an toàn qua luồng challenge-token riêng biệt; không log bí mật OTP khi bootstrap.
 - [x] **Tích hợp Kịch bản Kiểm thử Bruno & Hướng dẫn Test:**
   - Tạo `bruno/04 - order/11 - async-saga-execution-flow.bru`.
-  - Tạo tài liệu kịch bản `bruno/ASYNC_TOKEN_AND_SAGA_TEST_SCENARIO.md` cho kiểm thử thủ công và tự động hóa.
 - [x] **Xác nhận Build:** Toàn bộ 15 module Maven build thành công (`BUILD SUCCESS`).
 
 ---
@@ -174,7 +173,7 @@ Xem [Hướng dẫn tích hợp service với Identity và `smartfarm-security`]
   - Hiện tại Order SAGA đang là bản Persistent Worker cục bộ trong `order-service` kết hợp outbox relay.
   - Đang hoàn thiện kịch bản choreography trao đổi sự kiện SAGA qua MQTT Broker.
 - [-] **Dynamic Authorization Evaluator & Shadow Observer:**
-  - Cơ chế quan sát đánh giá quyền động (Shadow Mode) trên gRPC đã tích hợp trong `smartfarm-security`.
+  - Cơ chế quan sát đánh giá quyền động (Shadow Mode) trên gRPC đã tích hợp trong `farmverse-security`.
   - Đang thu thập log đánh giá trước khi chuyển sang chế độ cưỡng chế nghiêm ngặt (Enforcing Mode).
 - [-] **Đồng bộ Watermark Invalidation qua MQTT:**
   - In-memory watermark store đã hoạt động. Đang chuẩn hóa tenant matching giữa topic MQTT và payload.

@@ -1,4 +1,4 @@
-# Service: Reporting (`services/smartfarm-reporting-service`)
+# Service: Reporting (`services/reporting-service`)
 
 > Implementation summary; gRPC :9096. Status: **PARTIAL**. ← [System Overview](../architecture/system-overview.md)
 

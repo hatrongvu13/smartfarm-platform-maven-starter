@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# common.sh — shared helpers for the SmartFarm unified test suite.
+# common.sh — shared helpers for the FarmVerse unified test suite.
 #
 # Source this first from every test script:
 #   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,11 +10,11 @@
 #
 # This library hard-codes NO ports, hosts, endpoints or secrets. Everything comes
 # from scripts/config/test.env (copied from test.env.example). Values are verified
-# against the SmartFarm source (apps/smartfarm-gateway + services/*).
+# against the FarmVerse source (platform/api-gateway + services/*).
 
 # Guard against double-sourcing.
-if [ -n "${_SMARTFARM_COMMON_SH:-}" ]; then return 0 2>/dev/null || true; fi
-_SMARTFARM_COMMON_SH=1
+if [ -n "${_FARMVERSE_COMMON_SH:-}" ]; then return 0 2>/dev/null || true; fi
+_FARMVERSE_COMMON_SH=1
 
 # ---- Strict mode (callers also set this; belt and suspenders) ----------------
 set -o errexit

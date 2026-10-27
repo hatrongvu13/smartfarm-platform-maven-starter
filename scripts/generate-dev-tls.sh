@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_DIR="${1:-$ROOT_DIR/services/smartfarm-identity-service/src/main/resources/.local}"
+TARGET_DIR="${1:-$ROOT_DIR/services/identity-service/src/main/resources/.local}"
 FORCE=0
 
 for arg in "$@"; do

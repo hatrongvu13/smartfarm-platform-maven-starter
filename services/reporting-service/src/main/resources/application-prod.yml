@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/farmverse}
+    username: ${DB_USERNAME:farmverse}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      # Flyway owns the schema in prod; Hibernate only validates. Previously prod had no
+      # ddl-auto override and inherited the dev 'update' default (Hibernate-generated schema).
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+  h2.console.enabled: false
+server:
+  address: ${REPORTING_BIND_ADDRESS:127.0.0.1}
+spring.grpc.server.address: ${REPORTING_GRPC_BIND_ADDRESS:127.0.0.1}
+farmverse.identity.grpc-host: ${IDENTITY_GRPC_HOST:127.0.0.1}
+farmverse.identity.grpc-port: ${IDENTITY_GRPC_PORT:9092}

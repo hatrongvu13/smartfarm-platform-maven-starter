@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: health-service
+  profiles:
+    # Mặc định cứng = dev khi khởi chạy bình thường (mvn spring-boot:run / java -jar) mà không
+    # cần set biến môi trường. Override bằng SPRING_PROFILES_ACTIVE=prod|test khi cần.
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  grpc:
+    server:
+      port: 9097
+server:
+  port: 8087
+  # SINGLE-INGRESS: internal service. Bind loopback only; the gateway is the sole public
+  # ingress. Override HEALTH_BIND_ADDRESS only for a private cross-host mesh.
+  address: ${HEALTH_BIND_ADDRESS:127.0.0.1}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+farmverse:
+  health:
+    # EVT-03: the outbox relay + MQTT publisher are now active in every profile
+    # (previously dev-only). Gated here so a service can still opt out explicitly.
+    outbox:
+      enabled: ${HEALTH_OUTBOX_ENABLED:true}
+      poll-ms: ${HEALTH_OUTBOX_POLL_MS:2000}
+    mqtt:
+      # Loopback by default (dev); override FARMVERSE_MQTT_URL / HEALTH_MQTT_URL to the real broker in prod.
+      url: ${HEALTH_MQTT_URL:${FARMVERSE_MQTT_URL:tcp://localhost:1883}}
+  security:
+
+    authorization-invalidation:
+      mqtt:
+        enabled: ${AUTHORIZATION_INVALIDATION_MQTT_ENABLED:true}
+        broker-url: ${FARMVERSE_MQTT_URL:tcp://localhost:1883}
+        topic-filter: ${AUTHORIZATION_INVALIDATION_TOPIC_FILTER:farmverse/+/_global/domain/authorization-invalidated/v1}
+        client-id: ${AUTHORIZATION_INVALIDATION_CLIENT_ID:${spring.application.name}-authorization-watermark-${HOSTNAME:local}}
+        qos: ${AUTHORIZATION_INVALIDATION_QOS:1}
+        username: ${FARMVERSE_MQTT_USERNAME:}
+        password: ${FARMVERSE_MQTT_PASSWORD:}
+    jwt:
+      issuer: ${FARMVERSE_JWT_ISSUER:}
+      jwk-set-uri: ${FARMVERSE_JWKS_URI:}
+      audiences:
+        - ${FARMVERSE_JWT_AUDIENCE:farmverse-health}
+      allow-local-http: false
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[farmverse.health.v1.AnimalHealthService/RecordObservation]": health:write
+        "[farmverse.health.v1.AnimalHealthService/ListObservations]": health:read
+        "[farmverse.health.v1.AnimalHealthService/ScheduleExamination]": health:write
+        "[farmverse.health.v1.AnimalHealthService/CompleteExamination]": health:write
+        "[farmverse.health.v1.AnimalHealthService/RecordVaccination]": health:write
+        "[farmverse.health.v1.AnimalHealthService/ListVaccinations]": health:read
+        "[farmverse.health.v1.AnimalHealthService/RecordTreatment]": health:write
+        "[farmverse.health.v1.AnimalHealthService/ListTreatments]": health:read
+        "[farmverse.health.v1.AnimalHealthService/ListAlerts]": health:read
+        "[farmverse.health.v1.AnimalHealthService/AcknowledgeAlert]": health:write

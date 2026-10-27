@@ -1,0 +1,131 @@
+spring:
+  datasource:
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/farmverse}
+    username: ${IDENTITY_DB_USER:postgres}
+    password: ${IDENTITY_DB_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  sql:
+    init:
+      mode: never
+  flyway:
+    enabled: false
+    baseline-on-migrate: true
+    baseline-version: 0
+logging:
+  level:
+    org.flywaydb: DEBUG
+    org.springframework.boot.autoconfigure.flyway: DEBUG
+server:
+  address: ${IDENTITY_BIND_ADDRESS:127.0.0.1}
+
+farmverse:
+  security:
+    jwt:
+      issuer: ${IDENTITY_ISSUER:http://localhost:8092}
+      jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8092/.well-known/jwks.json}
+      audiences:
+        - api-gateway
+        - farmverse-identity
+      allow-local-http: true
+    # DEV: app-level MQTT message auth (HMAC-SHA256). sign+verify ON live; shared DEV-ONLY secret.
+    mqtt:
+      sign-enabled: ${MQTT_SIGN_ENABLED:true}
+      verify-enabled: ${MQTT_VERIFY_ENABLED:true}
+      hmac-secret: ${MQTT_HMAC_SECRET:dev-mqtt-hmac-secret-shared-across-all-services}
+      key-id: ${MQTT_HMAC_KEY_ID:dev-key-1}
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
+
+  identity:
+    mqtt:
+      enabled: ${IDENTITY_MQTT_ENABLED:true}
+    issuer: ${IDENTITY_ISSUER:http://localhost:8092}
+    private-key-path: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
+    public-key-path: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}
+    identity-audience: ${IDENTITY_AUDIENCE:farmverse-identity}
+    service-token:
+      ttl: ${IDENTITY_SERVICE_TOKEN_TTL:5m}
+      clients:
+        gateway:
+          delegation-enabled: true
+          secret: ${IDENTITY_GATEWAY_CLIENT_SECRET_HASH:$2a$12$YGIvX6qteWbknC9owzIGueP9fk7sgtyuOo9phPNEChG2TQ3UUuv1q}
+          audiences:
+            - farmverse-identity
+            - farmverse-livestock
+            - farmverse-health
+            - farmverse-inventory
+            - farmverse-order
+            - farmverse-reporting
+            - farmverse-finance
+          scopes-by-audience:
+            farmverse-identity:
+              - identity:principal:read
+              - identity:principal:update
+              # Allows the trusted gateway service token to carry the already-authenticated
+              # end-user in RequestContext.actor_id. It does not grant arbitrary user scopes.
+              - identity:principal:impersonate
+              - identity:permission:check
+              - identity:user:read
+              - identity:user:create
+              - identity:user:disable
+              - identity:role:read
+              - identity:role:assign
+              - identity:permission:manage
+              - identity:platform:permission:read
+              - identity:platform:permission:manage
+              - identity:role:manage
+              - identity:permission:read
+              - identity:security:read
+              - identity:mfa:enroll
+              - identity:mfa:disable
+              - identity:mfa:recovery:regenerate
+              - identity:user:credential:reset
+              - identity:user:mfa:reset
+              - identity:user:profile:manage
+              - identity:user:account:manage
+
+            farmverse-livestock:
+              - tasks:write
+              - farm:read
+            farmverse-health:
+              - farm:read
+            farmverse-inventory:
+              - inventory:write
+              - inventory:read
+            farmverse-order:
+              - orders:write
+              - orders:read
+              - orders:saga:read
+              - orders:saga:admin
+            farmverse-reporting:
+              - report:write
+              - report:read
+            farmverse-finance:
+              - finance:read
+        order:
+          secret: ${IDENTITY_ORDER_CLIENT_SECRET_HASH:$2a$12$Ya54/cTObYqqsalBT5HpkOszgwjCKbFeGwxxqVqPwuVkkqyxXpYSe}
+          audiences:
+            - farmverse-inventory
+            - farmverse-finance
+          scopes-by-audience:
+            farmverse-inventory:
+              - inventory:write
+              - inventory:read
+            farmverse-finance:
+              - finance:write
+        reporting:
+          secret: ${IDENTITY_REPORTING_CLIENT_SECRET_HASH:$2a$12$jwPKV0PPruUEH24rIja3hu4yPatIvCt2l3y6Z48afeP5.3Zhkis1m}
+          audiences:
+            - farmverse-livestock
+          scopes-by-audience:
+            farmverse-livestock:
+              - farm:read
+    mfa:
+      issuer: ${IDENTITY_MFA_ISSUER:FarmVerse}
+      challenge-ttl: ${IDENTITY_MFA_CHALLENGE_TTL:5m}
+      maximum-attempts: ${IDENTITY_MFA_MAXIMUM_ATTEMPTS:5}
+      recovery-code-count: ${IDENTITY_MFA_RECOVERY_CODE_COUNT:10}
+      development-key-file: ${IDENTITY_MFA_ENCRYPTION_KEY_FILE:.local/identity-mfa-encryption-key}

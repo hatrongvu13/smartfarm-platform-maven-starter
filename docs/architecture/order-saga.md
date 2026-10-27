@@ -55,7 +55,7 @@ Mỗi step: `idempotencyKey = orderId + ":" + stepKey` (dựng tại `graph()`),
 - `OrderSagaTransactionService.*` (claim/mark/transition) là `@Transactional` + row-lock `findByIdForUpdate`.
 - ⇒ **Không giữ DB transaction trong lúc gọi remote gRPC.**
 
-## 6. Retry / Deadline / Claim (OrderSagaProperties, prefix `smartfarm.order.saga`)
+## 6. Retry / Deadline / Claim (OrderSagaProperties, prefix `farmverse.order.saga`)
 
 | Property | Default | Vai trò |
 |---|---|---|

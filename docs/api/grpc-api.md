@@ -1,6 +1,6 @@
-# gRPC API — SmartFarm Platform
+# gRPC API — FarmVerse Platform
 
-> Reconciled 2026-10-15 against `libs/smartfarm-proto/src/main/proto` and server implementations. There are 14 declared gRPC services and 127 RPC methods; 116 have handlers, while 11 remain unimplemented (5 `FarmDirectoryService`, 6 `AnimalHealthService`). A proto method or Java bean alone does not prove runtime registration, caller coverage, or production security.
+> Reconciled 2026-10-15 against `libs/farmverse-proto/src/main/proto` and server implementations. There are 14 declared gRPC services and 127 RPC methods; 116 have handlers, while 11 remain unimplemented (5 `FarmDirectoryService`, 6 `AnimalHealthService`). A proto method or Java bean alone does not prove runtime registration, caller coverage, or production security.
 >
 > The machine/delegated token RPC details below describe the current custom implementation. The adopted target replaces token grants with OAuth endpoints; directory and administration gRPC remain in scope.
 
@@ -19,7 +19,6 @@
 | `LivestockTaskService` | Implemented; Gateway development facades and Reporting use it. |
 | `AnimalHealthService` | Four RPCs implemented and exposed by a development Gateway facade; six RPC handlers are missing. |
 | `ReportingService` | Implemented; Gateway development facade is a caller. |
-| `PlatformReadinessService` | Implemented; readiness aggregator calls downstream health/readiness. |
 | `FarmDirectoryService` | All five RPCs unimplemented (planned). |
 | `common`, `events`, `telemetry` | Shared/message-only contracts; no independent service implementation. |
 
@@ -50,7 +49,7 @@ Synchronous internal operations and legacy custom service-token issuance current
 - TLS/mTLS is required before cross-host deployment; loopback binding is the current single-host boundary, not a substitute for transport security on a network.
 - Focused unit tests cover token RPC actor binding, policy, and the Gateway client. Dedicated server registration/enforcement and live multi-service tests remain release gates.
 
-For new gRPC resource services, `smartfarm-security` auto-registers the inbound JWT interceptor but does not infer per-method scopes, provide an OAuth token client, or enforce database tenant isolation. See the [service integration guide](../security/identity-service-integration.md), [Identity service](../services/identity.md), and [Security architecture](../security/security-architecture.md).
+For new gRPC resource services, `farmverse-security` auto-registers the inbound JWT interceptor but does not infer per-method scopes, provide an OAuth token client, or enforce database tenant isolation. See the [service integration guide](../security/identity-service-integration.md), [Identity service](../services/identity.md), and [Security architecture](../security/security-architecture.md).
 
 ## Identity gRPC error details
 

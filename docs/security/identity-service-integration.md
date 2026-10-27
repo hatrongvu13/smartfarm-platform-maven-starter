@@ -1,17 +1,17 @@
-# Tích hợp service module với Identity và `smartfarm-security`
+# Tích hợp service module với Identity và `farmverse-security`
 
-> Reconciled 2026-10-20 against `libs/smartfarm-security`, Identity OAuth/OIDC work in progress, and current service modules. Đây là hướng dẫn theo hiện trạng, không giả định các migration chưa hoàn tất.
+> Reconciled 2026-10-20 against `libs/farmverse-security`, Identity OAuth/OIDC work in progress, and current service modules. Đây là hướng dẫn theo hiện trạng, không giả định các migration chưa hoàn tất.
 
 ## Mục tiêu và kết luận
 
 Mục tiêu là để mỗi module nghiệp vụ chỉ cần thêm dependency dùng chung, khai báo định danh/audience và map quyền nghiệp vụ; không tự viết JWT parsing, signature/expiry validation, Identity permission catalog hoặc token transport. Phần xử lý tenant data và quyết định nghiệp vụ vẫn thuộc module sở hữu dữ liệu.
 
-**Đã triển khai thêm một bước giảm lặp:** method policy có thể khai báo bằng `smartfarm.security.grpc.authorities` thay vì một Java `@Configuration` riêng; `require-explicit-policy: true` bật kiểm tra startup rằng mọi method của các `BindableService` đã đăng ký đều có đúng một phân loại và không còn policy trỏ tới RPC đã xóa. Tên RPC phải đặt trong YAML bracket notation (`"[package.Service/Method]"`) để Spring giữ nguyên dấu chấm và dấu gạch chéo của map key. Sáu service đã chuyển mapping hiện có sang YAML và bật coverage gate.
+**Đã triển khai thêm một bước giảm lặp:** method policy có thể khai báo bằng `farmverse.security.grpc.authorities` thay vì một Java `@Configuration` riêng; `require-explicit-policy: true` bật kiểm tra startup rằng mọi method của các `BindableService` đã đăng ký đều có đúng một phân loại và không còn policy trỏ tới RPC đã xóa. Tên RPC phải đặt trong YAML bracket notation (`"[package.Service/Method]"`) để Spring giữ nguyên dấu chấm và dấu gạch chéo của map key. Sáu service đã chuyển mapping hiện có sang YAML và bật coverage gate.
 
-**Hiện trạng chưa đạt “chỉ thêm common là xong”.** Với gRPC server, thêm `smartfarm-security` cùng cấu hình issuer/JWKS/audience sẽ bật interceptor xác thực global khi ứng dụng có gRPC `BindableService`. Nhưng:
+**Hiện trạng chưa đạt “chỉ thêm common là xong”.** Với gRPC server, thêm `farmverse-security` cùng cấu hình issuer/JWKS/audience sẽ bật interceptor xác thực global khi ứng dụng có gRPC `BindableService`. Nhưng:
 
 - Mỗi module vẫn phải khai báo scope tối thiểu theo từng full gRPC method; `require-explicit-policy` buộc phân loại đầy đủ. Chỉ bật gate này mới ngăn việc thêm RPC mới âm thầm rơi về authentication-only.
-- HTTP resource security có auto-configuration opt-in `smartfarm.security.http.enabled=true` cho Servlet hoặc Reactive. Gateway và Identity giữ security chains riêng; default HTTP chain chỉ cho health và Identity edge routes cần thiết, còn endpoints khác authenticated-only. Service có HTTP authorization/CSRF/session policy phức tạp vẫn cần khai báo riêng.
+- HTTP resource security có auto-configuration opt-in `farmverse.security.http.enabled=true` cho Servlet hoặc Reactive. Gateway và Identity giữ security chains riêng; default HTTP chain chỉ cho health và Identity edge routes cần thiết, còn endpoints khác authenticated-only. Service có HTTP authorization/CSRF/session policy phức tạp vẫn cần khai báo riêng.
 - `BearerCallCredentials` chỉ chuyển token vào metadata; nó không gọi Identity, provision client, cache/refresh token hoặc tự biết audience, tenant và actor. Order, Reporting và Gateway hiện có các `ServiceTokenClient` riêng; caller và Saga executor vẫn gắn credentials thủ công.
 - `GrpcSecurityContext` cung cấp identity/tenant/actor nhưng service vẫn phải dùng chúng trong application/domain query và kiểm tra tenant isolation. Interceptor không thể thay thế row-level/domain authorization.
 - Authorization Server có `client_credentials`, nhưng clients mặc định rỗng; downstream modules vẫn dùng custom gRPC token issuance. RFC 8693 và caller migration chưa hoàn tất.
@@ -45,7 +45,7 @@ sequenceDiagram
 ```
 
 ```text
-libs/smartfarm-security/
+libs/farmverse-security/
   grpc/
     GrpcMethodPolicy.java                 # exact method -> authority / public / authenticated
     GrpcMethodPolicyProperties.java       # YAML binding + authority normalization
@@ -53,21 +53,21 @@ libs/smartfarm-security/
     JwtServerInterceptor.java             # authentication + static/dynamic policy enforcement
     BearerCallCredentials.java            # attaches already-obtained bearer token
   jwt/
-    SmartFarmJwtValidator.java            # issuer, signature, expiry, audience and claims
+    FarmVerseJwtValidator.java            # issuer, signature, expiry, audience and claims
     JwtAuthorities.java                   # canonical scope/role conversion
   authorization/
     AuthorizationVersionWatermarkStore.java
     AuthorizationInvalidationMqttConsumer.java
   web/
-    ServletResourceSecurity.java           # imported; opt-in via smartfarm.security.http.enabled
-    ReactiveResourceSecurity.java          # imported; opt-in via smartfarm.security.http.enabled
+    ServletResourceSecurity.java           # imported; opt-in via farmverse.security.http.enabled
+    ReactiveResourceSecurity.java          # imported; opt-in via farmverse.security.http.enabled
 ```
 
 Identity issues credentials and owns the global permission catalog. Each service owns one exact RPC-to-scope mapping and its data-ownership rules. The common library validates/applies these contracts; it does not infer whether an operation is read or write by guessing from method names.
 
 ## Phân định trách nhiệm
 
-| Concern | Phần dùng chung (`smartfarm-security`) | Phần Identity | Phần service module |
+| Concern | Phần dùng chung (`farmverse-security`) | Phần Identity | Phần service module |
 |---|---|---|---|
 | JWT authenticity | Verify issuer, JWKS signature, expiry, audience, `sub`, token type, claim-contract version; user token cần tenant | Phát token theo grant, audience, scope và profile | Chỉ cấu hình đúng issuer/JWKS/audience; không viết JWT verifier riêng |
 | gRPC inbound | Global interceptor; gRPC health public, các method khác authenticated-by-default; freshness check; tenant header phải khớp token; correlation/audit hooks | Định nghĩa authority catalog và client grant policy | Map mỗi RPC method sang authority tối thiểu; đọc principal/tenant từ security context |
@@ -77,58 +77,58 @@ Identity issues credentials and owns the global permission catalog. Each service
 | Tenant/data authorization | Kiểm tra token tenant và optional `x-tenant-id` match | Membership/authorization policy và claims | Bắt buộc giới hạn truy vấn/command theo tenant từ token; kiểm tra farm/resource ownership |
 | Runtime invalidation | In-memory watermark store; MQTT consumer có thể bật bằng cấu hình | Publish signed authorization-invalidated event | Cấu hình broker/topic/credentials phù hợp; đánh giá fail-open/outage semantics theo môi trường |
 
-Identity sở hữu permission catalog và quyết định ai được cấp scope. Resource service sở hữu mapping `RPC method -> required scope` và data-level tenant/ownership checks. `smartfarm-security` xử lý protocol validation, không được duy trì catalog quyền thứ hai.
+Identity sở hữu permission catalog và quyết định ai được cấp scope. Resource service sở hữu mapping `RPC method -> required scope` và data-level tenant/ownership checks. `farmverse-security` xử lý protocol validation, không được duy trì catalog quyền thứ hai.
 
 ## Tích hợp hiện hành cho gRPC resource server
 
 ### 1. Thêm dependency
 
-Các service Order, Inventory, Finance, Health, Livestock và Reporting đã khai báo `smartfarm-security`. Service mới khai báo module này cùng dependency gRPC/Spring Boot tương ứng; không thêm JWT parser hoặc decoder riêng nếu không có lý do tương thích được ghi lại.
+Các service Order, Inventory, Finance, Health, Livestock và Reporting đã khai báo `farmverse-security`. Service mới khai báo module này cùng dependency gRPC/Spring Boot tương ứng; không thêm JWT parser hoặc decoder riêng nếu không có lý do tương thích được ghi lại.
 
 ### 2. Khai báo định danh và trust boundary
 
 ```yaml
 spring:
   application:
-    name: smartfarm-inventory-service
+    name: inventory-service
 
-smartfarm:
+farmverse:
   security:
     jwt:
-      issuer: ${SMARTFARM_JWT_ISSUER}
-      jwk-set-uri: ${SMARTFARM_JWKS_URI}
+      issuer: ${FARMVERSE_JWT_ISSUER}
+      jwk-set-uri: ${FARMVERSE_JWKS_URI}
       audiences:
-        - ${SMARTFARM_JWT_AUDIENCE:smartfarm-inventory}
-      allow-local-http: ${SMARTFARM_SECURITY_ALLOW_LOCAL_HTTP:false}
+        - ${FARMVERSE_JWT_AUDIENCE:farmverse-inventory}
+      allow-local-http: ${FARMVERSE_SECURITY_ALLOW_LOCAL_HTTP:false}
     grpc:
       enabled: true
       audit-enabled: true
       correlation-enabled: true
       require-explicit-policy: true
       authorities:
-        "[smartfarm.inventory.v1.InventoryService/GetItem]": inventory:read
-        "[smartfarm.inventory.v1.InventoryService/ReceiveStock]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/GetItem]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/ReceiveStock]": inventory:write
     http:
       enabled: false
 ```
 
 `audiences` là các resource audience mà service này chấp nhận; không dùng audience của service khác làm mặc định. Production issuer/JWKS phải dùng HTTPS. `allow-local-http` chỉ dành cho môi trường local được cô lập.
 
-Khi service có Spring gRPC server `BindableService`, `SmartFarmGrpcSecurityAutoConfiguration` tự đăng ký global JWT, correlation và audit interceptors. YAML `authorities` được chuyển thành exact method policy. Bật `require-explicit-policy: true` để startup fail nếu method chưa được phân loại hoặc policy trỏ đến RPC không tồn tại. Nếu gate bị tắt và không có custom policy, fallback chỉ yêu cầu authentication (ngoại trừ gRPC health); đây **không** phải policy đủ dùng cho production.
+Khi service có Spring gRPC server `BindableService`, `FarmVerseGrpcSecurityAutoConfiguration` tự đăng ký global JWT, correlation và audit interceptors. YAML `authorities` được chuyển thành exact method policy. Bật `require-explicit-policy: true` để startup fail nếu method chưa được phân loại hoặc policy trỏ đến RPC không tồn tại. Nếu gate bị tắt và không có custom policy, fallback chỉ yêu cầu authentication (ngoại trừ gRPC health); đây **không** phải policy đủ dùng cho production.
 
 ### 3. Map scope cho từng RPC trong service
 
 Khai báo policy trong `application.yml`, không cần Java `@Configuration` cho mapping:
 
 ```yaml
-smartfarm:
+farmverse:
   security:
     grpc:
       require-explicit-policy: true
       authorities:
         # Abbreviated example only. Production must classify every registered RPC.
-        "[smartfarm.inventory.v1.InventoryService/GetStockBalance]": inventory:read
-        "[smartfarm.inventory.v1.InventoryService/ReceiveStock]": inventory:write
+        "[farmverse.inventory.v1.InventoryService/GetStockBalance]": inventory:read
+        "[farmverse.inventory.v1.InventoryService/ReceiveStock]": inventory:write
 ```
 
 Khai báo đủ mọi RPC, gồm operation admin/Saga; không bỏ sót method. Coverage gate kiểm tra chính xác những service methods mà Spring gRPC đăng ký. Chỉ khai báo health method public nếu chủ động thay đổi mặc định; không permit-all business methods. `authenticated-methods` chỉ dành cho RPC mà thiết kế thật sự không có scope cụ thể. Tên scope phải khớp scope được Identity cấp; Identity sở hữu permission catalog.
@@ -164,7 +164,7 @@ Ma trận này phản ánh tích hợp source-level, không chứng minh đượ
 
 ## Đích đề xuất: module consumer chỉ khai báo identity và quyền
 
-Để gần mục tiêu “thêm common + config”, cần hoàn thiện `smartfarm-security` thành starter/API integration thống nhất theo các phần sau:
+Để gần mục tiêu “thêm common + config”, cần hoàn thiện `farmverse-security` thành starter/API integration thống nhất theo các phần sau:
 
 1. **Inbound resource-server starter:** servlet/reactive security auto-config đã được import và chỉ bật theo opt-in property; cần thêm route-to-authority config và kiểm chứng rõ Gateway custom CSRF/session rules không bị ghi đè.
 2. **Khai báo gRPC policy gọn, fail-closed:** YAML `full-method-name -> required authority`, authenticated-only/public classifications và `require-explicit-policy` startup coverage gate đã triển khai. Sinh policy từ proto là cải tiến sau này; health là public duy nhất theo mặc định.
@@ -177,7 +177,7 @@ Ma trận này phản ánh tích hợp source-level, không chứng minh đượ
 Sau các phần này, service resource module mới chủ yếu cần:
 
 ```text
-1. dependency `smartfarm-security`
+1. dependency `farmverse-security`
 2. issuer + JWKS + expected audience
 3. map RPC method -> Identity scope/authority
 4. outbound client id/secret reference + audience/scopes (nếu gọi service khác; OAuth token client dùng chung còn là hạng mục kế tiếp)

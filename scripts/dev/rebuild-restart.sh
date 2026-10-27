@@ -8,7 +8,7 @@
 # các cổng 8080-8097 và chạy ngầm (nohup) các tiến trình Maven/JVM.
 # ==============================================================================
 #
-# SmartFarm dev: build proto+services COHERENTLY, then hard-restart every service
+# FarmVerse dev: build proto+services COHERENTLY, then hard-restart every service
 # from the terminal (NOT IntelliJ) so no stale JVM keeps an old gRPC stub bound.
 #
 # Root cause this script removes: a service JVM binds its gRPC RPC set ONCE at boot
@@ -26,19 +26,19 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."          # repo root
 ROOT="$(pwd)"
-LOG_DIR="${KIROCREW_SCRATCH:-/tmp}/smartfarm-dev-logs"
+LOG_DIR="${KIROCREW_SCRATCH:-/tmp}/farmverse-dev-logs"
 mkdir -p "$LOG_DIR"
 
 # service key -> "module|port"
 svc_module() { case "$1" in
-  identity)  echo "services/smartfarm-identity-service|8092";;
-  livestock) echo "services/smartfarm-livestock-service|9091";;
-  inventory) echo "services/smartfarm-inventory-service|9093";;
-  finance)   echo "services/smartfarm-finance-service|9094";;
-  order)     echo "services/smartfarm-order-service|9095";;
-  reporting) echo "services/smartfarm-reporting-service|9096";;
-  health)    echo "services/smartfarm-health-service|9097";;
-  gateway)   echo "apps/smartfarm-gateway|8080";;
+  identity)  echo "services/identity-service|8092";;
+  livestock) echo "services/livestock-service|9091";;
+  inventory) echo "services/inventory-service|9093";;
+  finance)   echo "services/payment-service|9094";;
+  order)     echo "services/order-service|9095";;
+  reporting) echo "services/reporting-service|9096";;
+  health)    echo "services/health-service|9097";;
+  gateway)   echo "platform/api-gateway|8080";;
   *) echo "";;
 esac; }
 
@@ -49,7 +49,7 @@ echo "==> targets: ${TARGETS[*]}"
 
 # 1) BUILD FIRST (coherent: proto is rebuilt and installed before anything starts)
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
-  MODS="libs/smartfarm-proto"
+  MODS="libs/farmverse-proto"
   for s in "${TARGETS[@]}"; do
     info="$(svc_module "$s")"; [ -z "$info" ] && { echo "!! unknown service '$s'"; exit 2; }
     MODS="$MODS,${info%%|*}"

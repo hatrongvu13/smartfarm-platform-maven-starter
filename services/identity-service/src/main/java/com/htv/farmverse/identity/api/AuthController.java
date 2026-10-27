@@ -1,0 +1,165 @@
+package com.htv.farmverse.identity.api;
+
+import java.util.Map;
+
+import com.htv.farmverse.identity.bootstrap.BootstrapTokenService;
+import com.htv.farmverse.identity.oauth2.AuthService;
+import com.htv.farmverse.identity.token.TokenService;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService auth;
+    private final TokenService tokens;
+    private final BootstrapTokenService bootstrapTokens;
+
+    public record Registration(String email, String password) {
+    }
+
+    public record Login(String tenantId, String email, String password) {
+    }
+
+    public record BootstrapSuperAdmin(String email, String password) {
+    }
+
+    public record Refresh(String refreshToken) {
+    }
+
+    public record MfaVerification(
+            String challengeToken,
+            String method,
+            String code
+    ) {
+    }
+
+    public record TotpEnrollmentBegin(
+            String challengeToken,
+            String displayName
+    ) {
+    }
+
+    public record TotpEnrollmentConfirm(
+            String challengeToken,
+            String authenticatorId,
+            String code
+    ) {
+    }
+
+    @GetMapping(
+            value = "/.well-known/jwks.json",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<String> jwks() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache())
+                .body(tokens.jwks());
+    }
+
+    @PostMapping("/api/v1/auth/register")
+    public Map<String, String> register(
+            @RequestBody Registration request
+    ) {
+        return Map.of(
+                "userId",
+                auth.register(request.email(), request.password())
+        );
+    }
+
+    @PostMapping("/api/v1/auth/login")
+    public AuthService.AuthenticationResponse login(
+            @RequestBody Login request
+    ) {
+        return auth.login(
+                request.tenantId(),
+                request.email(),
+                request.password()
+        );
+    }
+
+    @PostMapping("/api/v1/auth/bootstrap-superadmin")
+    public ResponseEntity<?> bootstrapSuperAdmin(
+            @RequestHeader(
+                    name = "X-FarmVerse-Bootstrap-Token",
+                    required = false
+            ) String providedToken,
+            @RequestBody BootstrapSuperAdmin request
+    ) {
+        if (!bootstrapTokens.matches(providedToken)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Super-admin bootstrap is disabled or unauthorized"));
+        }
+
+        try {
+            return ResponseEntity.ok(
+                    auth.bootstrapSuperAdmin(request.email(), request.password())
+            );
+        } catch (org.springframework.web.server.ResponseStatusException ex) {
+            // Preserve the intended status (e.g. 409 when a super-admin already exists). Returning
+            // it as a ResponseEntity body stops the resource-server entry point from rewriting an
+            // uncaught exception on this permitAll path into a generic 401.
+            return ResponseEntity.status(ex.getStatusCode())
+                    .body(java.util.Map.of("error", ex.getReason() == null ? "bootstrap failed" : ex.getReason()));
+        }
+    }
+
+    @PostMapping("/api/v1/auth/mfa/enrollment/begin")
+    public com.htv.farmverse.identity.mfa.application.model.TotpEnrollment
+    beginRequiredTotpEnrollment(
+            @RequestBody TotpEnrollmentBegin request
+    ) {
+        return auth.beginRequiredTotpEnrollment(
+                request.challengeToken(),
+                request.displayName()
+        );
+    }
+
+    @PostMapping("/api/v1/auth/mfa/enrollment/confirm")
+    public AuthService.EnrollmentConfirmationResponse
+    confirmRequiredTotpEnrollment(
+            @RequestBody TotpEnrollmentConfirm request
+    ) {
+        return auth.confirmRequiredTotpEnrollment(
+                request.challengeToken(),
+                request.authenticatorId(),
+                request.code()
+        );
+    }
+
+    @PostMapping("/api/v1/auth/mfa/verify")
+    public AuthService.AuthenticationResponse verifyMfa(
+            @RequestBody MfaVerification request
+    ) {
+        return auth.verifyMfa(
+                request.challengeToken(),
+                request.method(),
+                request.code()
+        );
+    }
+
+    @PostMapping("/api/v1/auth/refresh")
+    public AuthService.Tokens refresh(
+            @RequestBody Refresh request
+    ) {
+        return auth.rotate(request.refreshToken());
+    }
+
+    @PostMapping("/api/v1/auth/logout")
+    public ResponseEntity<Void> logout(
+            @RequestBody Refresh request
+    ) {
+        auth.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
+}

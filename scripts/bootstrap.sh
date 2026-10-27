@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# bootstrap.sh — one-time setup for the SmartFarm monorepo.
+# bootstrap.sh — one-time setup for the FarmVerse monorepo.
 #
 # This is now a SINGLE Git repository (a Maven multi-module monorepo). There are
 # no sub-repositories to clone: every module lives in this tree and is built by
@@ -15,7 +15,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> SmartFarm monorepo bootstrap"
+echo "==> FarmVerse monorepo bootstrap"
 echo "    root: $ROOT"
 
 # --- toolchain checks ---
@@ -38,8 +38,8 @@ cat <<'EOF'
 ==> Bootstrap complete.
 
 Run individual services after this install, e.g.:
-  mvn -f services/smartfarm-livestock-service/pom.xml spring-boot:run
-  mvn -f apps/smartfarm-gateway/pom.xml spring-boot:run
+  mvn -f services/livestock-service/pom.xml spring-boot:run
+  mvn -f platform/api-gateway/pom.xml spring-boot:run
 
 See the root README.md for ports and the full run guide.
 EOF

@@ -1,4 +1,4 @@
-# Observability — SmartFarm Platform
+# Observability — FarmVerse Platform
 
 > Reconciled 2026-10-15 against the current checkout. The `observability/` configuration files are absent from this worktree, so the monitoring stack described in earlier revisions is not currently deployable from this repository state.
 

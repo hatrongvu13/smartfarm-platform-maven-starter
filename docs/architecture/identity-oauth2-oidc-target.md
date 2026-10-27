@@ -15,7 +15,7 @@ OAuth 2.1 is not yet a published RFC; use published OAuth 2.0 Security BCP, OAut
 
 | Client/use case | Target flow | Identity/token semantics |
 |---|---|---|
-| Current SmartFarm browser | OIDC Authorization Code + PKCE (`S256`), preferably through Gateway as a Backend-for-Frontend (BFF) | Browser gets a Secure, HttpOnly, SameSite session cookie; Gateway holds OAuth tokens server-side and calls APIs with audience-restricted access tokens. Do not put refresh tokens in browser storage. |
+| Current FarmVerse browser | OIDC Authorization Code + PKCE (`S256`), preferably through Gateway as a Backend-for-Frontend (BFF) | Browser gets a Secure, HttpOnly, SameSite session cookie; Gateway holds OAuth tokens server-side and calls APIs with audience-restricted access tokens. Do not put refresh tokens in browser storage. |
 | Future native mobile client | OIDC Authorization Code + PKCE in the system browser, public client | No embedded user-agent; short-lived access token and rotating or sender-constrained refresh token. |
 | Gateway/worker acting as itself | OAuth `client_credentials`; confidential client | Client-only subject, explicitly allowed audience/resource and least-privilege scopes; no user actor claim. Prefer asymmetric client authentication (mTLS or `private_key_jwt`) where operationally supportable. |
 | Gateway acting for an authenticated user | OAuth Token Exchange (RFC 8693) | Verify subject token and actor client; delegated output has the user as `sub`, the service actor in `act`, a narrower audience/scope and short expiry. Do not treat a caller-supplied user ID as proof of delegation. |
@@ -27,20 +27,20 @@ The Gateway is already the public ingress and the web application currently stor
 
 ```mermaid
 flowchart LR
-    Browser["SmartFarm Web"] -->|"OIDC code + PKCE"| Gateway["Gateway BFF"]
+    Browser["FarmVerse Web"] -->|"OIDC code + PKCE"| Gateway["Gateway BFF"]
     Mobile["Future native app"] -->|"OIDC code + PKCE"| Identity
     Gateway -->|"OAuth2 client"| Identity["Identity Authorization Server / OIDC Provider"]
     Worker["Order / Reporting workers"] -->|"client_credentials"| Identity
     Gateway -->|"RFC 8693 token exchange\nsubject token + authenticated actor"| Identity
     Identity --> IdentityDB[("Identity PostgreSQL\nusers, tenants, MFA, OAuth clients,\nauthorizations, consents")]
     Identity -->|"JWK Set / discovery / UserInfo"| Gateway
-    Gateway --> Resource["SmartFarm resource services"]
+    Gateway --> Resource["FarmVerse resource services"]
     Worker --> Resource
     Identity -->|"transactional domain events"| MQTT["MQTT outbox"]
     Admin["Internal administration clients"] -->|"Identity directory/admin gRPC"| Identity
 ```
 
-Identity owns the authorization server protocol and domain policies. Gateway owns browser session/BFF concerns and ingress. Resource services remain OAuth resource servers and validate signature, issuer, expiry and their own audience/scope. The readiness service remains a probe aggregator; it does not own Identity persistence tests or launch/stop services.
+Identity owns the authorization server protocol and domain policies. Gateway owns browser session/BFF concerns and ingress. Resource services remain OAuth resource servers and validate signature, issuer, expiry and their own audience/scope. Each service exposes its own Actuator readiness probe.
 
 ## Required protocol behavior
 
@@ -51,7 +51,7 @@ Identity owns the authorization server protocol and domain policies. Gateway own
 5. **Refresh, logout and revocation:** persist authorization and refresh-token state in Identity storage; rotate refresh tokens for public clients (or use a proven sender-constrained alternative), detect reuse and revoke the token family. Logout ends the browser session and revokes refresh grants. Stateless access tokens remain valid to `exp` unless a resource-side revocation/version check is deliberately retained; document this limit.
 6. **Bounded credentials:** every access token, including tokens used by asynchronous workers, has an explicit short expiry and audience. Resource servers must reject tokens with absent/expired `exp`; remove the `is_async && exp == null` exception.
 7. **Key and client security:** persist registered clients and authorization state using versioned schema; keep signing keys outside source/resources, support overlapping `kid` rotation, and use confidential-client authentication for machine callers. Store no client secrets in plaintext. Define access-token and refresh-token persistence/at-rest protection deliberately.
-8. **Claims and resource-server contracts:** standard claims first (`iss`, `sub`, `aud`, `iat`, `exp`, `scope`, `client_id`, OIDC claims). Keep SmartFarm extensions minimal and namespaced/documented (`tenant_id`, authorization version, token type if genuinely needed). Tenant is not a mandatory claim for every OAuth token: machine-only tokens may have no tenant unless the grant is explicitly tenant-bound. The current global validator's mandatory tenant and `identity_claims_version` assumptions must become grant/resource-profile-aware.
+8. **Claims and resource-server contracts:** standard claims first (`iss`, `sub`, `aud`, `iat`, `exp`, `scope`, `client_id`, OIDC claims). Keep FarmVerse extensions minimal and namespaced/documented (`tenant_id`, authorization version, token type if genuinely needed). Tenant is not a mandatory claim for every OAuth token: machine-only tokens may have no tenant unless the grant is explicitly tenant-bound. The current global validator's mandatory tenant and `identity_claims_version` assumptions must become grant/resource-profile-aware.
 
 ## Clean implementation structure
 
@@ -87,9 +87,9 @@ The Identity service now uses Spring Security 7 authorization-server support (re
 | `TokenService`, `NimbusUserTokenSigner`, `TokenGrantFacade` | Authorization-server token generation, JWK source and token customizer | Keep RS256 only if operationally desired; add multi-key rotation; separate ID/access tokens; delete duplicate signer path. |
 | `ServiceTokenService.issue`, `IdentityTokenService.IssueServiceToken` | `/oauth2/token` with `client_credentials` | Register gateway/order/reporting as confidential clients, use allowlisted audience/scope and standard client authentication. |
 | `ServiceTokenService.issue(... actorId ...)`, `ExchangeDelegatedToken` gRPC | RFC 8693 token-exchange grant | Require verified `subject_token` and authenticated actor; correct semantics to `sub=user`, `act.sub=service`; update every resource-service claim consumer. |
-| `is_async`, exp-less async JWT, `SmartFarmJwtValidator` exception | Bounded machine tokens and profile-aware resource-server validation | Remove exp-less token issuance and validation exception; workers reacquire credentials. |
+| `is_async`, exp-less async JWT, `FarmVerseJwtValidator` exception | Bounded machine tokens and profile-aware resource-server validation | Remove exp-less token issuance and validation exception; workers reacquire credentials. |
 | `/.well-known/jwks.json` hand-built endpoint | Spring Authorization Server JWK Set and OIDC discovery | Remove duplicate/non-standard endpoint wiring once standard endpoint is active; publish stable issuer metadata. |
-| `AuthProxyController`, browser token storage (`apps/smartfarm-web/src/lib/api.ts`, `auth.tsx`) | Gateway OAuth2 client/BFF callback and server-side token/session handling | Replace password JSON proxy, localStorage refresh token and client-managed refresh with browser redirect + secure session cookie. |
+| `AuthProxyController`, browser token storage (`apps/farmverse-web/src/lib/api.ts`, `auth.tsx`) | Gateway OAuth2 client/BFF callback and server-side token/session handling | Replace password JSON proxy, localStorage refresh token and client-managed refresh with browser redirect + secure session cookie. |
 | `identity.proto` `IdentityTokenService` | OAuth token endpoint for grants; keep directory/admin gRPC | Update Gateway/Order/Reporting clients together; no compatibility shim is required for this in-development platform. Preserve directory/admin gRPC unless separately versioned. |
 
 ## Rollout and clean-start policy

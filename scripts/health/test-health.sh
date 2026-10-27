@@ -56,6 +56,5 @@ probe_service finance         "${FINANCE_HEALTH_URL:-}"
 probe_service order           "${ORDER_HEALTH_URL:-}"
 probe_service reporting       "${REPORTING_HEALTH_URL:-}"
 probe_service health-service  "${HEALTH_SERVICE_HEALTH_URL:-}"
-probe_service readiness       "${READINESS_HEALTH_URL:-}"
 
 summary "health"

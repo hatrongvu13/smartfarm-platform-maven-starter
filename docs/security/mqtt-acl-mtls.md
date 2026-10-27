@@ -10,15 +10,15 @@ kể cả khi một service hợp lệ bị chiếm hoặc khi broker bị bỏ 
 
 ## 1) Signed Envelope (app-level) — ĐÃ TRIỂN KHAI, profile-dependent
 
-Thành phần (trong `libs/smartfarm-security`):
-- `com.htv.smartfarm.security.mqtt.MqttSecurityEnvelope` — frame tự mô tả, magic `SFM1`, HMAC-SHA256 over `topic ‖ metadata ‖ payload`.
-- `com.htv.smartfarm.security.mqtt.MqttSecurityVerifier` — `sign(topic,payload)` / `verify(topic,frame)`; so sánh chữ ký constant-time; chữ ký ràng buộc cả topic (frame ký cho topic A bị từ chối ở topic B).
-- `com.htv.smartfarm.security.mqtt.MqttSecurityProperties` — prefix `smartfarm.security.mqtt`; property defaults are false, while service profile files override dev to true and prod to false.
+Thành phần (trong `libs/farmverse-security`):
+- `com.htv.farmverse.security.mqtt.MqttSecurityEnvelope` — frame tự mô tả, magic `SFM1`, HMAC-SHA256 over `topic ‖ metadata ‖ payload`.
+- `com.htv.farmverse.security.mqtt.MqttSecurityVerifier` — `sign(topic,payload)` / `verify(topic,frame)`; so sánh chữ ký constant-time; chữ ký ràng buộc cả topic (frame ký cho topic A bị từ chối ở topic B).
+- `com.htv.farmverse.security.mqtt.MqttSecurityProperties` — prefix `farmverse.security.mqtt`; property defaults are false, while service profile files override dev to true and prod to false.
 
 ### Cấu hình
 
 ```yaml
-smartfarm:
+farmverse:
   security:
     mqtt:
       sign-enabled: ${MQTT_SIGN_ENABLED:false}     # producer ký message
@@ -55,14 +55,14 @@ smartfarm:
   projector.apply(r.payload());
   ```
 - Bean: khai báo `MqttSecurityVerifier` + bind `MqttSecurityProperties` qua một `@Configuration`
-  trong `libs/smartfarm-security` (autoconfigure), inject vào các component trên.
+  trong `libs/farmverse-security` (autoconfigure), inject vào các component trên.
 
 ---
 
 ## 2) Broker ACL (mosquitto) — MẪU, CHƯA BẬT
 
 > KHÔNG áp dụng tự động. Thay `infra/mosquitto.conf` khi triển khai thật.
-> Topic shape dự án: `smartfarm/{tenant}/{farm}/domain/{event}/{id}` và `smartfarm/{tenant}/{farm}/command/...`.
+> Topic shape dự án: `farmverse/{tenant}/{farm}/domain/{event}/{id}` và `farmverse/{tenant}/{farm}/command/...`.
 
 `infra/mosquitto.conf` (bản production mẫu):
 ```conf
@@ -85,40 +85,40 @@ acl_file /mosquitto/config/aclfile
 `infra/mosquitto/aclfile` (mẫu — mỗi service một user, quyền tối thiểu):
 ```conf
 # order-service: publish order-changed, subscribe order-changed (read-model)
-user smartfarm-order
-topic write smartfarm/+/+/domain/order-changed/+
-topic read  smartfarm/+/+/domain/order-changed/+
+user farmverse-order
+topic write farmverse/+/+/domain/order-changed/+
+topic read  farmverse/+/+/domain/order-changed/+
 
 # livestock-service: publish task-changed
-user smartfarm-livestock
-topic write smartfarm/+/+/domain/task-changed/+
+user farmverse-livestock
+topic write farmverse/+/+/domain/task-changed/+
 
 # inventory-service: subscribe task-changed (task inbox)
-user smartfarm-inventory
-topic read  smartfarm/+/+/domain/task-changed/+
+user farmverse-inventory
+topic read  farmverse/+/+/domain/task-changed/+
 
 # health-service: publish health observations
-user smartfarm-health
-topic write smartfarm/+/+/domain/health-changed/+
+user farmverse-health
+topic write farmverse/+/+/domain/health-changed/+
 
 # identity-service: publish identity command/result + events
-user smartfarm-identity
-topic write smartfarm/+/+/command/identity/+
-topic write smartfarm/+/+/domain/identity-event/+
+user farmverse-identity
+topic write farmverse/+/+/command/identity/+
+topic write farmverse/+/+/domain/identity-event/+
 
 # gateway: subscribe mọi domain event để fan-out WebSocket (chỉ read)
-user smartfarm-gateway
-topic read  smartfarm/+/+/domain/#
+user api-gateway
+topic read  farmverse/+/+/domain/#
 ```
 
 `infra/mosquitto/passwd` sinh bằng:
 ```bash
-mosquitto_passwd -c infra/mosquitto/passwd smartfarm-order
-mosquitto_passwd    infra/mosquitto/passwd smartfarm-livestock
+mosquitto_passwd -c infra/mosquitto/passwd farmverse-order
+mosquitto_passwd    infra/mosquitto/passwd farmverse-livestock
 # ... mỗi service một dòng
 ```
-Mỗi service nạp username/password qua env đã có sẵn: `smartfarm.mqtt.username` / `smartfarm.mqtt.password`
-(thấy trong `application-prod.yml` của order: `SMARTFARM_MQTT_USERNAME`/`SMARTFARM_MQTT_PASSWORD`).
+Mỗi service nạp username/password qua env đã có sẵn: `farmverse.mqtt.username` / `farmverse.mqtt.password`
+(thấy trong `application-prod.yml` của order: `FARMVERSE_MQTT_USERNAME`/`FARMVERSE_MQTT_PASSWORD`).
 
 ---
 
@@ -142,16 +142,16 @@ Sinh CA + server + per-service client cert (mẫu dev — thay bằng CA thật 
 ```bash
 # CA
 openssl req -new -x509 -days 3650 -nodes \
-  -keyout ca.key -out ca.crt -subj "/CN=smartfarm-mqtt-ca"
+  -keyout ca.key -out ca.crt -subj "/CN=farmverse-mqtt-ca"
 
 # Server (broker)
-openssl req -new -nodes -keyout server.key -out server.csr -subj "/CN=mqtt.smartfarm.local"
+openssl req -new -nodes -keyout server.key -out server.csr -subj "/CN=mqtt.farmverse.local"
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
   -out server.crt -days 825
 
 # Client per service — CN phải khớp user trong aclfile
-for svc in smartfarm-order smartfarm-livestock smartfarm-inventory \
-           smartfarm-health smartfarm-identity smartfarm-gateway; do
+for svc in farmverse-order farmverse-livestock farmverse-inventory \
+           farmverse-health farmverse-identity api-gateway; do
   openssl req -new -nodes -keyout "$svc.key" -out "$svc.csr" -subj "/CN=$svc"
   openssl x509 -req -in "$svc.csr" -CA ca.crt -CAkey ca.key -CAcreateserial \
     -out "$svc.crt" -days 825
@@ -160,7 +160,7 @@ done
 
 Phía Paho client (mô tả — CHƯA sửa code): nạp `ca.crt` + client cert/key vào
 `SSLSocketFactory` và `MqttConnectOptions.setSocketFactory(...)`, đổi URL `tcp://` → `ssl://host:8883`.
-Nên bọc trong một helper dùng chung ở `libs/smartfarm-security` khi triển khai thật.
+Nên bọc trong một helper dùng chung ở `libs/farmverse-security` khi triển khai thật.
 
 ---
 

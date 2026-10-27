@@ -1,4 +1,4 @@
-# Service: Livestock (`services/smartfarm-livestock-service`)
+# Service: Livestock (`services/livestock-service`)
 
 > Implementation summary; :8081 / gRPC :9091. ← [System Overview](../architecture/system-overview.md)
 
@@ -13,7 +13,7 @@ CreateTask, Ping, GetTask, ListTasks, AssignTask, AcceptTask, CompleteTask, Canc
 GraphQL: `tasks`, `task` (dev-only).
 
 ## Event publish
-Outbox relay → MQTT protobuf: `smartfarm/{tenant}/{farm}/domain/task-*/v1` (task-changed + lifecycle leaves). Chỉ `task-changed/v1` được inventory consume.
+Outbox relay → MQTT protobuf: `farmverse/{tenant}/{farm}/domain/task-*/v1` (task-changed + lifecycle leaves). Chỉ `task-changed/v1` được inventory consume.
 
 ## Database
 `V1__livestock_baseline.sql` (1 migration).

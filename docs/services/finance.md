@@ -1,4 +1,4 @@
-# Service: Finance (`services/smartfarm-finance-service`)
+# Service: Finance (`services/payment-service`)
 
 > Implementation summary; gRPC :9094. Status: **PARTIAL** (ít đường expose). ← [System Overview](../architecture/system-overview.md)
 

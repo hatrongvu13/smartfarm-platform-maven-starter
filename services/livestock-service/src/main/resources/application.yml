@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: livestock-service
+  profiles:
+    # Mặc định cứng = dev khi khởi chạy bình thường (mvn spring-boot:run / java -jar) mà không
+    # cần set biến môi trường. Override bằng SPRING_PROFILES_ACTIVE=prod|test khi cần.
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+server:
+  port: 8081
+  # SINGLE-INGRESS: internal service. Bind loopback only so no external host reaches it
+  # directly — the gateway (same host) is the sole public ingress. Override
+  # LIVESTOCK_BIND_ADDRESS only when gateway/service run on different hosts behind a
+  # private network/mesh with its own access controls.
+  address: ${LIVESTOCK_BIND_ADDRESS:127.0.0.1}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+spring.grpc.server.port: 9091
+farmverse:
+  security:
+    grpc:
+      require-explicit-policy: true
+      authorities:
+        "[farmverse.livestock.v1.LivestockTaskService/CreateTask]": tasks:write
+        "[farmverse.livestock.v1.LivestockTaskService/GetTask]": farm:read
+        "[farmverse.livestock.v1.LivestockTaskService/ListTasks]": farm:read
+        "[farmverse.livestock.v1.LivestockTaskService/AssignTask]": tasks:write
+        "[farmverse.livestock.v1.LivestockTaskService/AcceptTask]": tasks:write
+        "[farmverse.livestock.v1.LivestockTaskService/CompleteTask]": tasks:write
+        "[farmverse.livestock.v1.LivestockTaskService/CancelTask]": tasks:write
+        "[farmverse.livestock.v1.LivestockTaskService/CreateSchedule]": tasks:write
+        "[farmverse.livestock.v1.LivestockTaskService/ListSchedules]": farm:read
+        "[farmverse.livestock.v1.LivestockTaskService/RegisterAnimal]": tasks:write
+        "[farmverse.livestock.v1.LivestockTaskService/GetAnimal]": farm:read
+        "[farmverse.livestock.v1.LivestockTaskService/ListAnimals]": farm:read
+      authenticated-methods:
+        - farmverse.livestock.v1.LivestockTaskService/Ping
+#farmverse:
+#  security:
+
+    authorization-invalidation:
+      mqtt:
+        enabled: ${AUTHORIZATION_INVALIDATION_MQTT_ENABLED:true}
+        broker-url: ${FARMVERSE_MQTT_URL:tcp://localhost:1883}
+        topic-filter: ${AUTHORIZATION_INVALIDATION_TOPIC_FILTER:farmverse/+/_global/domain/authorization-invalidated/v1}
+        client-id: ${AUTHORIZATION_INVALIDATION_CLIENT_ID:${spring.application.name}-authorization-watermark-${HOSTNAME:local}}
+        qos: ${AUTHORIZATION_INVALIDATION_QOS:1}
+        username: ${FARMVERSE_MQTT_USERNAME:}
+        password: ${FARMVERSE_MQTT_PASSWORD:}
+#    issuer: ${FARMVERSE_JWT_ISSUER}
+#    jwk-set-uri: ${FARMVERSE_JWKS_URI}
+#    audience: ${FARMVERSE_JWT_AUDIENCE:farmverse-livestock}
+#    allow-local-http: false

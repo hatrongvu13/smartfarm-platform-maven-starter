@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/farmverse
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      # DEV strategy: Hibernate owns the schema for fast iteration (disposable dev DB).
+      # Flyway is OFF in dev; reserved for TEST + PROD. See docs/refactor/DEV-DB-WORKFLOW.md.
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: false
+farmverse:
+  security:
+    jwt:
+      issuer: http://localhost:8092
+      jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+      audiences:
+        - farmverse-reporting
+      allow-local-http: true
+  livestock:
+    grpc-host: localhost
+    grpc-port: 9091
+  reporting:
+    service-client:
+      id: reporting
+      # bcrypt-whitelisted for client 'reporting' in identity dev config. DEV ONLY.
+      secret: dev-reporting-service-secret
+    output-dir: ./.local/reports
+    download-ttl-seconds: 900
+    worker:
+      enabled: true
+      poll-ms: 5000

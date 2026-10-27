@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: device-simulator
+  main:
+    web-application-type: none
+farmverse:
+  mqtt:
+    url: ${MQTT_URL:tcp://localhost:1883}

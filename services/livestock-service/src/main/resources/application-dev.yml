@@ -1,0 +1,57 @@
+spring:
+  # @Scheduled beans (OutboxRelay, ScheduleTaskGenerator, TaskDeadlineMonitor) share ONE
+  # scheduler thread by default. OutboxRelay.poll() publishes to MQTT synchronously; with no
+  # broker up, each publish blocks on the connect timeout and starves the generator/monitor.
+  # A small pool keeps them independent so the schedule generator still fires without a broker.
+  task:
+    scheduling:
+      pool:
+        size: 4
+  datasource:
+    url: jdbc:postgresql://localhost:5432/farmverse
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      # DEV strategy: Hibernate owns the schema for fast iteration (disposable dev DB).
+      # Flyway is OFF in dev; reserved for TEST + PROD. See docs/refactor/DEV-DB-WORKFLOW.md.
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: false
+farmverse:
+  security:
+    jwt:
+      issuer: http://localhost:8092
+      jwk-set-uri: http://localhost:8092/.well-known/jwks.json
+      audiences:
+        - farmverse-livestock
+      allow-local-http: true
+    # DEV: app-level MQTT message auth (HMAC-SHA256). sign+verify ON live; shared DEV-ONLY secret.
+    mqtt:
+      sign-enabled: ${MQTT_SIGN_ENABLED:true}
+      verify-enabled: ${MQTT_VERIFY_ENABLED:true}
+      hmac-secret: ${MQTT_HMAC_SECRET:dev-mqtt-hmac-secret-shared-across-all-services}
+      key-id: ${MQTT_HMAC_KEY_ID:dev-key-1}
+      max-clock-skew-millis: ${MQTT_MAX_CLOCK_SKEW_MILLIS:0}
+  mqtt:
+    url: tcp://localhost:1883
+  outbox:
+    enabled: true
+    poll-ms: 2000
+  livestock:
+    monitor:
+      enabled: true
+      poll-ms: 15000            # quét quá hạn mỗi 15s (dev)
+    schedule-generator:
+      enabled: true
+      poll-ms: 15000            # sinh task theo cron mỗi 15s (dev)
+    deadlines:
+      accept-window-seconds: 120   # dev: 2 phút để nhận (prod nên 5-10')
+      report-window-seconds: 600   # dev: 10 phút để báo cáo
+      report-window-seconds-by-type:
+        TASK_TYPE_MEDICATION: 1800  # tiêm/thuốc: 30 phút
+        TASK_TYPE_INSPECTION: 900   # kiểm tra: 15 phút

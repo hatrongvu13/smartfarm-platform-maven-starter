@@ -1,4 +1,4 @@
-# Gateway Mapping — SmartFarm Platform
+# Gateway Mapping — FarmVerse Platform
 
 > Mapping summary from gateway controllers, GraphQL schema, security configuration, and application configuration. Verify live behavior against the current source and active profile.
 > Gateway = Spring WebFlux reactive, :8080. REST + GraphQL (`/graphql`) edge → gRPC fan-out. Auth là ngoại lệ: HTTP-proxy sang identity qua WebClient.
