@@ -58,8 +58,8 @@ export function ErrorMsg({ error, hint: hintOverride }: { error: unknown; hint?:
   if (!error) return null
   const e = error as ApiError
   const hint = hintOverride ?? (
-    e.status === 403 ? ' — thiếu scope cho thao tác này.' :
-    e.status === 404 ? ' — endpoint có thể là dev-only (@Profile dev&!prod) hoặc chưa chạy backend.' : ''
+    e.status === 403 ? ' — thiếu quyền cho thao tác này.' :
+    e.status === 404 ? ' — không tìm thấy.' : ''
   )
   return <div className="farm-error rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{e.message}{e.status ? ` (HTTP ${e.status})` : ''}{hint}</div>
 }

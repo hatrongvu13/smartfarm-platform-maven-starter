@@ -2,7 +2,7 @@
 
 > Trạng thái: **ĐÃ DUYỆT 2026-10-27** (làm thẳng trên `main`). Thay đổi khi duyệt: Flyway gom về 2 file gốc; **MFA/TOTP tạm dừng** vì Spring Security 7.1.2 không có factor TOTP (chỉ PASSWORD, OTT, WEBAUTHN, ...) — chờ chọn hướng.
 >
-> Bước 1–2 (identity) xong: test luồng Auth Code + PKCE xanh.
+> **Cấp 1 xong (code)**: identity, livestock (REST animals + tasks), gateway BFF, web. Test Java xanh. Web chưa chạy được `npm run build` trên máy này vì `npm` không tải được gói (lỗi chứng chỉ TLS).
 > Thuộc: `content/thiet-ke-farmverse-msa.md` (mục 3, 5, 6.1, 9). Nhánh làm: `feat/farmverse-level-1` (tách từ `feat/farmverse-level-0`).
 
 ## 1. Phạm vi

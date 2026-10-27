@@ -1,33 +1,18 @@
-// API client cho gateway. Token access giữ trong memory, refresh token trong localStorage.
-// Tự refresh 1 lần khi gặp 401 (single-flight), thất bại -> đăng xuất.
+// API client cho gateway (BFF). Trình duyệt KHÔNG giữ token: chỉ có cookie session FV_SESSION
+// (HttpOnly) do gateway quản. Request ghi gửi kèm header X-XSRF-TOKEN lấy từ cookie XSRF-TOKEN.
 
-const REFRESH_KEY = 'sf.refreshToken'
-
-let accessToken: string | null = null
 let onSessionLost: (() => void) | null = null
-
-export const tokens = {
-  get access() { return accessToken },
-  get refresh() { try { return localStorage.getItem(REFRESH_KEY) } catch { return null } },
-  set(access: string | null, refresh?: string | null) {
-    accessToken = access
-    try {
-      if (refresh === null) localStorage.removeItem(REFRESH_KEY)
-      else if (refresh) localStorage.setItem(REFRESH_KEY, refresh)
-    } catch { /* ignore */ }
-  },
-  clear() { this.set(null, null) },
-}
-
 export function setSessionLostHandler(fn: () => void) { onSessionLost = fn }
 
 export class ApiError extends Error {
   status: number
+  code?: string
   body: unknown
   constructor(status: number, message: string, body?: unknown) {
     super(message)
     this.status = status
     this.body = body
+    this.code = (body as { code?: string } | undefined)?.code
   }
 }
 
@@ -38,8 +23,7 @@ type Opts = {
   method?: string
   body?: unknown
   query?: Record<string, string | number | undefined | null>
-  idempotent?: boolean      // thêm header Idempotency-Key (bắt buộc cho ghi: orders/drafts, inventory, tasks, reports)
-  auth?: boolean            // mặc định true
+  idempotent?: boolean   // thêm header Idempotency-Key (bắt buộc khi tạo task)
   headers?: Record<string, string>
 }
 
@@ -51,23 +35,9 @@ function buildUrl(path: string, query?: Opts['query']) {
   return s ? `${path}?${s}` : path
 }
 
-let refreshing: Promise<boolean> | null = null
-async function tryRefresh(): Promise<boolean> {
-  const rt = tokens.refresh
-  if (!rt) return false
-  refreshing ??= (async () => {
-    try {
-      const r = await fetch('/api/v1/auth/refresh', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: rt }),
-      })
-      if (!r.ok) return false
-      const b = await r.json()
-      tokens.set(b.accessToken, b.refreshToken)
-      return true
-    } catch { return false } finally { setTimeout(() => { refreshing = null }, 0) }
-  })()
-  return refreshing
+function readCookie(name: string): string | null {
+  const match = document.cookie.split('; ').find(row => row.startsWith(name + '='))
+  return match ? decodeURIComponent(match.substring(name.length + 1)) : null
 }
 
 async function parse(res: Response) {
@@ -78,67 +48,50 @@ async function parse(res: Response) {
 }
 
 export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
-  const { method = 'GET', body, query, idempotent, auth = true, headers: extraHeaders } = opts
-  const run = () => {
-    const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders }
-    if (body !== undefined) headers['Content-Type'] = 'application/json'
-    if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`
-    if (idempotent) headers['Idempotency-Key'] = newIdempotencyKey()
-    return fetch(buildUrl(path, query), {
-      method, headers, body: body !== undefined ? JSON.stringify(body) : undefined,
-    })
+  const { method = 'GET', body, query, idempotent, headers: extraHeaders } = opts
+  const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders }
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (idempotent) headers['Idempotency-Key'] = newIdempotencyKey()
+  if (method !== 'GET' && method !== 'HEAD') {
+    const xsrf = readCookie('XSRF-TOKEN')
+    if (xsrf) headers['X-XSRF-TOKEN'] = xsrf
   }
 
-  let res = await run()
-  if (res.status === 401 && auth && (await tryRefresh())) res = await run()
-  if (res.status === 401 && auth) { tokens.clear(); onSessionLost?.() }
+  const res = await fetch(buildUrl(path, query), {
+    method, headers, credentials: 'same-origin',
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (res.status === 401) onSessionLost?.()
 
   const data = await parse(res)
   if (!res.ok) {
     const d = data as any
-    const msg = (d && (d.message || d.detail || d.error || d.title)) || `HTTP ${res.status}`
+    const msg = (d && (d.detail || d.message || d.title || d.error)) || `HTTP ${res.status}`
     throw new ApiError(res.status, String(msg), data)
   }
   return data as T
 }
 
-// GraphQL: lỗi nghiệp vụ trả HTTP 200 + errors[] (xem Bruno README)
-function graphqlStatus(code: string): number {
-  switch (code) {
-    case 'UNAUTHENTICATED': return 401
-    case 'FORBIDDEN':
-    case 'PERMISSION_DENIED': return 403
-    case 'NOT_FOUND': return 404
-    case 'CONFLICT':
-    case 'ALREADY_EXISTS':
-    case 'ABORTED': return 409
-    case 'FAILED_PRECONDITION': return 412
-    case 'RESOURCE_EXHAUSTED': return 429
-    case 'UNAVAILABLE':
-    case 'DOWNSTREAM_UNAVAILABLE': return 502
-    case 'DEADLINE_EXCEEDED': return 504
-    case 'BAD_USER_INPUT':
-    case 'INVALID_ARGUMENT':
-    case 'GRAPHQL_VALIDATION_FAILED': return 400
-    default: return 422
-  }
-}
+/** Đường dẫn qua gateway: /api/<service>/... */
+export const identity = (path: string) => `/api/identity${path}`
+export const livestock = (path: string) => `/api/livestock${path}`
 
-export async function gql<T = any>(query: string, variables?: Record<string, unknown>): Promise<T> {
-  const r = await api<{ data?: T; errors?: { message: string }[] }>('/graphql', {
-    method: 'POST', body: { query, variables },
-  })
-  if (r.errors?.length) {
-    const errors = r.errors as Array<{ message?: string; extensions?: Record<string, unknown> }>
-    const first = errors[0]
-    const extensionStatus = Number(first?.extensions?.status ?? first?.extensions?.httpStatus)
-    const rawCode = first?.extensions?.code ?? first?.extensions?.classification
-    const code = typeof rawCode === 'string' ? rawCode : 'GRAPHQL_ERROR'
-    const status = Number.isInteger(extensionStatus) && extensionStatus >= 400
-      ? extensionStatus
-      : graphqlStatus(code)
-    const message = errors.map(item => item.message || code).join('; ')
-    throw new ApiError(status, message, { code, errors })
-  }
-  return r.data as T
+/** Trang Spring Data trả về (PagedModel). */
+export type Page<T> = { content: T[]; page: { size: number; number: number; totalElements: number; totalPages: number } }
+
+/** Bắt đầu đăng nhập: gateway chuyển sang trang login của identity (OIDC + PKCE). */
+export function startLogin() { window.location.href = '/oauth2/authorization/farmverse' }
+
+/** Đăng xuất: POST /logout (có CSRF) → gateway xóa session rồi đăng xuất ở identity. */
+export function logout() {
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = '/logout'
+  const input = document.createElement('input')
+  input.type = 'hidden'
+  input.name = '_csrf'
+  input.value = readCookie('XSRF-TOKEN') ?? ''
+  form.appendChild(input)
+  document.body.appendChild(form)
+  form.submit()
 }
