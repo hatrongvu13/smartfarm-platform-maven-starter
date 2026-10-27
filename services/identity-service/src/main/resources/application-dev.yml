@@ -12,8 +12,8 @@ farmverse:
         client-secret: ${GATEWAY_CLIENT_SECRET:dev-gateway-secret-change-me-0123456789}
         name: FarmVerse API Gateway (BFF)
         grant-types: [authorization_code, refresh_token]
-        redirect-uris: [ "http://localhost:8080/login/oauth2/code/farmverse" ]
-        post-logout-redirect-uris: [ "http://localhost:8080/" ]
+        redirect-uris: [ "http://127.0.0.1:8080/login/oauth2/code/farmverse" ]
+        post-logout-redirect-uris: [ "http://127.0.0.1:8080/" ]
         scopes: [openid, profile, email, farmverse.api]
       - client-id: farmverse-service
         client-secret: ${SERVICE_CLIENT_SECRET:dev-service-secret-change-me-0123456789}

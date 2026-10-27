@@ -26,8 +26,8 @@ farmverse:
         client-secret: test-gateway-secret-0123456789abcdef
         name: Gateway (test)
         grant-types: [authorization_code, refresh_token]
-        redirect-uris: [ "http://localhost:8080/login/oauth2/code/farmverse" ]
-        post-logout-redirect-uris: [ "http://localhost:8080/" ]
+        redirect-uris: [ "http://127.0.0.1:8080/login/oauth2/code/farmverse" ]
+        post-logout-redirect-uris: [ "http://127.0.0.1:8080/" ]
         scopes: [openid, profile, email, farmverse.api]
       - client-id: farmverse-service
         client-secret: test-service-secret-0123456789abcdef

@@ -1,6 +1,8 @@
 # Cấp 1 — API Gateway (BFF) + Identity (Spring Authorization Server)
 
-> Trạng thái: **NHÁP — chờ duyệt**. Chưa sửa code.
+> Trạng thái: **ĐÃ DUYỆT 2026-10-27** (làm thẳng trên `main`). Thay đổi khi duyệt: Flyway gom về 2 file gốc; **MFA/TOTP tạm dừng** vì Spring Security 7.1.2 không có factor TOTP (chỉ PASSWORD, OTT, WEBAUTHN, ...) — chờ chọn hướng.
+>
+> Bước 1–2 (identity) xong: test luồng Auth Code + PKCE xanh.
 > Thuộc: `content/thiet-ke-farmverse-msa.md` (mục 3, 5, 6.1, 9). Nhánh làm: `feat/farmverse-level-1` (tách từ `feat/farmverse-level-0`).
 
 ## 1. Phạm vi
@@ -18,7 +20,7 @@ Hệ quả đã biết: các service nghiệp vụ hiện **chỉ có gRPC**, ga
 
 ```mermaid
 flowchart LR
-    B[Trình duyệt] -- "http://localhost:8080 (1 origin)" --> GW
+    B[Trình duyệt] -- "http://127.0.0.1:8080 (1 origin)" --> GW
     subgraph GW[api-gateway :8080 — WebFlux]
         R1["/oauth2/**, /login/**, /logout → OAuth2 Client"]
         R2["/api/identity/** → identity (TokenRelay)"]
@@ -35,7 +37,7 @@ flowchart LR
 
 Ghi chú:
 - **Một origin cho trình duyệt** (`localhost:8080`): gateway chuyển cả trang web lẫn API. Không CORS, cookie đơn giản.
-- **Trùng cookie theo host**: cookie không phân biệt cổng, nên `localhost:8080` và `localhost:8092` dùng chung kho cookie. Đặt tên riêng: gateway `FV_SESSION`, identity `FV_IDP_SESSION`.
+- **Gateway mở ở `127.0.0.1:8080`, identity ở `localhost:8092`**: SAS không nhận redirect URI có host `localhost` (RFC 8252 yêu cầu IP loopback). Hai host khác nhau nên cookie không đè nhau; vẫn đặt tên riêng `FV_SESSION` / `FV_IDP_SESSION` cho rõ.
 - Trình duyệt chỉ thấy identity ở trang đăng nhập (redirect sang `:8092`). Mọi API đi qua gateway.
 
 ## 3. Luồng
@@ -153,7 +155,7 @@ Lỗi trả `ProblemDetail`, field `code` = `SF-IDENTITY-xxx`. Phân trang `Page
 
 | client_id | Loại | Grant | Ghi chú |
 |---|---|---|---|
-| `farmverse-gateway` | confidential, `client_secret_basic` | `authorization_code` + PKCE, `refresh_token` | redirect `http://localhost:8080/login/oauth2/code/farmverse`; scope `openid profile email farmverse.api` |
+| `farmverse-gateway` | confidential, `client_secret_basic` | `authorization_code` + PKCE, `refresh_token` | redirect `http://127.0.0.1:8080/login/oauth2/code/farmverse`; scope `openid profile email farmverse.api` |
 | `farmverse-service` | confidential | `client_credentials` | dành cho cấp 2 (order → payment); khai trước, chưa dùng |
 
 ## 5. Gateway mới
@@ -177,7 +179,7 @@ Bỏ toàn bộ gateway cũ: GraphQL, WebSocket, `DomainEventBus`, gRPC client, 
 - `auth.tsx`: hỏi `GET /bff/me`; 401 → chuyển trang đăng nhập.
 - `Profile.tsx`, `admin/Users.tsx`, `admin/Authorization.tsx`: GraphQL → REST mục 4.3.
 - Inventory / Orders / Reports: ẩn menu tới cấp tương ứng.
-- Vite chạy `:5173`; người dùng mở `http://localhost:8080` (gateway chuyển tiếp, kể cả HMR websocket).
+- Vite chạy `:5173`; người dùng mở `http://127.0.0.1:8080` (gateway chuyển tiếp, kể cả HMR websocket).
 
 ## 7. Livestock làm resource server mẫu
 
