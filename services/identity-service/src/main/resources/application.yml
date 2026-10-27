@@ -51,3 +51,5 @@ farmverse:
         - { code: "identity:tenant:manage",    resource-type: "identity-tenant",     action: "manage", description: "Tạo tenant (nền tảng)" }
         - { code: "livestock:animal:read",     resource-type: "livestock-animal",    action: "read",   description: "Xem vật nuôi" }
         - { code: "livestock:animal:write",    resource-type: "livestock-animal",    action: "write",  description: "Thêm / sửa vật nuôi" }
+        - { code: "livestock:task:read",       resource-type: "livestock-task",      action: "read",   description: "Xem công việc chăm sóc" }
+        - { code: "livestock:task:write",      resource-type: "livestock-task",      action: "write",  description: "Tạo / nhận / hoàn thành công việc" }

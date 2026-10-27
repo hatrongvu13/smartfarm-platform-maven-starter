@@ -2,31 +2,28 @@ package com.htv.farmverse.livestock.outbox;
 
 import java.util.UUID;
 
-import com.htv.farmverse.security.mqtt.MqttSecurityVerifier;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Synchronous QoS 1 publish. Connect lazily so broker outages do not block service startup.
+ * Synchronous QoS 1 publish (tạm thời tới cấp 2, khi outbox chuyển sang RabbitMQ). Broker lo xác thực + ACL.
+ * Connect lazily so broker outages do not block service startup.
  */
 @Component
 public class MqttPublisher implements AutoCloseable {
     private final String url;
     private final String username;
     private final String password;
-    private final MqttSecurityVerifier mqttSecurity;
     private MqttClient client;
 
     public MqttPublisher(@Value("${farmverse.mqtt.url:tcp://localhost:1883}") String url,
                          @Value("${farmverse.mqtt.username:}") String username,
-                         @Value("${farmverse.mqtt.password:}") String password,
-                         MqttSecurityVerifier mqttSecurity) {
+                         @Value("${farmverse.mqtt.password:}") String password) {
         this.url = url;
         this.username = username;
         this.password = password;
-        this.mqttSecurity = mqttSecurity;
     }
 
     public synchronized void publish(String topic, byte[] payload) throws MqttException {
@@ -44,7 +41,7 @@ public class MqttPublisher implements AutoCloseable {
             }
             client.connect(options);
         }
-        MqttMessage message = new MqttMessage(mqttSecurity.sign(topic, payload));
+        MqttMessage message = new MqttMessage(payload);
         message.setQos(1);
         message.setRetained(false);
         client.publish(topic, message);

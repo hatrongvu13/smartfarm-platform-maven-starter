@@ -16,11 +16,3 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
-farmverse:
-  security:
-    jwt:
-      issuer: http://localhost:8092
-      jwk-set-uri: http://localhost:8092/.well-known/jwks.json
-      audiences:
-        - farmverse-livestock
-      allow-local-http: true
