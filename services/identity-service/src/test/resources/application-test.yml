@@ -37,3 +37,6 @@ farmverse:
     bootstrap:
       admin-email: admin@test.local
       admin-password: Admin@123456789
+    mfa:
+      encryption-password: test-mfa-password-0123
+      encryption-salt: "0011223344556677"

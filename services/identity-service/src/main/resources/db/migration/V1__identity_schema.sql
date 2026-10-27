@@ -75,3 +75,14 @@ CREATE TABLE membership_role (
     role_id       varchar(36) NOT NULL REFERENCES role(id) ON DELETE CASCADE,
     PRIMARY KEY (membership_id, role_id)
 );
+
+-- MFA TOTP (RFC 6238). Secret mã hóa AES-GCM; confirmed_at null = đang đăng ký dở.
+CREATE TABLE user_totp (
+    user_id          varchar(36)   PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE,
+    secret_cipher    varchar(512)  NOT NULL,
+    confirmed_at     timestamptz,
+    last_used_step   bigint,
+    created_at       timestamptz   NOT NULL,
+    updated_at       timestamptz   NOT NULL,
+    version          bigint        NOT NULL DEFAULT 0
+);

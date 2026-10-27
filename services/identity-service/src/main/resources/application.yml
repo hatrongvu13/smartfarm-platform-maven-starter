@@ -36,6 +36,10 @@ farmverse:
       key-id: ${IDENTITY_KEY_ID:dev-key-1}
       private-key: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
       public-key: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}
+    mfa:
+      issuer: FarmVerse
+      encryption-password: ${IDENTITY_MFA_ENCRYPTION_PASSWORD}
+      encryption-salt: ${IDENTITY_MFA_ENCRYPTION_SALT}
     lockout:
       max-failures: 5
       duration: 15m

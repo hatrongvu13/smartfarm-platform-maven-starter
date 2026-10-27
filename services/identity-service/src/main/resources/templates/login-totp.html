@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Xác thực hai bước · FarmVerse</title>
+    <style>
+        :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+        body { display: grid; place-items: center; min-height: 100vh; margin: 0; background: Canvas; color: CanvasText; }
+        main { width: min(360px, 90vw); }
+        label { display: block; margin: 12px 0 4px; font-size: 14px; }
+        input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 22px; letter-spacing: .3em; text-align: center; }
+        button { width: 100%; margin-top: 20px; padding: 12px; font-size: 16px; cursor: pointer; }
+        .error { padding: 10px; border: 1px solid currentColor; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Xác thực hai bước</h1>
+    <p>Nhập mã 6 số trong ứng dụng authenticator.</p>
+    <p class="error" role="alert" th:if="${param.error != null}">Mã không đúng hoặc đã dùng. Thử mã mới.</p>
+    <form method="post" th:action="@{/login/totp}">
+        <label for="code">Mã xác thực</label>
+        <input id="code" name="code" inputmode="numeric" pattern="\d{6}" maxlength="6"
+               autocomplete="one-time-code" required autofocus>
+        <button type="submit">Xác nhận</button>
+    </form>
+</main>
+</body>
+</html>

@@ -17,4 +17,10 @@ public class LoginController {
         model.addAttribute("tenantRequired", error instanceof TenantSelectionRequiredException);
         return "login";
     }
+
+    /** Bước 2 cho tài khoản bật TOTP (đã đăng nhập bằng mật khẩu). */
+    @GetMapping(TotpLogin.PAGE)
+    public String totp() {
+        return "login-totp";
+    }
 }

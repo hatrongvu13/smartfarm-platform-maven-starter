@@ -6,6 +6,9 @@ import com.htv.farmverse.identity.account.AccountService;
 import com.htv.farmverse.identity.login.AccountUserDetailsService;
 import com.htv.farmverse.identity.login.TenantAuthenticationProvider;
 import com.htv.farmverse.identity.login.TenantLoginDetails;
+import com.htv.farmverse.identity.login.TotpEnforcementFilter;
+import com.htv.farmverse.identity.login.TotpLogin;
+import com.htv.farmverse.identity.mfa.TotpService;
 import com.htv.farmverse.identity.tenant.MembershipRepository;
 import com.htv.farmverse.service.security.FarmVerseJwtAuthenticationConverter;
 
@@ -29,6 +32,8 @@ import org.springframework.security.oauth2.server.authorization.client.JdbcRegis
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
@@ -48,11 +53,13 @@ public class SecurityConfiguration {
 
     @Bean
     @Order(1)
-    SecurityFilterChain authorizationServerChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain authorizationServerChain(HttpSecurity http, TotpService totp) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServer = new OAuth2AuthorizationServerConfigurer();
         http.securityMatcher(authorizationServer.getEndpointsMatcher())
                 .with(authorizationServer, server -> server.oidc(Customizer.withDefaults()))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                // Tài khoản bật TOTP phải qua bước /login/totp trước khi được cấp code
+                .addFilterAfter(new TotpEnforcementFilter(totp), SecurityContextHolderFilter.class)
                 // Trình duyệt chưa đăng nhập vào /oauth2/authorize → chuyển sang trang /login
                 .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
                         new LoginUrlAuthenticationEntryPoint("/login"),
@@ -76,8 +83,11 @@ public class SecurityConfiguration {
 
     @Bean
     @Order(3)
-    SecurityFilterChain loginChain(HttpSecurity http, TenantAuthenticationProvider tenantAuthentication) throws Exception {
+    SecurityFilterChain loginChain(HttpSecurity http, TenantAuthenticationProvider tenantAuthentication,
+                                   TotpService totp) throws Exception {
         http.authenticationProvider(tenantAuthentication)
+                // POST /login/totp: yếu tố thứ hai, gộp FACTOR_TOTP vào phiên đã đăng nhập bằng mật khẩu
+                .addFilterBefore(TotpLogin.filter(totp), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/login", "/error", "/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated())

@@ -223,3 +223,45 @@ Bỏ toàn bộ gateway cũ: GraphQL, WebSocket, `DomainEventBus`, gRPC client, 
 4. Gateway: viết lại (route, oauth2Login, TokenRelay, session Redis, CSRF, `/bff/me`, rate limit).
 5. Web: auth qua BFF, đổi GraphQL → REST, ẩn trang chưa có.
 6. Compose, scripts, docs (`docs/patterns/bff.md`, `docs/patterns/oidc-sas.md`).
+
+## 12. Bổ sung: MFA bằng TOTP (đã chốt 2026-10-27)
+
+Dựng trên hạ tầng MFA của Spring Security 7.1.2, thêm **factor tùy biến `FACTOR_TOTP`**
+(`FactorGrantedAuthority.withFactor("TOTP")`). Chỉ phần kiểm mã RFC 6238 là tự viết.
+
+```mermaid
+sequenceDiagram
+    participant B as Trình duyệt
+    participant I as identity
+    B->>I: POST /login (email, mật khẩu, tenant) → FACTOR_PASSWORD
+    B->>I: GET /oauth2/authorize
+    I->>I: TotpRequiredAuthorizationManager: tài khoản có TOTP mà thiếu FACTOR_TOTP → từ chối
+    I-->>B: 302 /login/totp (lưu request gốc vào RequestCache)
+    B->>I: POST /login/totp {code}
+    I->>I: TotpAuthenticationFilter (setMfaEnabled=true) → TotpAuthenticationProvider kiểm mã, chống dùng lại
+    I->>I: Spring gộp FACTOR_TOTP vào phiên đăng nhập hiện có
+    I-->>B: 302 về /oauth2/authorize gốc → cấp code
+```
+
+| Phần | Cách làm |
+|---|---|
+| Lưu secret | bảng `user_totp`, mã hóa AES-GCM bằng `Encryptors.delux` (Spring Security Crypto) |
+| Base32 | `commons-codec` |
+| Đăng ký | `POST /me/mfa/totp` (trả `otpauth://` URI) → `POST /me/mfa/totp/confirm {code}` |
+| Tắt | `DELETE /me/mfa/totp` kèm mã hiện tại |
+| Admin reset | `POST /users/{id}/mfa/reset` (`identity:user:manage`) |
+| Chống dò | mã sai tính vào bộ đếm khóa tạm tài khoản; mỗi bước 30 giây chỉ dùng một lần |
+| Chưa làm | mã khôi phục (recovery code) |
+
+## 13. Cấp 1b: farm-service
+
+Miền: trang trại → chuồng (barn). Bài học: **Hexagonal + DDD aggregate + multi-tenant `@TenantId`**.
+
+| Lớp | Nội dung |
+|---|---|
+| `domain` | `Farm` (aggregate root, giữ danh sách `Barn`, luật: mã chuồng không trùng trong farm, sức chứa > 0) — không import Spring |
+| `application` | `FarmService` (use case), port `FarmRepository` |
+| `adapter/out/jpa` | entity JPA có `@TenantId`; Hibernate tự thêm `tenant_id` vào mọi câu truy vấn |
+| `adapter/in/rest` | `GET/POST /farms`, `GET/PUT /farms/{id}`, `POST /farms/{id}/barns` |
+| quyền | `farm:farm:read`, `farm:farm:write` |
+| gateway | route `/api/farm/**` → `:8082` |

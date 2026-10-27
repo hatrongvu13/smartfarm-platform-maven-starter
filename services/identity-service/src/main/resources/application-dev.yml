@@ -24,3 +24,6 @@ farmverse:
       admin-email: ${IDENTITY_ADMIN_EMAIL:admin@farmverse.local}
       admin-password: ${IDENTITY_ADMIN_PASSWORD:Admin@123456789}
       admin-display-name: Super Admin (dev)
+    mfa:
+      encryption-password: ${IDENTITY_MFA_ENCRYPTION_PASSWORD:dev-mfa-password-change-me}
+      encryption-salt: ${IDENTITY_MFA_ENCRYPTION_SALT:5c0744940b5c369b}

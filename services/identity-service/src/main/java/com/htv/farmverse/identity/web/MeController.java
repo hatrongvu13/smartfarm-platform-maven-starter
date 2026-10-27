@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.htv.farmverse.identity.account.AccountService;
 import com.htv.farmverse.identity.account.UserAccount;
+import com.htv.farmverse.identity.mfa.TotpService;
 import com.htv.farmverse.service.security.FarmVerseClaims;
 
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final AccountService accounts;
+    private final TotpService totp;
 
     @GetMapping
     public Me me(@AuthenticationPrincipal Jwt jwt) {
@@ -45,6 +48,38 @@ public class MeController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PasswordChange body) {
         accounts.changePassword(jwt.getSubject(), body.currentPassword(), body.newPassword());
+    }
+
+    // ---- MFA TOTP ----
+
+    @GetMapping("/mfa")
+    public MfaStatus mfa(@AuthenticationPrincipal Jwt jwt) {
+        return new MfaStatus(totp.enabled(jwt.getSubject()));
+    }
+
+    /** Bước 1: tạo secret mới; app authenticator quét {@code otpauthUri} (mã QR). */
+    @PostMapping("/mfa/totp")
+    public TotpService.Enrollment beginTotp(@AuthenticationPrincipal Jwt jwt) {
+        return totp.begin(jwt.getSubject());
+    }
+
+    /** Bước 2: nhập mã đầu tiên để bật. Lần đăng nhập sau sẽ hỏi mã. */
+    @PostMapping("/mfa/totp/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmTotp(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TotpCode body) {
+        totp.confirm(jwt.getSubject(), body.code());
+    }
+
+    @DeleteMapping("/mfa/totp")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void disableTotp(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TotpCode body) {
+        totp.disable(jwt.getSubject(), body.code());
+    }
+
+    public record TotpCode(@NotBlank @jakarta.validation.constraints.Pattern(regexp = "\\d{6}") String code) {
+    }
+
+    public record MfaStatus(boolean totpEnabled) {
     }
 
     public record ProfileUpdate(@Size(min = 1, max = 150) String displayName,

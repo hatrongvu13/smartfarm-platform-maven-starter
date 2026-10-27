@@ -39,4 +39,4 @@ sequenceDiagram
 
 - Quyền đổi có hiệu lực sau tối đa 5 phút (TTL access token). Membership bị khóa thì lần refresh kế tiếp bị từ chối.
 - Redirect URI không được dùng host `localhost` (RFC 8252) → gateway chạy ở `127.0.0.1`.
-- MFA tạm dừng: Spring Security 7.1.2 chưa có factor TOTP.
+- MFA: factor tùy biến `FACTOR_TOTP` trên hạ tầng MFA của Spring Security 7 (xem content/cap-1-gateway-identity.md mục 12). Chưa có mã khôi phục.

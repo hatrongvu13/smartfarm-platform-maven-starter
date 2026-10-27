@@ -25,6 +25,7 @@ import org.springframework.validation.annotation.Validated;
  * @param clients    client OAuth2 được nạp vào bảng {@code oauth2_registered_client} lúc khởi động
  * @param catalog    danh mục permission của nền tảng (seed, đánh dấu system_owned)
  * @param bootstrap  super admin đầu tiên; để trống email thì bỏ qua
+ * @param mfa        TOTP: tên hiển thị trong app authenticator và khóa mã hóa secret
  */
 @Validated
 @ConfigurationProperties("farmverse.identity")
@@ -34,7 +35,8 @@ public record IdentityProperties(
         @Valid @NotNull Lockout lockout,
         @Valid List<Client> clients,
         @Valid Catalog catalog,
-        @Valid Bootstrap bootstrap
+        @Valid Bootstrap bootstrap,
+        @Valid @NotNull Mfa mfa
 ) {
 
     public IdentityProperties {
@@ -85,6 +87,20 @@ public record IdentityProperties(
 
     public record PermissionSeed(@NotBlank String code, @NotBlank String resourceType,
                                  @NotBlank String action, String description) {
+    }
+
+    /**
+     * @param encryptionPassword mật khẩu dẫn ra khóa AES (PBKDF2) — bí mật, prod lấy từ biến môi trường
+     * @param encryptionSalt     salt dạng hex (ít nhất 16 ký tự hex)
+     */
+    public record Mfa(@NotBlank String issuer,
+                      @NotBlank @Size(min = 16) String encryptionPassword,
+                      @NotBlank @jakarta.validation.constraints.Pattern(regexp = "([0-9a-fA-F]{2}){8,}") String encryptionSalt) {
+
+        @Override
+        public String toString() {
+            return "Mfa[issuer=" + issuer + ", encryption=[REDACTED]]";
+        }
     }
 
     public record Bootstrap(String adminEmail, String adminPassword, String adminDisplayName) {

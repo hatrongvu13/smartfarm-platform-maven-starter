@@ -2,6 +2,7 @@ package com.htv.farmverse.identity.web;
 
 import java.util.Set;
 
+import com.htv.farmverse.identity.mfa.TotpService;
 import com.htv.farmverse.identity.tenant.MembershipStatus;
 import com.htv.farmverse.identity.tenant.UserAdministrationService;
 import com.htv.farmverse.identity.tenant.UserView;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserAdministrationService users;
+    private final TotpService totp;
 
     @GetMapping
     @PreAuthorize(Can.READ_USERS)
@@ -78,6 +80,15 @@ public class UserController {
     @PreAuthorize(Can.MANAGE_USERS)
     public void unlock(@AuthenticationPrincipal Jwt jwt, @PathVariable String userId) {
         users.unlock(tenant(jwt), userId);
+    }
+
+    /** Người dùng mất thiết bị: xóa TOTP, lần sau đăng nhập chỉ cần mật khẩu. */
+    @PostMapping("/{userId}/mfa/reset")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize(Can.MANAGE_USERS)
+    public void resetMfa(@AuthenticationPrincipal Jwt jwt, @PathVariable String userId) {
+        users.get(tenant(jwt), userId); // chỉ người thuộc tenant mình
+        totp.reset(userId);
     }
 
     private static String tenant(Jwt jwt) {

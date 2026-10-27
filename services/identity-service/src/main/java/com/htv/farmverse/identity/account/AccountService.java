@@ -63,6 +63,13 @@ public class AccountService {
         accounts.findById(userId).ifPresent(account -> account.loginSucceeded(clock.instant()));
     }
 
+    /** Gọi khi sai mã TOTP: dùng chung bộ đếm khóa tạm với sai mật khẩu. */
+    @Transactional
+    public void recordFactorFailure(String userId) {
+        accounts.findById(userId).ifPresent(account -> account.loginFailed(
+                clock.instant(), properties.lockout().maxFailures(), properties.lockout().duration()));
+    }
+
     /** Gọi khi sai mật khẩu; email không tồn tại thì bỏ qua (không lộ thông tin). */
     @Transactional
     public void recordLoginFailure(String email) {
