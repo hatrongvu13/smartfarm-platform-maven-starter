@@ -24,7 +24,7 @@ Health (không TLS, chỉ loopback): identity `:9092`, farm `:9082` — `/actuat
 | `IDENTITY_ADMIN_EMAIL` / `IDENTITY_ADMIN_PASSWORD` | `admin@farmverse.local` / `Admin@123456789` | identity (super admin đầu tiên) |
 | `IDENTITY_MFA_ENCRYPTION_PASSWORD` / `_SALT` | giá trị dev | identity (mã hóa secret TOTP) |
 | `REDIS_PASSWORD` | `farmverse-dev` | gateway |
-| `FARMVERSE_MTLS_DIR` | `../../.local/mtls` (tính từ thư mục module) | mọi service |
+| `FARMVERSE_MTLS_DIR` | `.local/mtls` (tính từ thư mục module) | mọi service |
 
 ## Test
 

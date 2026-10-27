@@ -1,7 +1,7 @@
 # mTLS: chỉ api-gateway được gọi farm-service; farm tải JWKS từ identity bằng cert của mình.
 farmverse:
   mtls:
-    dir: ${FARMVERSE_MTLS_DIR:../../.local/mtls}     # scripts/generate-dev-mtls.sh
+    dir: ${FARMVERSE_MTLS_DIR:.local/mtls}     # scripts/generate-dev-mtls.sh
     allowed-callers: gateway                         # danh sách cách nhau bằng dấu phẩy
 
 spring:

@@ -1,7 +1,7 @@
 # mTLS: gateway gọi identity và farm bằng chứng chỉ client của mình (SAN spiffe://farmverse/gateway).
 farmverse:
   mtls:
-    dir: ${FARMVERSE_MTLS_DIR:../../.local/mtls}
+    dir: ${FARMVERSE_MTLS_DIR:.local/mtls}
   gateway:
     oidc:
       issuer: ${IDENTITY_ISSUER:https://localhost:8092}

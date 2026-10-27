@@ -3,7 +3,7 @@
 #  - Đường máy-gọi-máy (token, JWKS, userinfo, REST quản trị) bắt buộc cert của gateway hoặc farm.
 farmverse:
   mtls:
-    dir: ${FARMVERSE_MTLS_DIR:../../.local/mtls}
+    dir: ${FARMVERSE_MTLS_DIR:.local/mtls}
     allowed-callers: gateway,farm
   identity:
     issuer: ${IDENTITY_ISSUER:https://localhost:8092}
