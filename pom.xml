@@ -28,6 +28,7 @@
 
     <modules>
         <module>libs/farmverse-common-kernel</module>
+        <module>libs/farmverse-starter-service</module>
         <module>libs/farmverse-security</module>
         <module>libs/farmverse-messaging</module>
         <module>libs/farmverse-proto</module>
@@ -68,6 +69,11 @@
             <dependency>
                 <groupId>com.htv.farmverse</groupId>
                 <artifactId>farmverse-common-kernel</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.htv.farmverse</groupId>
+                <artifactId>farmverse-starter-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -37,7 +37,7 @@ sequenceDiagram
     Caller->>Interceptor: RPC + bearer, tenant, correlation metadata
     Interceptor->>Interceptor: Verify signature, issuer, exp, aud, token profile
     Interceptor->>Policy: Resolve exact full RPC name
-    Policy->>Policy: Require configured authority; reject if absent
+    Policy->>Policy: Require configured authority, reject if absent
     Interceptor->>Handler: Attach verified SecurityIdentity to gRPC Context
     Handler->>DB: Query/command constrained by verified tenant and ownership
     DB-->>Handler: Tenant-authorized result

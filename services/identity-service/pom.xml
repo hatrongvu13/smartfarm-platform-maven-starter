@@ -11,40 +11,33 @@
     </parent>
 
     <artifactId>identity-service</artifactId>
-    <packaging>jar</packaging>
     <name>FarmVerse Identity Service</name>
-    <description>Auth server: login, JWT issuance, refresh rotation, RBAC admin.</description>
+    <description>OIDC provider (Spring Authorization Server) + tenant / role / permission administration.</description>
 
     <dependencies>
-        <!-- MQTT lifecycle for Identity integration events. Publishing is added in Phase 1B. -->
         <dependency>
-            <groupId>org.eclipse.paho</groupId>
-            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <groupId>com.htv.farmverse</groupId>
+            <artifactId>farmverse-starter-service</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
+
+        <!-- OAuth2 / OIDC provider: /oauth2/authorize, /oauth2/token, /oauth2/jwks, /userinfo, /connect/logout -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-authorization-server</artifactId>
         </dependency>
+        <!-- REST quản trị (/me, /users, /roles, /permissions) nhận Bearer token do chính service này cấp -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-oauth2-authorization-server</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
-        <dependency>
-            <groupId>commons-logging</groupId>
-            <artifactId>commons-logging</artifactId>
-        </dependency>
-        <!-- gRPC server: discovers @GrpcService adapters and binds them on port 9092. -->
+        <!-- Trang đăng nhập -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-grpc-server</artifactId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -52,38 +45,31 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <!-- Flyway: versioned schema migration (replaces ddl-auto ownership) -->
-        <!-- Spring Boot 4 split Flyway autoconfiguration into its own module. Without this,
-             flyway-core is on the classpath but NEVER runs (no FlywayAutoConfiguration), so
-             prod silently falls back to Hibernate. This dependency activates Flyway. -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-flyway</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -99,47 +85,11 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Test nhanh không cần Docker; *IT dùng PostgreSQL thật qua Testcontainers -->
         <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-junit-jupiter</artifactId>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.htv.farmverse</groupId>
-            <artifactId>farmverse-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.htv.farmverse</groupId>
-            <artifactId>farmverse-messaging</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.htv.farmverse</groupId>
-            <artifactId>farmverse-proto</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.htv.farmverse</groupId>
-            <artifactId>farmverse-common-kernel</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <!-- JSR-310 (java.time) support for Jackson. The identity integration-event publisher
-             serializes payloads containing java.time.Instant (occurredAt); without this module
-             findAndRegisterModules() finds nothing and serialization fails, which previously
-             broke every event-publishing path (e.g. TOTP enrollment confirm -> 401). -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -149,7 +99,6 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <!-- mvn spring-boot:run mặc định chạy profile dev; override: -Dspring-boot.run.profiles=prod -->
                     <profiles>
                         <profile>dev</profile>
                     </profiles>

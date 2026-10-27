@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Đăng nhập · FarmVerse</title>
+    <style>
+        :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+        body { display: grid; place-items: center; min-height: 100vh; margin: 0; background: Canvas; color: CanvasText; }
+        main { width: min(360px, 90vw); }
+        label { display: block; margin: 12px 0 4px; font-size: 14px; }
+        input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; }
+        button { width: 100%; margin-top: 20px; padding: 12px; font-size: 16px; cursor: pointer; }
+        .error { padding: 10px; border: 1px solid currentColor; border-radius: 6px; }
+        .hint { font-size: 13px; opacity: .75; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>FarmVerse</h1>
+
+    <p class="error" role="alert" th:if="${param.error != null and tenantRequired}">
+        Tài khoản thuộc nhiều tổ chức. Nhập mã tổ chức (tenant) rồi đăng nhập lại.
+    </p>
+    <p class="error" role="alert" th:if="${param.error != null and !tenantRequired}">
+        Email hoặc mật khẩu không đúng, hoặc tài khoản đang bị khóa.
+    </p>
+    <p role="status" th:if="${param.logout != null}">Đã đăng xuất.</p>
+
+    <form method="post" th:action="@{/login}">
+        <label for="username">Email</label>
+        <input id="username" name="username" type="email" autocomplete="username" required autofocus>
+
+        <label for="password">Mật khẩu</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <label for="tenant">Mã tổ chức (tenant)</label>
+        <input id="tenant" name="tenant" autocomplete="organization" th:required="${tenantRequired}">
+        <p class="hint">Bỏ trống nếu bạn chỉ thuộc một tổ chức.</p>
+
+        <button type="submit">Đăng nhập</button>
+    </form>
+</main>
+</body>
+</html>

@@ -1,0 +1,39 @@
+# TEST — H2 trong bộ nhớ, không cần Docker. Schema domain do Hibernate tạo;
+# bảng của SAS lấy từ oauth2-test-schema.sql. *IT chạy Flyway trên PostgreSQL thật.
+spring:
+  datasource:
+    url: jdbc:h2:mem:identity;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:oauth2-test-schema.sql
+
+farmverse:
+  identity:
+    issuer: http://localhost:8092
+    signing-key:
+      key-id: test-key
+      ephemeral: true
+    clients:
+      - client-id: farmverse-gateway
+        client-secret: test-gateway-secret-0123456789abcdef
+        name: Gateway (test)
+        grant-types: [authorization_code, refresh_token]
+        redirect-uris: [ "http://localhost:8080/login/oauth2/code/farmverse" ]
+        post-logout-redirect-uris: [ "http://localhost:8080/" ]
+        scopes: [openid, profile, email, farmverse.api]
+      - client-id: farmverse-service
+        client-secret: test-service-secret-0123456789abcdef
+        name: Services (test)
+        grant-types: [client_credentials]
+        scopes: [farmverse.api]
+    bootstrap:
+      admin-email: admin@test.local
+      admin-password: Admin@123456789
