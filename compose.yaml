@@ -36,9 +36,11 @@ services:
     ports: [ "1883:1883", "9001:9001" ]
     volumes:
       - ./infra/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+  # Session BFF của gateway (chứa token) + rate limit. Có mật khẩu, chỉ mở trên loopback.
   redis:
     image: redis:8-alpine
-    ports: [ "6379:6379" ]
+    command: [ "redis-server", "--requirepass", "farmverse-dev" ]
+    ports: [ "127.0.0.1:6379:6379" ]
   # Message broker cho domain event (Spring Cloud Stream Rabbit binder). UI: http://localhost:15672
   rabbitmq:
     image: rabbitmq:4-management-alpine
