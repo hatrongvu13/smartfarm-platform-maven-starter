@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: ${FARM_DB_URL}
+    username: ${FARM_DB_USER}
+    password: ${FARM_DB_PASSWORD}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${IDENTITY_ISSUER}
+          jwk-set-uri: ${IDENTITY_JWKS_URI}

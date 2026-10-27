@@ -53,6 +53,8 @@ farmverse:
         - { code: "identity:role:manage",      resource-type: "identity-role",       action: "manage", description: "Tạo / sửa / xóa role của tenant" }
         - { code: "identity:permission:manage", resource-type: "identity-permission", action: "manage", description: "Sửa danh mục permission (nền tảng)" }
         - { code: "identity:tenant:manage",    resource-type: "identity-tenant",     action: "manage", description: "Tạo tenant (nền tảng)" }
+        - { code: "farm:farm:read",            resource-type: "farm-farm",           action: "read",   description: "Xem trang trại và chuồng" }
+        - { code: "farm:farm:write",           resource-type: "farm-farm",           action: "write",  description: "Tạo / sửa trang trại và chuồng" }
         - { code: "livestock:animal:read",     resource-type: "livestock-animal",    action: "read",   description: "Xem vật nuôi" }
         - { code: "livestock:animal:write",    resource-type: "livestock-animal",    action: "write",  description: "Thêm / sửa vật nuôi" }
         - { code: "livestock:task:read",       resource-type: "livestock-task",      action: "read",   description: "Xem công việc chăm sóc" }

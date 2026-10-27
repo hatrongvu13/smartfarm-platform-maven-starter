@@ -32,7 +32,7 @@
         <module>libs/farmverse-security</module>
         <module>libs/farmverse-messaging</module>
         <module>libs/farmverse-proto</module>
-        <module>tools/device-simulator</module>
+        <module>services/farm-service</module>
         <module>services/livestock-service</module>
         <module>services/health-service</module>
         <module>services/inventory-service</module>

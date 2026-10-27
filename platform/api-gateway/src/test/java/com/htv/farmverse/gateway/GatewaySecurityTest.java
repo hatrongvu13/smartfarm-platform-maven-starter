@@ -37,6 +37,6 @@ class GatewaySecurityTest {
     @Test
     void routesAreDeclared() {
         var ids = routes.getRoutes().map(org.springframework.cloud.gateway.route.Route::getId).collectList().block();
-        org.assertj.core.api.Assertions.assertThat(ids).containsExactly("identity-api", "livestock-api", "web");
+        org.assertj.core.api.Assertions.assertThat(ids).containsExactly("identity-api", "farm-api", "livestock-api", "web");
     }
 }

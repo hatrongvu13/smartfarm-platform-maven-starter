@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: ${FARM_DB_URL:jdbc:postgresql://localhost:5432/farmverse_farm}
+    username: ${FARM_DB_USER:postgres}
+    password: ${FARM_DB_PASSWORD:root}
