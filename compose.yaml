@@ -1,55 +1,23 @@
-# FarmVerse local infra (services run on the HOST via `mvn spring-boot:run`, not here).
-#
-# App-level MQTT message auth (HMAC-SHA256 signed envelope) is wired into every producer and
-# consumer and is ON by default in the `dev` profile with a shared DEV-ONLY secret baked into
-# each service's application-dev.yml. To override the shared dev secret for all host services,
-# export these in your shell BEFORE starting them (every service must share the SAME secret):
-#
-#   export MQTT_HMAC_SECRET=<same-value-everywhere>
-#   export MQTT_SIGN_ENABLED=true MQTT_VERIFY_ENABLED=true MQTT_HMAC_KEY_ID=dev-key-1
-#
-# The dev broker below is anonymous (allow_anonymous true). Broker-level auth + ACL + mTLS is a
-# PROD concern documented (sample config, not enabled here) in docs/security/mqtt-acl-mtls.md.
-x-mqtt-hmac-dev: &mqtt-hmac-dev
-  MQTT_SIGN_ENABLED: "true"
-  MQTT_VERIFY_ENABLED: "true"
-  MQTT_HMAC_SECRET: "dev-mqtt-hmac-secret-shared-across-all-services"
-  MQTT_HMAC_KEY_ID: "dev-key-1"
-
+# FarmVerse — hạ tầng dev. Các service chạy trên máy (mvn spring-boot:run), không chạy trong compose.
+# Mọi cổng chỉ mở trên 127.0.0.1.
 services:
+  # Mỗi service một database: farmverse_identity, farmverse_farm (tạo bởi infra/postgres-init.sql).
   postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root
-      POSTGRES_DB: farmverse
-    ports: [ "5432:5432" ]
+    ports: [ "127.0.0.1:5432:5432" ]
+    volumes:
+      - ./infra/postgres-init.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d farmverse" ]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 3s
       retries: 10
-  mqtt:
-    image: eclipse-mosquitto:2
-    # DEV broker: anonymous. PROD hardening (password_file + acl_file + TLS listener) is in
-    # docs/security/mqtt-acl-mtls.md — sample config, intentionally not enabled in this dev compose.
-    ports: [ "1883:1883", "9001:9001" ]
-    volumes:
-      - ./infra/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-  # Session BFF của gateway (chứa token) + rate limit. Có mật khẩu, chỉ mở trên loopback.
+
+  # Session BFF của gateway (chứa token) + rate limit.
   redis:
     image: redis:8-alpine
     command: [ "redis-server", "--requirepass", "farmverse-dev" ]
     ports: [ "127.0.0.1:6379:6379" ]
-  # Message broker cho domain event (Spring Cloud Stream Rabbit binder). UI: http://localhost:15672
-  rabbitmq:
-    image: rabbitmq:4-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: farmverse
-      RABBITMQ_DEFAULT_PASS: farmverse-dev
-    ports: [ "127.0.0.1:5672:5672", "127.0.0.1:15672:15672" ]
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10

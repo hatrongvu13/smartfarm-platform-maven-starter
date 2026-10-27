@@ -23,7 +23,7 @@ type Opts = {
   method?: string
   body?: unknown
   query?: Record<string, string | number | undefined | null>
-  idempotent?: boolean   // thêm header Idempotency-Key (bắt buộc khi tạo task)
+  idempotent?: boolean   // thêm header Idempotency-Key
   headers?: Record<string, string>
 }
 
@@ -74,7 +74,6 @@ export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
 
 /** Đường dẫn qua gateway: /api/<service>/... */
 export const identity = (path: string) => `/api/identity${path}`
-export const livestock = (path: string) => `/api/livestock${path}`
 export const farm = (path: string) => `/api/farm${path}`
 
 /** Trang Spring Data trả về (PagedModel). */

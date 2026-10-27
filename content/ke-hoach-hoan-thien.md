@@ -1,6 +1,6 @@
 # Kế hoạch hoàn thiện nền tảng (thay lộ trình cấp 2–5)
 
-> Trạng thái: **NHÁP — chờ duyệt**. Chưa sửa code.
+> Trạng thái: **ĐÃ DUYỆT 2026-10-27** — xóa cả livestock. **Bước A xong.**
 > Quyết định của anh (2026-10-27): bỏ cấp 3, 4, 5. Chỉ thêm **mTLS** cho bảo mật. Không mở rộng nghiệp vụ
 > cho tới khi **identity, gateway, giao diện** đạt 10/10 về công nghệ và design pattern. Sau đó mới mở rộng
 > từng miền nghiệp vụ một.
@@ -34,11 +34,11 @@ Toàn bộ dưới đây là code cũ chưa chuyển sang kiến trúc mới, ho
 | Xóa | Lý do |
 |---|---|
 | `services/inventory-service`, `order-service`, `payment-service`, `health-service`, `reporting-service` | còn gRPC + MQTT + thư viện bảo mật cũ; làm lại khi tới miền đó |
-| `services/livestock-service` | **cần anh chọn** (mục 7): đang nửa cũ nửa mới (domain dùng kiểu proto, outbox MQTT) |
+| `services/livestock-service` | đã chốt xóa; làm lại sau theo khuôn farm-service |
 | `libs/farmverse-security`, `libs/farmverse-messaging`, `libs/farmverse-proto` | chỉ các service ở trên dùng |
 | `libs/farmverse-common-kernel` | gộp phần còn dùng vào `farmverse-starter-service`, bỏ hằng số cũ (`authorization_version`, `act`…) |
 | `libs/smartfarm-*`, `services/smartfarm-*`, `platform/smartfarm-*` (thư mục rác chỉ có `target/`) | không thuộc git |
-| `compose.yaml`: mosquitto, rabbitmq | không còn service dùng |
+| `compose.yaml`: mosquitto, rabbitmq | không còn service dùng (compose chỉ còn postgres + redis, mỗi service một database) |
 | `bruno/`, `docs/` của các service bị xóa; `scripts/smoke`, `scripts/health` dựa trên API cũ | viết lại theo API mới |
 | Thiết kế cấp 2–5 trong `content/thiet-ke-farmverse-msa.md` | thay bằng tài liệu này |
 

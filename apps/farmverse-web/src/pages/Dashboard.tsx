@@ -29,10 +29,9 @@ export default function Dashboard() {
         <Card title="Đi tới">
           <ul className="list-disc pl-5 text-sm">
             <li><Link className="underline" to="/farms">Trang trại và chuồng</Link></li>
-            <li><Link className="underline" to="/livestock">Vật nuôi và công việc</Link></li>
             <li><Link className="underline" to="/profile">Hồ sơ của tôi</Link></li>
           </ul>
-          <p className="mt-3 text-xs text-stone-500">Kho, đơn hàng, báo cáo sẽ có lại ở cấp 2–3 của lộ trình.</p>
+          
         </Card>
       </div>
     </>

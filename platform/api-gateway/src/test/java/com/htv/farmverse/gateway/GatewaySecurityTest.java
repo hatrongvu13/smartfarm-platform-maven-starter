@@ -27,7 +27,7 @@ class GatewaySecurityTest {
 
     @Test
     void apiWithoutSessionIsUnauthorized() {
-        web.get().uri("/api/livestock/animals?farmId=f1").exchange().expectStatus().isUnauthorized();
+        web.get().uri("/api/farm/farms").exchange().expectStatus().isUnauthorized();
         web.get().uri("/bff/me").exchange().expectStatus().isUnauthorized();
     }
 
@@ -37,6 +37,6 @@ class GatewaySecurityTest {
     @Test
     void routesAreDeclared() {
         var ids = routes.getRoutes().map(org.springframework.cloud.gateway.route.Route::getId).collectList().block();
-        org.assertj.core.api.Assertions.assertThat(ids).containsExactly("identity-api", "farm-api", "livestock-api", "web");
+        org.assertj.core.api.Assertions.assertThat(ids).containsExactly("identity-api", "farm-api", "web");
     }
 }

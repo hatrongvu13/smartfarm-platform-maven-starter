@@ -8,8 +8,8 @@
 
       POM này vừa là parent (mọi module kế thừa) vừa là aggregator (khai mọi module).
       Version thư viện do BOM quản:
-        - Spring Boot 4.1.2 (spring-boot-dependencies): Security, SAS, AMQP, gRPC, Testcontainers...
-        - Spring Cloud 2025.1.4: Gateway, Config, Eureka, CircuitBreaker, Stream.
+        - Spring Boot 4.1.2 (spring-boot-dependencies): Security, SAS, Session, Testcontainers...
+        - Spring Cloud 2025.1.4: Gateway, CircuitBreaker.
       Không ghim version tay cho thứ BOM đã quản.
     -->
     <parent>
@@ -27,19 +27,9 @@
     <description>FarmVerse — microservices learning ecosystem (Spring Boot + Spring Cloud).</description>
 
     <modules>
-        <module>libs/farmverse-common-kernel</module>
         <module>libs/farmverse-starter-service</module>
-        <module>libs/farmverse-security</module>
-        <module>libs/farmverse-messaging</module>
-        <module>libs/farmverse-proto</module>
-        <module>services/farm-service</module>
-        <module>services/livestock-service</module>
-        <module>services/health-service</module>
-        <module>services/inventory-service</module>
         <module>services/identity-service</module>
-        <module>services/payment-service</module>
-        <module>services/order-service</module>
-        <module>services/reporting-service</module>
+        <module>services/farm-service</module>
         <module>platform/api-gateway</module>
     </modules>
 
@@ -47,10 +37,6 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-cloud.version>2025.1.4</spring-cloud.version>
-        <!-- Codegen gRPC/protobuf: bám đúng version runtime của Boot BOM để không lệch. -->
-        <grpc.version>${grpc-java.version}</grpc.version>
-        <!-- Ngoài Boot BOM: chỉ còn tới khi MQTT chuyển sang Spring Integration (cấp 3). -->
-        <paho.version>1.2.5</paho.version>
         <!-- Ngoài Boot BOM: springdoc 3.x cho Spring Boot 4. -->
         <springdoc.version>3.1.1</springdoc.version>
     </properties>
@@ -68,34 +54,8 @@
             <!-- Module nội bộ: quản ở đây để module con không ghi version -->
             <dependency>
                 <groupId>com.htv.farmverse</groupId>
-                <artifactId>farmverse-common-kernel</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.htv.farmverse</groupId>
                 <artifactId>farmverse-starter-service</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.htv.farmverse</groupId>
-                <artifactId>farmverse-security</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.htv.farmverse</groupId>
-                <artifactId>farmverse-messaging</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.htv.farmverse</groupId>
-                <artifactId>farmverse-proto</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.eclipse.paho</groupId>
-                <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
-                <version>${paho.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -4,11 +4,10 @@ import { useFarm } from '../lib/farm'
 import { Button, Input } from './ui'
 import { NotificationBell, NotificationProvider } from './notifications'
 
-// Kho, đơn hàng, báo cáo quay lại khi service tương ứng có REST (cấp 2–3).
+// Miền nghiệp vụ mới chỉ thêm khi nền tảng đạt 10/10 (content/ke-hoach-hoan-thien.md).
 const nav = [
   { to: '/', label: 'Tổng quan', icon: '🌿', end: true },
   { to: '/farms', label: 'Trang trại', icon: '🏡' },
-  { to: '/livestock', label: 'Vật nuôi', icon: '🐾' },
 ]
 
 function LayoutContent() {

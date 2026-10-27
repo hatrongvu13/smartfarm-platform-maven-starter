@@ -1,6 +1,6 @@
 # Pattern: OIDC Provider tự dựng bằng Spring Authorization Server, quyền nằm trong JWT
 
-**Nhà:** `services/identity-service`; phía nhận: mọi resource server (mẫu: `services/livestock-service`).
+**Nhà:** `services/identity-service`; phía nhận: mọi resource server (mẫu: `services/farm-service`).
 
 ## Vấn đề
 
@@ -33,7 +33,7 @@ sequenceDiagram
 ## Bằng chứng
 
 - `AuthorizationCodeFlowTest`: login → code → token có `aud`, `roles`, `tenant_id`; dùng token gọi `/me`, `/users`.
-- `AnimalControllerTest`: không token → 401; thiếu `livestock:animal:read` → 403; đúng quyền → 200.
+- `FarmControllerTest`: không token → 401; thiếu `farm:farm:read` → 403; đúng quyền → 200.
 
 ## Đánh đổi
 

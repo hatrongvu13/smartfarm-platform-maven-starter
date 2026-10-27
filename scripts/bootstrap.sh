@@ -38,7 +38,7 @@ cat <<'EOF'
 ==> Bootstrap complete.
 
 Run individual services after this install, e.g.:
-  mvn -f services/livestock-service/pom.xml spring-boot:run
+  mvn -f services/identity-service/pom.xml spring-boot:run
   mvn -f platform/api-gateway/pom.xml spring-boot:run
 
 See the root README.md for ports and the full run guide.

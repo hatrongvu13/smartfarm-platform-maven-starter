@@ -9,7 +9,6 @@ Cửa vào duy nhất cho trình duyệt: `http://127.0.0.1:8080`.
 | `/bff/me` | thông tin người dùng + quyền (không trả token) | có |
 | `/api/identity/**` | identity-service, bỏ tiền tố `/api/identity` | có |
 | `/api/farm/**` | farm-service, bỏ tiền tố `/api/farm` | có |
-| `/api/livestock/**` | livestock-service, bỏ tiền tố `/api/livestock` | có |
 | `/**` | web (Vite `:5173` khi dev) | không |
 
 Token chỉ nằm trong session Redis. Mỗi request `/api/**` được gắn `Authorization: Bearer` bởi filter

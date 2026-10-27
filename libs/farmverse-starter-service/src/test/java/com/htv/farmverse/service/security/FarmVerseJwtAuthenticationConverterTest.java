@@ -16,7 +16,7 @@ class FarmVerseJwtAuthenticationConverterTest {
         Jwt jwt = Jwt.withTokenValue("t").header("alg", "RS256")
                 .subject("user-1")
                 .claim("scope", "openid farmverse.api")
-                .claim(FarmVerseClaims.PERMISSIONS, List.of("livestock:animal:read"))
+                .claim(FarmVerseClaims.PERMISSIONS, List.of("farm:farm:read"))
                 .claim(FarmVerseClaims.ROLES, List.of("SUPER_ADMIN"))
                 .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60))
                 .build();
@@ -25,7 +25,7 @@ class FarmVerseJwtAuthenticationConverterTest {
                 .stream().map(GrantedAuthority::getAuthority).toList();
 
         assertThat(authorities).contains(
-                "livestock:animal:read", "ROLE_SUPER_ADMIN", "SCOPE_openid", "SCOPE_farmverse.api");
+                "farm:farm:read", "ROLE_SUPER_ADMIN", "SCOPE_openid", "SCOPE_farmverse.api");
     }
 
     @Test

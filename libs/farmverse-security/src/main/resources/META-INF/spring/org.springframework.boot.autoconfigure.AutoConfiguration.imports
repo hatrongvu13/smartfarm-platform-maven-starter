@@ -1,6 +1,0 @@
-com.htv.farmverse.security.autoconfigure.FarmVerseSecurityPropertiesAutoConfiguration
-com.htv.farmverse.security.grpc.autoconfigure.FarmVerseGrpcSecurityAutoConfiguration
-com.htv.farmverse.security.web.ServletResourceSecurity
-com.htv.farmverse.security.web.ReactiveResourceSecurity
-com.htv.farmverse.security.autoconfigure.FarmVerseMqttSecurityAutoConfiguration
-com.htv.farmverse.security.autoconfigure.FarmVerseAuthorizationFreshnessAutoConfiguration

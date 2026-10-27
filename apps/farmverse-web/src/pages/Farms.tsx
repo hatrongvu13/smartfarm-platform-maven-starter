@@ -36,7 +36,7 @@ export default function Farms() {
 
   return (
     <>
-      <PageHeader title="Trang trại" sub="Chọn một trang trại để làm việc với vật nuôi của nó" />
+      <PageHeader title="Trang trại" sub="Trang trại và chuồng của tổ chức" />
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Danh sách" className="xl:col-span-2">
           <ErrorMsg error={farms.error} />
