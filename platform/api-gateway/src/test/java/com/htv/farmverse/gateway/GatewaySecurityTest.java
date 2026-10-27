@@ -7,15 +7,11 @@ import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTest
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 /**
- * Không cần identity hay Redis đang chạy: provider khai endpoint tĩnh (không discovery),
+ * Không cần identity hay Redis đang chạy: client OIDC khai tĩnh (không discovery),
  * các request ở đây không mở session.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-        "spring.security.oauth2.client.registration.farmverse.client-secret=test-secret",
-        "spring.security.oauth2.client.provider.farmverse.authorization-uri=http://localhost:8092/oauth2/authorize",
-        "spring.security.oauth2.client.provider.farmverse.token-uri=http://localhost:8092/oauth2/token",
-        "spring.security.oauth2.client.provider.farmverse.jwk-set-uri=http://localhost:8092/oauth2/jwks",
-        "spring.security.oauth2.client.provider.farmverse.user-name-attribute=sub",
+        "farmverse.gateway.oidc.client-secret=test-secret",
         "spring.data.redis.password=test",
         "spring.profiles.active=test"
 })

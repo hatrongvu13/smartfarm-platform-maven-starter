@@ -18,6 +18,7 @@ nghiệp vụ. Kế hoạch: [`content/ke-hoach-hoan-thien.md`](content/ke-hoach
 ```bash
 docker compose up -d                      # postgres (farmverse_identity, farmverse_farm) + redis
 ./scripts/generate-dev-keys.sh            # khóa ký JWT cho identity (một lần)
+./scripts/generate-dev-mtls.sh            # CA + chứng chỉ mTLS cho identity/farm/gateway (hạn 30 ngày)
 mvn -B install -DskipTests
 
 mvn -pl services/identity-service spring-boot:run     # 1. trước tiên
@@ -27,10 +28,11 @@ mvn -pl platform/api-gateway spring-boot:run          # sau identity (discovery)
 ```
 
 Mở **http://127.0.0.1:8080** (không dùng `localhost`: SAS không nhận redirect URI có host `localhost`).
-Tài khoản dev: `admin@farmverse.local` / `Admin@123456789`.
+Trang login của identity ở `https://localhost:8092` dùng CA dev: tin `.local/mtls/ca.crt` trong hệ điều hành
+(lệnh in ra sau khi chạy script) để trình duyệt không cảnh báo. Tài khoản dev: `admin@farmverse.local` / `Admin@123456789`.
 
 ## Tài liệu
 
-- Pattern: [`docs/patterns/`](docs/patterns) — BFF, OIDC với SAS, hexagonal + multi-tenant
+- Pattern: [`docs/patterns/`](docs/patterns) — BFF, OIDC với SAS, hexagonal + multi-tenant, mTLS
 - Chạy dev: [`docs/operations/local-development.md`](docs/operations/local-development.md)
 - Bảo mật: [`SECURITY.md`](SECURITY.md)

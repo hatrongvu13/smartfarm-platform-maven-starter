@@ -3,22 +3,11 @@ spring:
     name: api-gateway
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+    group:
+      dev: [ mtls ]
+      prod: [ mtls ]
 
-  # ---- Đăng nhập OIDC với identity-service (gateway là confidential client) ----
-  security:
-    oauth2:
-      client:
-        registration:
-          farmverse:
-            provider: farmverse
-            client-id: farmverse-gateway
-            client-secret: ${GATEWAY_CLIENT_SECRET}
-            authorization-grant-type: authorization_code
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            scope: openid,profile,email,farmverse.api
-        # provider.farmverse.issuer-uri khai theo profile (dev/prod). Discovery chạy lúc khởi động:
-        # identity-service phải chạy trước gateway.
-
+  # mTLS bật ở dev và prod (application-mtls.yml); test chạy không TLS.
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -33,7 +22,7 @@ spring:
             - SaveSession   # lưu session (có token mới refresh) trước khi chuyển request xuống service
           routes:
             - id: identity-api
-              uri: ${IDENTITY_URL:http://localhost:8092}
+              uri: ${farmverse.gateway.routes.identity-uri}
               predicates: [ "Path=/api/identity/**" ]
               filters: &api-filters
                 - StripPrefix=2
@@ -44,7 +33,7 @@ spring:
                     redis-rate-limiter.replenishRate: 20
                     redis-rate-limiter.burstCapacity: 40
             - id: farm-api
-              uri: ${FARM_URL:http://localhost:8082}
+              uri: ${farmverse.gateway.routes.farm-uri}
               predicates: [ "Path=/api/farm/**" ]
               filters: *api-filters
             # Mọi đường còn lại là trang web (SPA): một origin duy nhất cho trình duyệt.
@@ -52,6 +41,18 @@ spring:
               uri: ${WEB_URL:http://localhost:5173}
               predicates: [ "Path=/**" ]
               order: 1000
+
+# ---- Gateway là OIDC client của identity (xem GatewayOidcProperties) ----
+farmverse:
+  gateway:
+    oidc:
+      issuer: ${IDENTITY_ISSUER:http://localhost:8092}
+      client-id: farmverse-gateway
+      client-secret: ${GATEWAY_CLIENT_SECRET}
+      scopes: openid,profile,email,farmverse.api
+    routes:
+      identity-uri: ${IDENTITY_URL:http://localhost:8092}
+      farm-uri: ${FARM_URL:http://localhost:8082}
 
 server:
   port: 8080

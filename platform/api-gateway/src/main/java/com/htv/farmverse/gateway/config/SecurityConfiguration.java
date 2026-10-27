@@ -14,6 +14,9 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientProviderBuilder;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.ReactiveOAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcAuthorizationCodeReactiveAuthenticationManager;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultReactiveOAuth2AuthorizedClientManager;
@@ -46,7 +49,8 @@ public class SecurityConfiguration {
     public static final String REGISTRATION_ID = "farmverse";
 
     @Bean
-    SecurityWebFilterChain security(ServerHttpSecurity http, ReactiveClientRegistrationRepository clients) {
+    SecurityWebFilterChain security(ServerHttpSecurity http, ReactiveClientRegistrationRepository clients,
+                                    OidcAuthorizationCodeReactiveAuthenticationManager oidcLogin) {
         DefaultServerOAuth2AuthorizationRequestResolver pkce = new DefaultServerOAuth2AuthorizationRequestResolver(clients);
         pkce.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
 
@@ -58,7 +62,9 @@ public class SecurityConfiguration {
                         .pathMatchers("/api/**", "/bff/**").authenticated()
                         // Trang web (SPA) công khai; SPA gọi /bff/me, nhận 401 thì chuyển sang đăng nhập.
                         .anyExchange().permitAll())
-                .oauth2Login(login -> login.authorizationRequestResolver(pkce))
+                .oauth2Login(login -> login
+                        .authorizationRequestResolver(pkce)
+                        .authenticationManager(oidcLogin))   // đổi code + kiểm id_token qua mTLS
                 .oauth2Client(Customizer.withDefaults())
                 .logout(out -> out.logoutSuccessHandler(logout))
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED)))
@@ -86,11 +92,12 @@ public class SecurityConfiguration {
     /** Dùng bởi TokenRelay: lấy token trong session, hết hạn thì refresh với identity. */
     @Bean
     ReactiveOAuth2AuthorizedClientManager authorizedClientManager(ReactiveClientRegistrationRepository clients,
-                                                                  ServerOAuth2AuthorizedClientRepository repository) {
+                                                                  ServerOAuth2AuthorizedClientRepository repository,
+                                                                  ReactiveOAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> refreshClient) {
         DefaultReactiveOAuth2AuthorizedClientManager manager = new DefaultReactiveOAuth2AuthorizedClientManager(clients, repository);
         manager.setAuthorizedClientProvider(ReactiveOAuth2AuthorizedClientProviderBuilder.builder()
                 .authorizationCode()
-                .refreshToken()
+                .refreshToken(refresh -> refresh.accessTokenResponseClient(refreshClient))
                 .build());
         return manager;
     }

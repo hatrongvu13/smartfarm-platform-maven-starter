@@ -1,0 +1,32 @@
+# mTLS: gateway gọi identity và farm bằng chứng chỉ client của mình (SAN spiffe://farmverse/gateway).
+farmverse:
+  mtls:
+    dir: ${FARMVERSE_MTLS_DIR:../../.local/mtls}
+  gateway:
+    oidc:
+      issuer: ${IDENTITY_ISSUER:https://localhost:8092}
+      ssl-bundle: farmverse
+    routes:
+      identity-uri: ${IDENTITY_URL:https://localhost:8092}
+      farm-uri: ${FARM_URL:https://localhost:8082}
+
+spring:
+  ssl:
+    bundle:
+      pem:
+        farmverse:
+          reload-on-update: true
+          keystore:
+            certificate: "file:${farmverse.mtls.dir}/gateway.crt"
+            private-key: "file:${farmverse.mtls.dir}/gateway.key"
+          truststore:
+            certificate: "file:${farmverse.mtls.dir}/ca.crt"
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            ssl:
+              ssl-bundle: farmverse        # route xuống service dùng cert gateway
+            connect-timeout: 3000
+            response-timeout: 10s

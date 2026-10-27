@@ -1,14 +1,9 @@
 # DEV — mở trình duyệt ở http://127.0.0.1:8080 (SAS không nhận redirect về host "localhost").
+farmverse:
+  gateway:
+    oidc:
+      client-secret: ${GATEWAY_CLIENT_SECRET:dev-gateway-secret-change-me-0123456789}
 spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          farmverse:
-            client-secret: ${GATEWAY_CLIENT_SECRET:dev-gateway-secret-change-me-0123456789}
-        provider:
-          farmverse:
-            issuer-uri: ${IDENTITY_ISSUER:http://localhost:8092}
   data:
     redis:
       password: ${REDIS_PASSWORD:farmverse-dev}

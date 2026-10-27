@@ -1,11 +1,5 @@
 # PROD — bí mật lấy từ biến môi trường; cookie chỉ qua HTTPS.
 spring:
-  security:
-    oauth2:
-      client:
-        provider:
-          farmverse:
-            issuer-uri: ${IDENTITY_ISSUER}
   data:
     redis:
       ssl:

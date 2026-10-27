@@ -1,6 +1,6 @@
 # Kế hoạch hoàn thiện nền tảng (thay lộ trình cấp 2–5)
 
-> Trạng thái: **ĐÃ DUYỆT 2026-10-27** — xóa cả livestock. **Bước A xong.**
+> Trạng thái: **ĐÃ DUYỆT 2026-10-27** — xóa cả livestock. **Bước A, B xong.**
 > Quyết định của anh (2026-10-27): bỏ cấp 3, 4, 5. Chỉ thêm **mTLS** cho bảo mật. Không mở rộng nghiệp vụ
 > cho tới khi **identity, gateway, giao diện** đạt 10/10 về công nghệ và design pattern. Sau đó mới mở rộng
 > từng miền nghiệp vụ một.
@@ -61,9 +61,10 @@ Công nghệ — chỉ dùng Spring, không thêm sản phẩm ngoài:
 |---|---|
 | Khai chứng chỉ | Spring Boot **SSL bundles** (`spring.ssl.bundle.pem.<tên>`), PEM, tự nạp lại khi file đổi (`reload-on-update`) |
 | Server bật mTLS | `server.ssl.bundle` + `server.ssl.client-auth` |
-| Gateway gọi xuống | `spring.cloud.gateway.server.webflux.httpclient.ssl` dùng bundle; WebClient của OAuth2 client (token endpoint) cũng dùng bundle |
-| Resource server lấy JWKS | `NimbusJwtDecoder.withJwkSetUri(...).restOperations(...)` với `RestTemplateBuilder.sslBundle(...)` |
-| Ai được gọi | kiểm SAN `spiffe://farmverse/<service>` trong cert (danh sách cho phép theo từng service) |
+| Gateway gọi xuống | `spring.cloud.gateway.server.webflux.httpclient.ssl.ssl-bundle`; một `WebClient` gắn cert cho đổi code, refresh, JWKS id_token. Đăng ký client tĩnh (không discovery) để gateway khởi động độc lập với identity |
+| Resource server lấy JWKS | `NimbusJwtDecoder.withJwkSetUri(...).restOperations(...)` với `RestTemplate` dựng từ `SslBundle.createSslContext()` (`MtlsClients`) |
+| Ai được gọi | `ServiceIdentityFilter` kiểm SAN `spiffe://farmverse/<service>` (farm: chỉ gateway; identity back-channel: gateway, farm) |
+| Probe | actuator tách cổng riêng không TLS, chỉ loopback (identity `:9092`, farm `:9082`) |
 | CA dev | `scripts/generate-dev-mtls.sh` (openssl): 1 CA + 1 cert/service, hạn 30 ngày, SAN `localhost`, `127.0.0.1` |
 | Prod | CA thật / cert-manager cấp file PEM; service chỉ đọc file |
 
