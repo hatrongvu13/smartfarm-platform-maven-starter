@@ -5,7 +5,9 @@ import java.util.List;
 
 import com.htv.farmverse.identity.authorization.Role;
 
-/** Một người dùng nhìn từ góc một tenant. */
+/**
+ * Một người dùng nhìn từ góc một tenant.
+ */
 public record UserView(
         String userId,
         String email,

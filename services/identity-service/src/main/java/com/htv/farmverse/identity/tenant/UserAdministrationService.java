@@ -17,7 +17,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Quản lý người dùng trong một tenant: thêm, đổi trạng thái, gán role. */
+/**
+ * Quản lý người dùng trong một tenant: thêm, đổi trạng thái, gán role.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserAdministrationService {

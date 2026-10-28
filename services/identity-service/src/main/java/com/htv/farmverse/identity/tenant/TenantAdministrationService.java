@@ -16,15 +16,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Tạo tenant mới (chỉ đội nền tảng). Mỗi tenant mới có sẵn role hệ thống ADMIN. */
+/**
+ * Tạo tenant mới (chỉ đội nền tảng). Mỗi tenant mới có sẵn role hệ thống ADMIN.
+ */
 @Service
 @RequiredArgsConstructor
 public class TenantAdministrationService {
 
-    /** Role quản trị mặc định của mỗi tenant. */
+    /**
+     * Role quản trị mặc định của mỗi tenant.
+     */
     public static final String TENANT_ADMIN_ROLE = "ADMIN";
 
-    /** Permission chỉ đội nền tảng được có, không cấp cho ADMIN của tenant thường. */
+    /**
+     * Permission chỉ đội nền tảng được có, không cấp cho ADMIN của tenant thường.
+     */
     static final Set<String> PLATFORM_ONLY = Set.of("identity:tenant:manage", "identity:permission:manage");
 
     private final TenantRepository tenants;

@@ -28,7 +28,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Role của tenant (theo token) và danh mục permission của nền tảng. */
+/**
+ * Role của tenant (theo token) và danh mục permission của nền tảng.
+ */
 @RestController
 @RequiredArgsConstructor
 public class RoleController {
@@ -113,7 +115,8 @@ public class RoleController {
                             Set<String> permissions) {
     }
 
-    public record RoleView(String code, String name, String description, boolean systemOwned, List<String> permissions) {
+    public record RoleView(String code, String name, String description, boolean systemOwned,
+                           List<String> permissions) {
         static RoleView of(Role role) {
             return new RoleView(role.getCode(), role.getName(), role.getDescription(), role.isSystemOwned(),
                     role.getPermissions().stream().map(Permission::getCode).sorted().toList());

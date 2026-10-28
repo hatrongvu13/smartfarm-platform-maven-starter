@@ -25,7 +25,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Hồ sơ của chính người đang đăng nhập. Chỉ cần token hợp lệ. */
+/**
+ * Hồ sơ của chính người đang đăng nhập. Chỉ cần token hợp lệ.
+ */
 @RestController
 @RequestMapping("/me")
 @RequiredArgsConstructor
@@ -57,13 +59,17 @@ public class MeController {
         return new MfaStatus(totp.enabled(jwt.getSubject()));
     }
 
-    /** Bước 1: tạo secret mới; app authenticator quét {@code otpauthUri} (mã QR). */
+    /**
+     * Bước 1: tạo secret mới; app authenticator quét {@code otpauthUri} (mã QR).
+     */
     @PostMapping("/mfa/totp")
     public TotpService.Enrollment beginTotp(@AuthenticationPrincipal Jwt jwt) {
         return totp.begin(jwt.getSubject());
     }
 
-    /** Bước 2: nhập mã đầu tiên để bật. Lần đăng nhập sau sẽ hỏi mã. */
+    /**
+     * Bước 2: nhập mã đầu tiên để bật. Lần đăng nhập sau sẽ hỏi mã.
+     */
     @PostMapping("/mfa/totp/confirm")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void confirmTotp(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TotpCode body) {
@@ -91,7 +97,9 @@ public class MeController {
                                  @NotBlank @Size(min = 12, max = 128) String newPassword) {
     }
 
-    /** Quyền lấy từ token đang dùng (đúng với những gì resource server khác thấy). */
+    /**
+     * Quyền lấy từ token đang dùng (đúng với những gì resource server khác thấy).
+     */
     public record Me(String userId, String email, String displayName, String locale, String timeZone,
                      String tenantId, List<String> roles, List<String> permissions) {
 

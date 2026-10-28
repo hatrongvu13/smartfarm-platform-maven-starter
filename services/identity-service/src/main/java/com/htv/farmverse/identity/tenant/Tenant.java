@@ -10,14 +10,18 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** Một tổ chức dùng FarmVerse (ví dụ một công ty trang trại). Dữ liệu nghiệp vụ tách theo tenant. */
+/**
+ * Một tổ chức dùng FarmVerse (ví dụ một công ty trang trại). Dữ liệu nghiệp vụ tách theo tenant.
+ */
 @Getter
 @Entity
 @Table(name = "tenant")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Tenant extends BaseEntity {
 
-    /** Tenant của đội vận hành nền tảng; super admin thuộc tenant này. */
+    /**
+     * Tenant của đội vận hành nền tảng; super admin thuộc tenant này.
+     */
     public static final String PLATFORM_CODE = "platform";
 
     @Column(nullable = false, unique = true, length = 100)

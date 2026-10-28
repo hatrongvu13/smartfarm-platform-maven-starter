@@ -32,7 +32,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Người dùng trong tenant của token. Không thao tác được tenant khác. */
+/**
+ * Người dùng trong tenant của token. Không thao tác được tenant khác.
+ */
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor
@@ -82,7 +84,9 @@ public class UserController {
         users.unlock(tenant(jwt), userId);
     }
 
-    /** Người dùng mất thiết bị: xóa TOTP, lần sau đăng nhập chỉ cần mật khẩu. */
+    /**
+     * Người dùng mất thiết bị: xóa TOTP, lần sau đăng nhập chỉ cần mật khẩu.
+     */
     @PostMapping("/{userId}/mfa/reset")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize(Can.MANAGE_USERS)
@@ -95,7 +99,9 @@ public class UserController {
         return jwt.getClaimAsString(FarmVerseClaims.TENANT_ID);
     }
 
-    /** {@code password} chỉ cần khi email chưa có tài khoản. */
+    /**
+     * {@code password} chỉ cần khi email chưa có tài khoản.
+     */
     public record NewUser(@NotBlank @Email String email,
                           @NotBlank @Size(max = 150) String displayName,
                           @Size(min = 12, max = 128) String password,
