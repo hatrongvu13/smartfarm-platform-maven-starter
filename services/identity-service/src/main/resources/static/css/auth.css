@@ -1,0 +1,169 @@
+/*
+ * Giao diện trang đăng nhập và xác thực hai bước của identity.
+ * Một file CSS ngoài, không script, không font ngoài: chạy được khi sau này đặt CSP chặt (default-src 'self').
+ * Màu thương hiệu cùng bảng xanh lá của web (brand-600 #178a47, brand-700 #146c3a).
+ */
+:root {
+    color-scheme: light dark;
+    --bg: #f3f7f4;
+    --card: #ffffff;
+    --text: #14231a;
+    --muted: #4b5d52;
+    --border: #c5d3ca;
+    --brand: #146c3a;          /* chữ trắng trên nền này đạt tương phản khoảng 6,5:1 */
+    --brand-hover: #0f5a30;
+    --focus: #1d6fd6;
+    --danger-bg: #fdecea;
+    --danger-border: #e0a39d;
+    --danger-text: #7a1b13;
+    --info-bg: #eaf3ff;
+    --info-border: #9ec0ee;
+    --info-text: #123f7a;
+    --ok-bg: #e9f6ee;
+    --ok-border: #9fd0b2;
+    --ok-text: #0f4a28;
+    --shadow: 0 1px 2px rgb(20 35 26 / 8%), 0 8px 24px rgb(20 35 26 / 8%);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0e1712;
+        --card: #16231b;
+        --text: #e8f1ea;
+        --muted: #a9bbaf;
+        --border: #35493b;
+        --brand: #2fa862;      /* chữ #06140b trên nền này đạt tương phản 6:1 */
+        --brand-hover: #3bbd72;
+        --focus: #7db4ff;
+        --danger-bg: #3a1714;
+        --danger-border: #8a3a33;
+        --danger-text: #ffd4cf;
+        --info-bg: #14263f;
+        --info-border: #335a91;
+        --info-text: #cfe3ff;
+        --ok-bg: #12301f;
+        --ok-border: #2f6a47;
+        --ok-text: #cdeed9;
+        --shadow: none;
+    }
+    .button { color: #06140b; }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.card {
+    width: min(420px, 100%);
+    padding: 32px 28px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.brand-mark {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--brand);
+    color: #fff;
+    font-size: 22px;
+}
+
+h1 { margin: 0 0 4px; font-size: 22px; line-height: 1.3; }
+.lead { margin: 0 0 20px; color: var(--muted); font-size: 15px; }
+
+.alert {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid;
+    border-radius: 10px;
+    font-size: 15px;
+}
+.alert-error { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-text); }
+.alert-info { background: var(--info-bg); border-color: var(--info-border); color: var(--info-text); }
+.alert-ok { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok-text); }
+
+.field { margin-bottom: 16px; }
+label { display: block; margin-bottom: 6px; font-size: 15px; font-weight: 600; }
+.hint { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+input {
+    width: 100%;
+    min-height: 44px;                 /* vùng chạm tối thiểu */
+    padding: 10px 12px;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font: inherit;
+}
+input.code {
+    font-size: 22px;
+    letter-spacing: .25em;
+    text-align: center;
+    text-transform: uppercase;
+}
+input::placeholder { color: var(--muted); opacity: .8; }
+
+:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.button {
+    width: 100%;
+    min-height: 46px;
+    margin-top: 8px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--brand);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.button:hover { background: var(--brand-hover); }
+
+details { margin: 0 0 16px; }
+summary {
+    cursor: pointer;
+    padding: 8px 0;
+    color: var(--muted);
+    font-size: 15px;
+}
+details[open] > summary { margin-bottom: 8px; }
+
+.links { margin: 20px 0 0; text-align: center; font-size: 15px; }
+a { color: var(--brand); font-weight: 600; }
+@media (prefers-color-scheme: dark) { a { color: #6fd39a; } }
+
+@media (max-width: 380px) {
+    .card { padding: 24px 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+}

@@ -80,6 +80,26 @@ class LoginRateLimitFilterTest {
         assertThat(post("/login/totp", "10.0.0.1").getStatus()).isEqualTo(200);
     }
 
+    @Test
+    void browserFormIsRedirectedBackToThePageWithTheWaitTimeInsteadOfRawJson() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            post("/login", "10.0.0.1");
+        }
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login/totp");
+        request.setRemoteAddr("10.0.0.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        for (int i = 0; i < 3; i++) {
+            filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+        }
+        request.addHeader("Accept", "text/html,application/xhtml+xml");
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(response.getStatus()).isEqualTo(303);
+        assertThat(response.getHeader("Location")).isEqualTo("/login/totp?limited=60");
+        assertThat(response.getHeader("Retry-After")).isEqualTo("60");
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
     private MockHttpServletResponse filterGet(String path, String address) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
         request.setRemoteAddr(address);

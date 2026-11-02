@@ -1,30 +1,33 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Xác thực hai bước · FarmVerse</title>
-    <style>
-        :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-        body { display: grid; place-items: center; min-height: 100vh; margin: 0; background: Canvas; color: CanvasText; }
-        main { width: min(360px, 90vw); }
-        label { display: block; margin: 12px 0 4px; font-size: 14px; }
-        input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 22px; letter-spacing: .3em; text-align: center; }
-        button { width: 100%; margin-top: 20px; padding: 12px; font-size: 16px; cursor: pointer; }
-        .error { padding: 10px; border: 1px solid currentColor; border-radius: 6px; }
-    </style>
-</head>
+<head th:replace="~{fragments/auth :: head('Xác thực hai bước')}"></head>
 <body>
-<main>
+<main class="card">
+    <div th:replace="~{fragments/auth :: brand}"></div>
+
     <h1>Xác thực hai bước</h1>
-    <p>Nhập mã 6 số trong ứng dụng authenticator. Mất điện thoại thì nhập một mã khôi phục (mỗi mã dùng được một lần).</p>
-    <p class="error" role="alert" th:if="${param.error != null}">Mã không đúng hoặc đã dùng. Thử mã mới.</p>
+    <p class="lead">Nhập mã 6 số trong ứng dụng authenticator.</p>
+
+    <p id="totp-message" class="alert alert-error" role="alert" th:if="${param.error != null}">
+        Mã không đúng hoặc đã dùng. Hãy thử mã mới.
+    </p>
+    <p id="totp-message" class="alert alert-error" role="alert" th:if="${limited != null}"
+       th:text="${limited}">Thử quá nhiều lần. Hãy đợi rồi thử lại.</p>
+
     <form method="post" th:action="@{/login/totp}">
-        <label for="code">Mã xác thực hoặc mã khôi phục</label>
-        <input id="code" name="code" maxlength="12" autocomplete="one-time-code"
-               autocapitalize="characters" spellcheck="false" required autofocus>
-        <button type="submit">Xác nhận</button>
+        <div class="field">
+            <label for="code">Mã xác thực hoặc mã khôi phục</label>
+            <input id="code" name="code" class="code" maxlength="12" autocomplete="one-time-code"
+                   autocapitalize="characters" spellcheck="false" inputmode="text" required autofocus
+                   th:aria-describedby="${hasMessage} ? 'totp-message code-hint' : 'code-hint'">
+            <p id="code-hint" class="hint">
+                Mất điện thoại? Nhập một mã khôi phục. Mỗi mã chỉ dùng được một lần.
+            </p>
+        </div>
+        <button class="button" type="submit">Xác nhận</button>
     </form>
+
+    <p class="links"><a th:href="@{/login}">Quay lại đăng nhập</a></p>
 </main>
 </body>
 </html>

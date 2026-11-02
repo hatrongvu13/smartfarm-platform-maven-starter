@@ -1,0 +1,17 @@
+<!doctype html>
+<!--/* Phần dùng chung của trang đăng nhập: <head> và thương hiệu. Dùng bằng th:replace. */-->
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title th:text="${title} + ' · FarmVerse'">FarmVerse</title>
+    <link rel="stylesheet" th:href="@{/css/auth.css}">
+</head>
+<body>
+<div class="brand" th:fragment="brand">
+    <span class="brand-mark" aria-hidden="true">✿</span>
+    <span>FarmVerse</span>
+</div>
+</body>
+</html>

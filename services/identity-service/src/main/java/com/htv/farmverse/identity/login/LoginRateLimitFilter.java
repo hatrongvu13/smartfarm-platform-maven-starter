@@ -25,6 +25,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public final class LoginRateLimitFilter extends OncePerRequestFilter {
 
+    /** Tham số trên URL trang đăng nhập: số giây còn phải đợi. */
+    public static final String LIMITED_PARAM = "limited";
+
     private static final int MAX_TRACKED_ADDRESSES = 10_000;
 
     private final int maxAttempts;
@@ -61,11 +64,24 @@ public final class LoginRateLimitFilter extends OncePerRequestFilter {
         if (window.count() > maxAttempts) {
             long retryAfterSeconds = Math.max(1, (window.resetAt() - now + 999) / 1000);
             response.setHeader("Retry-After", Long.toString(retryAfterSeconds));
+            if (isBrowserForm(request)) {
+                // Form HTML: đưa người dùng về lại trang kèm thông báo thay vì hiện JSON thô.
+                String page = request.getRequestURI().substring(request.getContextPath().length());
+                response.setStatus(HttpServletResponse.SC_SEE_OTHER);
+                response.setHeader("Location", request.getContextPath() + page + "?" + LIMITED_PARAM + "=" + retryAfterSeconds);
+                return;
+            }
             ProblemResponses.write(response, 429, "Too Many Requests", ProblemResponses.TOO_MANY_REQUESTS,
                     "Thử đăng nhập quá nhiều lần, hãy đợi rồi thử lại");
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    /** Trình duyệt gửi form: header Accept có text/html. Client API (JSON) vẫn nhận 429 ProblemDetail. */
+    private static boolean isBrowserForm(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        return accept != null && accept.contains("text/html");
     }
 
     private record Window(long resetAt, int count) {

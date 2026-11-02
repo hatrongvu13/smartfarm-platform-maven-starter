@@ -1,44 +1,49 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Đăng nhập · FarmVerse</title>
-    <style>
-        :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-        body { display: grid; place-items: center; min-height: 100vh; margin: 0; background: Canvas; color: CanvasText; }
-        main { width: min(360px, 90vw); }
-        label { display: block; margin: 12px 0 4px; font-size: 14px; }
-        input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; }
-        button { width: 100%; margin-top: 20px; padding: 12px; font-size: 16px; cursor: pointer; }
-        .error { padding: 10px; border: 1px solid currentColor; border-radius: 6px; }
-        .hint { font-size: 13px; opacity: .75; }
-    </style>
-</head>
+<head th:replace="~{fragments/auth :: head('Đăng nhập')}"></head>
 <body>
-<main>
-    <h1>FarmVerse</h1>
+<main class="card">
+    <div th:replace="~{fragments/auth :: brand}"></div>
 
-    <p class="error" role="alert" th:if="${param.error != null and tenantRequired}">
-        Tài khoản thuộc nhiều tổ chức. Nhập mã tổ chức (tenant) rồi đăng nhập lại.
+    <h1>Đăng nhập</h1>
+    <p class="lead">Dùng tài khoản FarmVerse của bạn để tiếp tục.</p>
+
+    <p id="login-message" class="alert alert-error" role="alert" th:if="${param.error != null and tenantRequired}">
+        Tài khoản này thuộc nhiều tổ chức. Nhập mã tổ chức bên dưới rồi đăng nhập lại.
     </p>
-    <p class="error" role="alert" th:if="${param.error != null and !tenantRequired}">
-        Email hoặc mật khẩu không đúng, hoặc tài khoản đang bị khóa.
+    <p id="login-message" class="alert alert-error" role="alert" th:if="${param.error != null and !tenantRequired}">
+        Email hoặc mật khẩu không đúng, hoặc tài khoản đang bị khóa tạm.
     </p>
-    <p role="status" th:if="${param.logout != null}">Đã đăng xuất.</p>
+    <p id="login-message" class="alert alert-error" role="alert" th:if="${limited != null}"
+       th:text="${limited}">Thử đăng nhập quá nhiều lần. Hãy đợi rồi thử lại.</p>
+    <p class="alert alert-ok" role="status" th:if="${param.logout != null}">Bạn đã đăng xuất.</p>
 
     <form method="post" th:action="@{/login}">
-        <label for="username">Email</label>
-        <input id="username" name="username" type="email" autocomplete="username" required autofocus>
+        <div class="field">
+            <label for="username">Email</label>
+            <input id="username" name="username" type="email" autocomplete="username" required autofocus
+                   inputmode="email" autocapitalize="none" spellcheck="false"
+                   th:aria-describedby="${hasMessage} ? 'login-message'">
+        </div>
 
-        <label for="password">Mật khẩu</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <div class="field">
+            <label for="password">Mật khẩu</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required
+                   th:aria-describedby="${hasMessage} ? 'login-message'">
+        </div>
 
-        <label for="tenant">Mã tổ chức (tenant)</label>
-        <input id="tenant" name="tenant" autocomplete="organization" th:required="${tenantRequired}">
-        <p class="hint">Bỏ trống nếu bạn chỉ thuộc một tổ chức.</p>
+        <!--/* Chỉ cần khi một email thuộc nhiều tổ chức. Mở sẵn khi server báo cần chọn. */-->
+        <details th:open="${tenantRequired}">
+            <summary>Tôi thuộc nhiều tổ chức</summary>
+            <div class="field">
+                <label for="tenant">Mã tổ chức</label>
+                <input id="tenant" name="tenant" autocomplete="organization" autocapitalize="none" spellcheck="false"
+                       aria-describedby="tenant-hint" th:required="${tenantRequired}">
+                <p id="tenant-hint" class="hint">Bỏ trống nếu bạn chỉ thuộc một tổ chức.</p>
+            </div>
+        </details>
 
-        <button type="submit">Đăng nhập</button>
+        <button class="button" type="submit">Đăng nhập</button>
     </form>
 </main>
 </body>

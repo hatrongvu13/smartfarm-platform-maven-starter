@@ -102,6 +102,8 @@ public class SecurityConfiguration {
                 .addFilterBefore(TotpLogin.filter(totp), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/login", "/error", "/actuator/health", "/actuator/health/**").permitAll()
+                        // CSS của trang đăng nhập: người chưa đăng nhập cũng phải tải được
+                        .requestMatchers("/css/**").permitAll()
                         // Tài liệu OpenAPI: endpoint chỉ tồn tại khi springdoc.*.enabled=true (dev). Prod tắt nên là 404.
                         .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .anyRequest().authenticated())
