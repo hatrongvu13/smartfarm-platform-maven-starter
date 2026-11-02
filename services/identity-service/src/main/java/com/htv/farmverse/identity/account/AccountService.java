@@ -1,7 +1,9 @@
 package com.htv.farmverse.identity.account;
 
 import java.time.Clock;
+import java.time.Instant;
 
+import com.htv.farmverse.identity.audit.SecurityAudit;
 import com.htv.farmverse.identity.config.IdentityProperties;
 import com.htv.farmverse.identity.shared.IdentityErrors;
 import com.htv.farmverse.service.web.ApiProblem;
@@ -66,14 +68,23 @@ public class AccountService {
     /** Gọi khi sai mã TOTP: dùng chung bộ đếm khóa tạm với sai mật khẩu. */
     @Transactional
     public void recordFactorFailure(String userId) {
-        accounts.findById(userId).ifPresent(account -> account.loginFailed(
-                clock.instant(), properties.lockout().maxFailures(), properties.lockout().duration()));
+        accounts.findById(userId).ifPresent(this::failed);
     }
 
     /** Gọi khi sai mật khẩu; email không tồn tại thì bỏ qua (không lộ thông tin). */
     @Transactional
     public void recordLoginFailure(String email) {
-        accounts.findByNormalizedEmail(UserAccount.normalize(email)).ifPresent(account -> account.loginFailed(
-                clock.instant(), properties.lockout().maxFailures(), properties.lockout().duration()));
+        accounts.findByNormalizedEmail(UserAccount.normalize(email)).ifPresent(this::failed);
+    }
+
+    /** Đếm lần sai. Ghi nhật ký đúng lúc tài khoản chuyển từ mở sang bị khóa, không ghi lại ở các lần sai sau. */
+    private void failed(UserAccount account) {
+        Instant now = clock.instant();
+        boolean wasLocked = account.isLocked(now);
+        account.loginFailed(now, properties.lockout().maxFailures(), properties.lockout().duration());
+        if (!wasLocked && account.isLocked(now)) {
+            SecurityAudit.warn("account.locked", "actor", "system", "target", account.getId(),
+                    "duration", properties.lockout().duration());
+        }
     }
 }

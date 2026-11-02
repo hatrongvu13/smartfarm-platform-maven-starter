@@ -1,6 +1,7 @@
 package com.htv.farmverse.farm.config;
 
 import com.htv.farmverse.service.security.FarmVerseJwtAuthenticationConverter;
+import com.htv.farmverse.service.web.ProblemResponses;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,8 +25,11 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(resource -> resource.jwt(jwt ->
-                        jwt.jwtAuthenticationConverter(new FarmVerseJwtAuthenticationConverter())));
+                .oauth2ResourceServer(resource -> resource
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(new FarmVerseJwtAuthenticationConverter()))
+                        // 401 và 403 trả ProblemDetail có field code, giống lỗi nghiệp vụ
+                        .authenticationEntryPoint(ProblemResponses.unauthorized())
+                        .accessDeniedHandler(ProblemResponses.forbidden()));
         return http.build();
     }
 }

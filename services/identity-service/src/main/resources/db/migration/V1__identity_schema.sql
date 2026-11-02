@@ -86,3 +86,14 @@ CREATE TABLE user_totp (
     updated_at       timestamptz   NOT NULL,
     version          bigint        NOT NULL DEFAULT 0
 );
+
+-- Mã khôi phục 2FA: dùng một lần, chỉ lưu bản băm (BCrypt qua PasswordEncoder). used_at null = còn dùng được.
+CREATE TABLE user_recovery_code (
+    id          varchar(36)   PRIMARY KEY,
+    user_id     varchar(36)   NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
+    code_hash   varchar(100)  NOT NULL,
+    used_at     timestamptz,
+    created_at  timestamptz   NOT NULL,
+    version     bigint        NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_user_recovery_code_user ON user_recovery_code(user_id);

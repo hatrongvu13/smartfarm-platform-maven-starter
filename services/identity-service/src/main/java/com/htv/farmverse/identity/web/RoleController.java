@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Role của tenant (theo token) và danh mục permission của nền tảng.
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Role và permission", description = "Role của tenant và danh mục permission của nền tảng")
 @RestController
 @RequiredArgsConstructor
 public class RoleController {

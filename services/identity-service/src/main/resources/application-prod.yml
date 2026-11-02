@@ -11,6 +11,12 @@ server:
       cookie:
         secure: true
 
+# Log JSON (ECS): nhật ký bảo mật SECURITY_AUDIT có field riêng cho từng cặp key/value.
+logging:
+  structured:
+    format:
+      console: ecs
+
 farmverse:
   identity:
     issuer: ${IDENTITY_ISSUER}

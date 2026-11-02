@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.htv.farmverse.identity.audit.SecurityAudit;
 import com.htv.farmverse.identity.authorization.Permission;
 import com.htv.farmverse.identity.authorization.PermissionRepository;
 import com.htv.farmverse.identity.authorization.Role;
@@ -54,6 +55,7 @@ public class TenantAdministrationService {
                 .collect(Collectors.toSet());
         admin.replacePermissions(adminPermissions);
         roles.save(admin);
+        SecurityAudit.warn("tenant.created", "tenantCode", code);
         return tenant;
     }
 }

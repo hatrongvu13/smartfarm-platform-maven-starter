@@ -1,5 +1,6 @@
 package com.htv.farmverse.identity.oauth2;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.htv.farmverse.identity.authorization.AccessService;
@@ -49,7 +50,7 @@ public class FarmVerseTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodi
 
         if (OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
             context.getClaims()
-                    .audience(List.of(FarmVerseClaims.API_AUDIENCE))
+                    .audience(mutable(List.of(FarmVerseClaims.API_AUDIENCE)))
                     .claim(FarmVerseClaims.TOKEN_TYPE, clientCredentials ? "service" : "user");
             if (!clientCredentials) {
                 AccessService.TenantAccess grant = grantFor(context);
@@ -57,8 +58,8 @@ public class FarmVerseTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodi
                         .subject(grant.userId())
                         .claim(FarmVerseClaims.TENANT_ID, grant.tenantId())
                         .claim(FarmVerseClaims.MEMBERSHIP_ID, grant.membershipId())
-                        .claim(FarmVerseClaims.ROLES, grant.roles())
-                        .claim(FarmVerseClaims.PERMISSIONS, grant.permissions());
+                        .claim(FarmVerseClaims.ROLES, mutable(grant.roles()))
+                        .claim(FarmVerseClaims.PERMISSIONS, mutable(grant.permissions()));
             }
             return;
         }
@@ -76,5 +77,14 @@ public class FarmVerseTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodi
                 claims.claim("name", grant.displayName());
             }
         }
+    }
+
+    /**
+     * Claim dạng danh sách phải là {@link ArrayList}. SAS lưu claim vào cột JSON của {@code oauth2_authorization}
+     * kèm tên kiểu Java; Jackson chỉ cho đọc lại các kiểu trong danh sách cho phép. {@code List.of(...)} và
+     * {@code Stream.toList()} cho {@code ImmutableCollections$List12} bị từ chối, làm refresh token lỗi.
+     */
+    private static <T> List<T> mutable(java.util.Collection<T> values) {
+        return new ArrayList<>(values);
     }
 }

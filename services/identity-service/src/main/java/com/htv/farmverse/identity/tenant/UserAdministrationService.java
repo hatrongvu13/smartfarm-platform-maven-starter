@@ -1,11 +1,14 @@
 package com.htv.farmverse.identity.tenant;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Set;
 
 import com.htv.farmverse.identity.account.AccountService;
 import com.htv.farmverse.identity.account.UserAccount;
 import com.htv.farmverse.identity.account.UserAccountRepository;
+import com.htv.farmverse.identity.audit.SecurityAudit;
+import com.htv.farmverse.identity.authorization.Role;
 import com.htv.farmverse.identity.authorization.RoleAdministrationService;
 import com.htv.farmverse.identity.shared.IdentityErrors;
 import com.htv.farmverse.service.web.ApiProblem;
@@ -59,7 +62,9 @@ public class UserAdministrationService {
         }
         Membership membership = new Membership(tenants.getReferenceById(tenantId), account);
         membership.replaceRoles(roles.resolveRoles(tenantId, roleCodes));
-        return view(memberships.save(membership));
+        UserView saved = view(memberships.save(membership));
+        SecurityAudit.info("user.added", "tenant", tenantId, "target", account.getId(), "roles", sorted(roleCodes));
+        return saved;
     }
 
     @Transactional
@@ -68,14 +73,19 @@ public class UserAdministrationService {
             throw ApiProblem.badRequest(IdentityErrors.SELF_LOCKOUT, "Không tự khóa chính mình");
         }
         Membership membership = membership(tenantId, userId);
+        MembershipStatus before = membership.getStatus();
         membership.changeStatus(status);
+        SecurityAudit.warn("user.status.changed", "tenant", tenantId, "target", userId, "from", before, "to", status);
         return view(membership);
     }
 
     @Transactional
     public UserView replaceRoles(String tenantId, String userId, Set<String> roleCodes) {
         Membership membership = membership(tenantId, userId);
+        List<String> before = membership.getRoles().stream().map(Role::getCode).sorted().toList();
         membership.replaceRoles(roles.resolveRoles(tenantId, roleCodes));
+        SecurityAudit.warn("user.roles.replaced", "tenant", tenantId, "target", userId,
+                "from", before, "to", sorted(roleCodes));
         return view(membership);
     }
 
@@ -83,6 +93,11 @@ public class UserAdministrationService {
     public void unlock(String tenantId, String userId) {
         membership(tenantId, userId); // chỉ mở khóa người thuộc tenant mình
         accountService.unlock(userId);
+        SecurityAudit.info("account.unlocked", "tenant", tenantId, "target", userId);
+    }
+
+    private static List<String> sorted(Set<String> codes) {
+        return codes.stream().sorted().toList();
     }
 
     private Membership membership(String tenantId, String userId) {

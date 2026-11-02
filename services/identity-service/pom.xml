@@ -59,6 +59,11 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
+        <!-- Tài liệu OpenAPI + Swagger UI cho REST quản trị. Chỉ bật ở dev (springdoc.*.enabled), prod tắt. -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
         <!-- Base32 cho secret TOTP -->
         <dependency>
             <groupId>commons-codec</groupId>

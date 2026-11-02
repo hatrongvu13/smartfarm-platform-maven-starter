@@ -30,6 +30,12 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
         </dependency>
+        <!-- ProblemExceptionHandler. provided: gateway (WebFlux) và service khác không bị kéo theo stack servlet -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- SslBundle (mTLS) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Người dùng trong tenant của token. Không thao tác được tenant khác.
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Người dùng", description = "Người dùng trong tenant của token: thêm, gán role, đổi trạng thái, mở khóa, reset 2FA")
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor

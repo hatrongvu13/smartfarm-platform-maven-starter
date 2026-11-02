@@ -52,6 +52,27 @@ class FarmControllerTest {
     }
 
     @Test
+    void securityErrorsAreProblemDetailWithCode() throws Exception {
+        mvc.perform(get("/farms"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("SF-AUTH-001"));
+        mvc.perform(get("/farms").with(jwt()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("SF-AUTH-002"));
+    }
+
+    @Test
+    void invalidBodyIsProblemDetail400WithFieldErrors() throws Exception {
+        mvc.perform(post("/farms").with(jwt().authorities(can("farm:farm:write")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"\",\"name\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SF-VALIDATION-001"))
+                .andExpect(jsonPath("$.errors[?(@.field=='code')]").exists())
+                .andExpect(jsonPath("$.errors[?(@.field=='name')]").exists());
+    }
+
+    @Test
     void domainRuleBecomesProblemDetail422() throws Exception {
         given(farms.addBarn(any(), any(), any(), anyInt()))
                 .willThrow(new FarmRuleViolation("SF-FARM-007", "Mã chuồng B-1 đã có trong farm"));

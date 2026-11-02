@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Tenant (tổ chức). Chỉ đội nền tảng.
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Tenant", description = "Tổ chức. Chỉ đội nền tảng")
 @RestController
 @RequestMapping("/tenants")
 @RequiredArgsConstructor

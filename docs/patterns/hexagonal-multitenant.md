@@ -20,4 +20,4 @@ Vì sao có interface `FarmRepository` (port)? Domain/use case không phụ thu�
 Đây là chỗ hiếm hoi trong dự án interface một cài đặt có lý do: ranh giới hexagonal là thứ đang học.
 
 Bằng chứng: `FarmTest` (luật aggregate), `TenantIsolationTest` (tenant B không đọc được farm của tenant A),
-`FarmControllerTest` (401/403, lỗi luật → ProblemDetail 422).
+`FarmControllerTest` (401/403 → ProblemDetail `SF-AUTH-001/002`, body sai → 400 `SF-VALIDATION-001`, lỗi luật → 422).

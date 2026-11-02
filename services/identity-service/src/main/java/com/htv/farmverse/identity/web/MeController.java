@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Hồ sơ của chính người đang đăng nhập. Chỉ cần token hợp lệ.
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Hồ sơ cá nhân", description = "Hồ sơ, mật khẩu, TOTP và mã khôi phục của chính người đang đăng nhập")
 @RestController
 @RequestMapping("/me")
 @RequiredArgsConstructor
@@ -56,7 +57,8 @@ public class MeController {
 
     @GetMapping("/mfa")
     public MfaStatus mfa(@AuthenticationPrincipal Jwt jwt) {
-        return new MfaStatus(totp.enabled(jwt.getSubject()));
+        boolean enabled = totp.enabled(jwt.getSubject());
+        return new MfaStatus(enabled, enabled ? totp.recoveryCodesRemaining(jwt.getSubject()) : 0);
     }
 
     /**
@@ -68,12 +70,19 @@ public class MeController {
     }
 
     /**
-     * Bước 2: nhập mã đầu tiên để bật. Lần đăng nhập sau sẽ hỏi mã.
+     * Bước 2: nhập mã đầu tiên để bật. Trả bộ mã khôi phục, chỉ hiện đúng một lần.
      */
     @PostMapping("/mfa/totp/confirm")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void confirmTotp(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TotpCode body) {
-        totp.confirm(jwt.getSubject(), body.code());
+    public RecoveryCodes confirmTotp(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TotpCode body) {
+        return new RecoveryCodes(totp.confirm(jwt.getSubject(), body.code()));
+    }
+
+    /**
+     * Sinh lại bộ mã khôi phục (bộ cũ mất hiệu lực). Cần mã TOTP hiện tại.
+     */
+    @PostMapping("/mfa/recovery-codes")
+    public RecoveryCodes regenerateRecoveryCodes(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TotpCode body) {
+        return new RecoveryCodes(totp.regenerateRecoveryCodes(jwt.getSubject(), body.code()));
     }
 
     @DeleteMapping("/mfa/totp")
@@ -85,7 +94,10 @@ public class MeController {
     public record TotpCode(@NotBlank @jakarta.validation.constraints.Pattern(regexp = "\\d{6}") String code) {
     }
 
-    public record MfaStatus(boolean totpEnabled) {
+    public record RecoveryCodes(List<String> codes) {
+    }
+
+    public record MfaStatus(boolean totpEnabled, long recoveryCodesRemaining) {
     }
 
     public record ProfileUpdate(@Size(min = 1, max = 150) String displayName,

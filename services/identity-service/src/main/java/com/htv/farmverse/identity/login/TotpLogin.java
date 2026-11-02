@@ -108,7 +108,7 @@ public final class TotpLogin {
         public Authentication authenticate(Authentication authentication) {
             String membershipId = authentication.getName();
             String userId = totp.userIdOfMembership(membershipId);
-            if (userId == null || !totp.verify(userId, String.valueOf(authentication.getCredentials()))) {
+            if (userId == null || !totp.verifyLogin(userId, String.valueOf(authentication.getCredentials()))) {
                 throw new BadCredentialsException("Invalid TOTP code");
             }
             GrantedAuthority factor = FactorGrantedAuthority.withFactor(FACTOR).build();

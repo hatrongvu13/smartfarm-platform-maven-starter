@@ -17,12 +17,12 @@
 <body>
 <main>
     <h1>Xác thực hai bước</h1>
-    <p>Nhập mã 6 số trong ứng dụng authenticator.</p>
+    <p>Nhập mã 6 số trong ứng dụng authenticator. Mất điện thoại thì nhập một mã khôi phục (mỗi mã dùng được một lần).</p>
     <p class="error" role="alert" th:if="${param.error != null}">Mã không đúng hoặc đã dùng. Thử mã mới.</p>
     <form method="post" th:action="@{/login/totp}">
-        <label for="code">Mã xác thực</label>
-        <input id="code" name="code" inputmode="numeric" pattern="\d{6}" maxlength="6"
-               autocomplete="one-time-code" required autofocus>
+        <label for="code">Mã xác thực hoặc mã khôi phục</label>
+        <input id="code" name="code" maxlength="12" autocomplete="one-time-code"
+               autocapitalize="characters" spellcheck="false" required autofocus>
         <button type="submit">Xác nhận</button>
     </form>
 </main>

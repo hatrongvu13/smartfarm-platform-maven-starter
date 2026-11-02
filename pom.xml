@@ -3,15 +3,6 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!--
-      FarmVerse — hệ sinh thái học Microservices. Thiết kế: content/thiet-ke-farmverse-msa.md
-
-      POM này vừa là parent (mọi module kế thừa) vừa là aggregator (khai mọi module).
-      Version thư viện do BOM quản:
-        - Spring Boot 4.1.2 (spring-boot-dependencies): Security, SAS, Session, Testcontainers...
-        - Spring Cloud 2025.1.4: Gateway, CircuitBreaker.
-      Không ghim version tay cho thứ BOM đã quản.
-    -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -37,8 +28,8 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-cloud.version>2025.1.4</spring-cloud.version>
-        <!-- Ngoài Boot BOM: springdoc 3.x cho Spring Boot 4. -->
-        <springdoc.version>3.1.1</springdoc.version>
+        <!-- Không nằm trong Boot BOM. 3.2.0 xây trên Boot 4.1.2 (pom cha của springdoc 3.2.0 khai 4.1.2). -->
+        <springdoc.version>3.2.0</springdoc.version>
     </properties>
 
     <dependencyManagement>
@@ -49,6 +40,12 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
             </dependency>
 
             <!-- Module nội bộ: quản ở đây để module con không ghi version -->

@@ -8,4 +8,6 @@
 | [Hexagonal + multi-tenant](patterns/hexagonal-multitenant.md) | farm-service |
 | [mTLS giữa service](patterns/mtls.md) | SSL bundles, SPIFFE SAN, hai lớp kiểm |
 | [Chạy trên máy](operations/local-development.md) | thứ tự khởi động, biến môi trường |
+| [Identity: OpenAPI và dạng lỗi](operations/identity-api.md) | Swagger UI ở dev, mã lỗi `SF-*` |
+| [Xoay khóa ký JWT](operations/key-rotation.md) | quy trình xoay khóa, khóa nghỉ |
 | [Scripts](../scripts/README.md) | script tiện ích |

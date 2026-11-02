@@ -4,6 +4,7 @@ import java.time.Clock;
 
 import com.htv.farmverse.identity.account.AccountService;
 import com.htv.farmverse.identity.login.AccountUserDetailsService;
+import com.htv.farmverse.identity.login.LoginRateLimitFilter;
 import com.htv.farmverse.identity.login.TenantAuthenticationProvider;
 import com.htv.farmverse.identity.login.TenantLoginDetails;
 import com.htv.farmverse.identity.login.TotpEnforcementFilter;
@@ -11,7 +12,9 @@ import com.htv.farmverse.identity.login.TotpLogin;
 import com.htv.farmverse.identity.mfa.TotpService;
 import com.htv.farmverse.identity.tenant.MembershipRepository;
 import com.htv.farmverse.service.security.FarmVerseJwtAuthenticationConverter;
+import com.htv.farmverse.service.web.ProblemResponses;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -21,6 +24,8 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.authorization.AuthorizationEventPublisher;
+import org.springframework.security.authorization.SpringAuthorizationEventPublisher;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -76,20 +81,29 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(csrf -> csrf.disable()) // chỉ nhận Bearer token, không dùng cookie
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
-                .oauth2ResourceServer(resource -> resource.jwt(jwt ->
-                        jwt.jwtAuthenticationConverter(new FarmVerseJwtAuthenticationConverter())));
+                .oauth2ResourceServer(resource -> resource
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(new FarmVerseJwtAuthenticationConverter()))
+                        // 401 và 403 trả ProblemDetail có field code, giống lỗi nghiệp vụ
+                        .authenticationEntryPoint(ProblemResponses.unauthorized())
+                        .accessDeniedHandler(ProblemResponses.forbidden()));
         return http.build();
     }
 
     @Bean
     @Order(3)
     SecurityFilterChain loginChain(HttpSecurity http, TenantAuthenticationProvider tenantAuthentication,
-                                   TotpService totp) throws Exception {
+                                   TotpService totp, IdentityProperties properties, Clock clock) throws Exception {
+        IdentityProperties.RateLimit rateLimit = properties.rateLimit();
         http.authenticationProvider(tenantAuthentication)
+                // Giới hạn thử đăng nhập theo IP, đứng trước mọi filter xác thực
+                .addFilterBefore(new LoginRateLimitFilter(rateLimit.maxAttempts(), rateLimit.window(), clock),
+                        SecurityContextHolderFilter.class)
                 // POST /login/totp: yếu tố thứ hai, gộp FACTOR_TOTP vào phiên đã đăng nhập bằng mật khẩu
                 .addFilterBefore(TotpLogin.filter(totp), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/login", "/error", "/actuator/health", "/actuator/health/**").permitAll()
+                        // Tài liệu OpenAPI: endpoint chỉ tồn tại khi springdoc.*.enabled=true (dev). Prod tắt nên là 404.
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")
@@ -115,6 +129,12 @@ public class SecurityConfiguration {
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    /** Phát {@code AuthorizationDeniedEvent} khi {@code @PreAuthorize} từ chối, để nhật ký bảo mật ghi lại. */
+    @Bean
+    AuthorizationEventPublisher authorizationEventPublisher(ApplicationEventPublisher publisher) {
+        return new SpringAuthorizationEventPublisher(publisher);
     }
 
     // ---- Lưu trạng thái Spring Authorization Server trong PostgreSQL ----

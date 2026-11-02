@@ -33,6 +33,13 @@ management:
       probes:
         enabled: true
 
+# Tài liệu OpenAPI + Swagger UI: mặc định TẮT (prod). application-dev.yml bật.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 farmverse:
   identity:
     issuer: ${IDENTITY_ISSUER:http://localhost:8092}
@@ -40,6 +47,10 @@ farmverse:
       key-id: ${IDENTITY_KEY_ID:dev-key-1}
       private-key: ${IDENTITY_PRIVATE_KEY_PATH:classpath:.local/identity-private.pem}
       public-key: ${IDENTITY_PUBLIC_KEY_PATH:classpath:.local/identity-public.pem}
+      # Khóa đã nghỉ (xoay khóa): chỉ công bố khóa công khai ở JWKS, không ký nữa.
+      # Khai bằng biến môi trường FARMVERSE_IDENTITY_SIGNINGKEY_RETIRED_0_KEYID / _PUBLICKEY.
+      # Xem docs/operations/key-rotation.md.
+      retired: []
     mfa:
       issuer: FarmVerse
       encryption-password: ${IDENTITY_MFA_ENCRYPTION_PASSWORD}

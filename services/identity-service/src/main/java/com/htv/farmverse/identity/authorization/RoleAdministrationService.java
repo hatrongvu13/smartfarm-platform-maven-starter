@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.htv.farmverse.identity.audit.SecurityAudit;
 import com.htv.farmverse.identity.shared.IdentityErrors;
 import com.htv.farmverse.identity.tenant.Tenant;
 import com.htv.farmverse.identity.tenant.TenantRepository;
@@ -45,23 +46,34 @@ public class RoleAdministrationService {
         Tenant tenant = tenants.getReferenceById(tenantId);
         Role role = new Role(tenant, code, name, description, false);
         role.replacePermissions(resolvePermissions(permissionCodes));
-        return roles.save(role);
+        Role saved = roles.save(role);
+        SecurityAudit.warn("role.created", "tenant", tenantId, "role", code, "permissions", codesOf(saved));
+        return saved;
     }
 
     @Transactional
     public Role updateRole(String tenantId, String code, String name, String description, Collection<String> permissionCodes) {
         Role role = editable(tenantId, code);
+        List<String> before = codesOf(role);
         role.rename(name, description);
         if (permissionCodes != null) {
             role.replacePermissions(resolvePermissions(permissionCodes));
         }
+        SecurityAudit.warn("role.updated", "tenant", tenantId, "role", code,
+                "permissionsFrom", before, "permissionsTo", codesOf(role));
         return role;
     }
 
     @Transactional
     public void deleteRole(String tenantId, String code) {
         Role role = editable(tenantId, code);
+        List<String> permissionCodes = codesOf(role);
         roles.delete(role); // membership_role xóa theo ON DELETE CASCADE
+        SecurityAudit.warn("role.deleted", "tenant", tenantId, "role", code, "permissions", permissionCodes);
+    }
+
+    private static List<String> codesOf(Role role) {
+        return role.getPermissions().stream().map(Permission::getCode).sorted().toList();
     }
 
     /** Lấy role theo mã trong tenant; mã nào không có thì báo lỗi. */
@@ -95,13 +107,16 @@ public class RoleAdministrationService {
         if (permissions.existsById(code)) {
             throw ApiProblem.conflict(IdentityErrors.PERMISSION_EXISTS, "Permission " + code + " đã có");
         }
-        return permissions.save(new Permission(code, resourceType, action, description, false));
+        Permission saved = permissions.save(new Permission(code, resourceType, action, description, false));
+        SecurityAudit.warn("permission.created", "permission", code);
+        return saved;
     }
 
     @Transactional
     public Permission updatePermission(String code, String description) {
         Permission permission = editablePermission(code);
         permission.describe(description);
+        SecurityAudit.info("permission.updated", "permission", code);
         return permission;
     }
 
@@ -112,6 +127,7 @@ public class RoleAdministrationService {
             throw ApiProblem.conflict(IdentityErrors.PERMISSION_IN_USE, "Permission đang được role dùng");
         }
         permissions.delete(permission);
+        SecurityAudit.warn("permission.deleted", "permission", code);
     }
 
     private Permission editablePermission(String code) {

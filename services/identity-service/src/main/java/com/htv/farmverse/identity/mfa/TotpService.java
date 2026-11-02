@@ -1,8 +1,10 @@
 package com.htv.farmverse.identity.mfa;
 
 import java.time.Clock;
+import java.util.List;
 
 import com.htv.farmverse.identity.account.AccountService;
+import com.htv.farmverse.identity.audit.SecurityAudit;
 import com.htv.farmverse.identity.config.IdentityProperties;
 import com.htv.farmverse.identity.tenant.MembershipRepository;
 import com.htv.farmverse.service.web.ApiProblem;
@@ -24,15 +26,17 @@ public class TotpService {
     public static final String ALREADY_ENABLED = "SF-IDENTITY-022";
 
     private final UserTotpRepository totps;
+    private final RecoveryCodeService recoveryCodes;
     private final MembershipRepository memberships;
     private final AccountService accounts;
     private final TextEncryptor encryptor;
     private final String issuer;
     private final Clock clock;
 
-    public TotpService(UserTotpRepository totps, MembershipRepository memberships, AccountService accounts,
-                       IdentityProperties properties, Clock clock) {
+    public TotpService(UserTotpRepository totps, RecoveryCodeService recoveryCodes, MembershipRepository memberships,
+                       AccountService accounts, IdentityProperties properties, Clock clock) {
         this.totps = totps;
+        this.recoveryCodes = recoveryCodes;
         this.memberships = memberships;
         this.accounts = accounts;
         IdentityProperties.Mfa mfa = properties.mfa();
@@ -69,9 +73,9 @@ public class TotpService {
         return new Enrollment(secret, TotpCodes.otpauthUri(issuer, account, secret));
     }
 
-    /** Bước 2 đăng ký: nhập đúng mã đầu tiên thì bật. */
+    /** Bước 2 đăng ký: nhập đúng mã đầu tiên thì bật. Trả bộ mã khôi phục, chỉ hiện lần này. */
     @Transactional
-    public void confirm(String userId, String code) {
+    public List<String> confirm(String userId, String code) {
         UserTotp totp = totps.findById(userId)
                 .orElseThrow(() -> ApiProblem.badRequest(NOT_ENROLLED, "Chưa bắt đầu đăng ký TOTP"));
         long step = TotpCodes.verify(encryptor.decrypt(totp.getSecretCipher()), code, clock.instant());
@@ -79,6 +83,22 @@ public class TotpService {
             throw ApiProblem.badRequest(WRONG_CODE, "Mã không đúng");
         }
         totp.confirm(clock.instant(), step);
+        SecurityAudit.info("mfa.totp.enabled", "target", userId);
+        return recoveryCodes.generate(userId);
+    }
+
+    /** Sinh lại bộ mã khôi phục (bộ cũ mất hiệu lực). Phải nhập mã TOTP hiện tại. */
+    @Transactional
+    public List<String> regenerateRecoveryCodes(String userId, String code) {
+        if (!verify(userId, code)) {
+            throw ApiProblem.badRequest(WRONG_CODE, "Mã không đúng");
+        }
+        return recoveryCodes.generate(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public long recoveryCodesRemaining(String userId) {
+        return recoveryCodes.remaining(userId);
     }
 
     /** Tắt TOTP: phải chứng minh vẫn giữ authenticator. */
@@ -88,12 +108,33 @@ public class TotpService {
             throw ApiProblem.badRequest(WRONG_CODE, "Mã không đúng");
         }
         totps.deleteById(userId);
+        recoveryCodes.deleteAll(userId);
+        SecurityAudit.warn("mfa.totp.disabled", "target", userId);
     }
 
     /** Admin xóa TOTP khi người dùng mất thiết bị. */
     @Transactional
     public void reset(String userId) {
         totps.deleteById(userId);
+        recoveryCodes.deleteAll(userId);
+        SecurityAudit.warn("mfa.totp.reset", "target", userId);
+    }
+
+    /**
+     * Kiểm mã ở bước đăng nhập thứ hai: mã 6 số của authenticator, hoặc mã khôi phục (dạng khác 6 số).
+     * Sai mã nào cũng tính vào bộ đếm khóa tạm của tài khoản.
+     */
+    @Transactional
+    public boolean verifyLogin(String userId, String input) {
+        String code = input == null ? "" : input.trim();
+        if (code.matches("\\d{" + TotpCodes.DIGITS + "}")) {
+            return verify(userId, code);
+        }
+        boolean ok = enabled(userId) && recoveryCodes.consume(userId, code);
+        if (!ok) {
+            accounts.recordFactorFailure(userId);
+        }
+        return ok;
     }
 
     /**

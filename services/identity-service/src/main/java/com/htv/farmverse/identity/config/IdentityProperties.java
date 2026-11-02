@@ -26,6 +26,7 @@ import org.springframework.validation.annotation.Validated;
  * @param catalog    danh mục permission của nền tảng (seed, đánh dấu system_owned)
  * @param bootstrap  super admin đầu tiên; để trống email thì bỏ qua
  * @param mfa        TOTP: tên hiển thị trong app authenticator và khóa mã hóa secret
+ * @param rateLimit  giới hạn lần thử đăng nhập theo IP; bỏ trống = 10 lần mỗi phút
  */
 @Validated
 @ConfigurationProperties("farmverse.identity")
@@ -36,22 +37,47 @@ public record IdentityProperties(
         @Valid List<Client> clients,
         @Valid Catalog catalog,
         @Valid Bootstrap bootstrap,
-        @Valid @NotNull Mfa mfa
+        @Valid @NotNull Mfa mfa,
+        @Valid RateLimit rateLimit
 ) {
 
     public IdentityProperties {
+        rateLimit = rateLimit == null ? new RateLimit(10, Duration.ofMinutes(1)) : rateLimit;
         clients = clients == null ? List.of() : List.copyOf(clients);
         catalog = catalog == null ? new Catalog(List.of()) : catalog;
         bootstrap = bootstrap == null ? new Bootstrap(null, null, null) : bootstrap;
     }
 
     /**
+     * Khóa ký đang dùng, cộng các khóa đã nghỉ để xoay khóa không làm rớt token còn hạn.
+     *
+     * @param keyId     định danh khóa đang ký, ghi vào header {@code kid} của token
      * @param ephemeral chỉ cho test: sinh cặp khóa mới trong bộ nhớ mỗi lần chạy, bỏ qua file PEM
+     * @param retired   khóa cũ: chỉ còn công bố khóa công khai ở JWKS để kiểm chữ ký, không bao giờ ký nữa.
+     *                  Gỡ khỏi danh sách sau khi token cuối cùng ký bằng nó đã hết hạn.
      */
-    public record SigningKey(@NotBlank String keyId, Resource privateKey, Resource publicKey, boolean ephemeral) {
+    public record SigningKey(@NotBlank String keyId, Resource privateKey, Resource publicKey, boolean ephemeral,
+                             @Valid List<RetiredKey> retired) {
+
+        public SigningKey {
+            retired = retired == null ? List.of() : List.copyOf(retired);
+        }
+    }
+
+    /** Khóa đã nghỉ: chỉ cần khóa công khai. */
+    public record RetiredKey(@NotBlank String keyId, @NotNull Resource publicKey) {
     }
 
     public record Lockout(@Positive int maxFailures, @NotNull Duration duration) {
+    }
+
+    /**
+     * Giới hạn lần thử đăng nhập theo IP ({@code POST /login}, {@code POST /login/totp}).
+     *
+     * @param maxAttempts số lần tối đa trong một cửa sổ
+     * @param window      độ dài cửa sổ
+     */
+    public record RateLimit(@Positive int maxAttempts, @NotNull Duration window) {
     }
 
     /**
