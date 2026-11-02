@@ -3,11 +3,11 @@ spring:
     name: api-gateway
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+    # mTLS: prod luôn bật. Dev mặc định TẮT; bật bằng SPRING_PROFILES_ACTIVE=dev,mtls
+    # (cần chạy scripts/generate-dev-mtls.sh trước). Xem application-mtls.yml.
     group:
-      dev: [ mtls ]
       prod: [ mtls ]
 
-  # mTLS bật ở dev và prod (application-mtls.yml); test chạy không TLS.
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}

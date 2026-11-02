@@ -3,9 +3,9 @@ spring:
     name: identity-service
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-    # mTLS bật ở dev và prod (application-mtls.yml); test bật riêng khi cần.
+    # mTLS: prod luôn bật. Dev mặc định TẮT; bật bằng SPRING_PROFILES_ACTIVE=dev,mtls
+    # (cần chạy scripts/generate-dev-mtls.sh trước). Xem application-mtls.yml.
     group:
-      dev: [ mtls ]
       prod: [ mtls ]
   jpa:
     open-in-view: false

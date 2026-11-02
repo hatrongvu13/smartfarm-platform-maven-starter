@@ -2,6 +2,9 @@
 
 **Nhà:** `libs/farmverse-starter-service` (`ServiceIdentityFilter`, `MtlsClients`) + profile `mtls` của từng service.
 
+**Bật/tắt:** prod luôn bật (`spring.profiles.group.prod: [mtls]`). Dev mặc định tắt; bật bằng
+`SPRING_PROFILES_ACTIVE=dev,mtls` trên cả identity, farm và gateway.
+
 ```mermaid
 flowchart LR
     B[Trình duyệt] -- "HTTP (dev) / HTTPS edge" --> GW[gateway]
