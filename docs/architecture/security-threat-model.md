@@ -70,7 +70,7 @@ flowchart LR
 | T13 | TB1→TB3 | I | Đọc session (token) trong Redis | Mật khẩu bắt buộc, cổng dev chỉ `127.0.0.1`, TLS prod, namespace riêng; ACL user tối thiểu đã kiểm trên Redis thật (`GatewayRedisIT`) | Bật ACL ở hạ tầng prod |
 | T14b | TB1→TB2 | D | Service phía sau treo giữ request của gateway | Timeout response 10s, connect 3s ở mọi profile → 504/502 (`GatewayErrorProblemsTest`) | Circuit breaker để trả lỗi ngay khi service sập kéo dài |
 | T14 | TB1→TB3 | D | Redis treo làm gateway treo | Timeout lệnh 2s, kết nối 1s; treo thật (`docker pause`) → 503 trong khoảng timeout (`GatewayRedisIT`) | — |
-| T15 | TB2→TB3 | E | Farm bị chiếm đọc DB identity | DB riêng | User riêng, không superuser (M4) |
+| T15 | TB2→TB3 | E | Farm bị chiếm đọc DB identity | DB riêng; vai trò riêng không superuser; `PUBLIC` mất `CONNECT`; ứng dụng chỉ có DML, không đổi được cấu trúc (`DatabaseRolesIT`) | Mật khẩu owner vẫn nằm trong ứng dụng (Flyway lúc khởi động); tách job migration để bỏ |
 | T16 | TB4 | I | Token, mã, cookie lọt vào log | `SecurityAudit` làm sạch; quy tắc cấm | Test lọc log cho gateway/farm (M7) |
 | T17 | TB2 | R | Không truy được ai làm gì | Audit ở identity | Trace id xuyên service (M7) |
 | T18 | TB2 | D | Identity sập | Farm vẫn kiểm JWT bằng JWKS cache | — |
@@ -82,7 +82,7 @@ flowchart LR
 | P0 | — | **Không tìm thấy P0.** Nghi vấn ban đầu "actuator `gateway` lộ ra ngoài" đã bị loại bằng request thật: endpoint không bật | — | — |
 | P1 | P1-1 | ~~Redis dev không mật khẩu~~ **Đã sửa (M3)**: `compose.yaml` dùng `REDIS_PASSWORD`, cổng chỉ `127.0.0.1` | [`compose.yaml`](../../compose.yaml) | M3 ✅ |
 | P1 | P1-2 | ~~Một audience chung `farmverse-api`~~ **Đã sửa bước 1 (M6)**: `aud=[farm-service, identity-service]`, mỗi service chỉ nhận của mình | `FarmVerseTokenCustomizer`, ADR-0006 | M6 ✅ |
-| P1 | P1-3 | Dev dùng superuser `postgres` cho cả hai service; chưa có script user riêng | `application-dev.yml` hai service, `infra/postgres-init.sql` | M4 |
+| P1 | P1-3 | ~~Dev dùng superuser `postgres` cho cả hai service~~ **Đã sửa (M4)** | [`infra/postgres-init.sh`](../../infra/postgres-init.sh), [`DatabaseRolesIT`](../../services/farm-service/src/test/java/com/htv/farmverse/farm/DatabaseRolesIT.java) | M4 ✅ |
 | P1 | P1-4 | ~~Không có CI~~ **Đã sửa (M2)**: lần chạy đầu xanh cả `mvn verify` và 3 image | [`ci.yml`](../../.github/workflows/ci.yml) | M2 ✅ |
 | P2 | P2-1 | ~~Farm không kiểm `scope`~~ **Đã sửa (M6)** | farm `SecurityConfiguration`, `TokenValidationTest` | M6 ✅ |
 | P2 | P2-2 | ~~Chưa có test session fixation, cookie, `state`/`nonce`~~ **Đã có (M5)** | `LoginSessionSecurityTest`, `SessionCookieAttributesTest` | M5 ✅ |

@@ -1,5 +1,9 @@
 spring:
   datasource:
     url: ${FARM_DB_URL:jdbc:postgresql://localhost:5432/farmverse_farm}
-    username: ${FARM_DB_USER:postgres}
-    password: ${FARM_DB_PASSWORD:root}
+    username: ${FARM_DB_USER:farm_app}          # chỉ DML (infra/postgres-init.sh)
+    password: ${FARM_DB_PASSWORD:farm-app-dev}
+  # Flyway chạy bằng vai trò sở hữu schema; ứng dụng không có quyền đổi cấu trúc bảng.
+  flyway:
+    user: ${FARM_DB_MIGRATION_USER:farm_owner}
+    password: ${FARM_DB_MIGRATION_PASSWORD:farm-owner-dev}

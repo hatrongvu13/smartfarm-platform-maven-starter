@@ -36,9 +36,9 @@ flowchart TB
 
 | Mục | Hiện trạng | Mục tiêu |
 |---|---|---|
-| Database | `farmverse_identity`, `farmverse_farm` ([`infra/postgres-init.sql`](../../infra/postgres-init.sql)) | Giữ |
-| User | Dev: `postgres` cho cả hai. Prod: `IDENTITY_DB_USER`, `FARM_DB_USER` | Mỗi service hai vai trò: `<svc>_owner` (Flyway, sở hữu schema) và `<svc>_app` (chỉ DML). `REVOKE CONNECT ... FROM PUBLIC` trên database của service khác |
-| Migration | Flyway khi khởi động, `ddl-auto: validate` | Flyway chạy bằng owner (job riêng hoặc `spring.flyway.user`), app chạy bằng user DML |
+| Database | `farmverse_identity`, `farmverse_farm` ([`infra/postgres-init.sh`](../../infra/postgres-init.sh)) | Giữ |
+| User | Đã có (M4): `<svc>_owner` sở hữu DB + schema; `<svc>_app` chỉ `SELECT/INSERT/UPDATE/DELETE` + dùng sequence (default privileges cho bảng Flyway tạo sau); `PUBLIC` mất `CONNECT`. Biến: `<SVC>_DB_USER`/`_PASSWORD` (app), `<SVC>_DB_MIGRATION_USER`/`_PASSWORD` (owner) | Prod: tạo vai trò bằng cùng script (hoặc tương đương ở DB managed) |
+| Migration | Flyway khi khởi động, chạy bằng `<svc>_owner` (`spring.flyway.user`); ứng dụng chạy bằng `<svc>_app`; `ddl-auto: validate` | Có thể tách Flyway thành job riêng để ứng dụng không cần mật khẩu owner |
 | TLS | Không cấu hình | `sslmode=verify-full` ở prod |
 
 ## 4. mTLS và chứng chỉ

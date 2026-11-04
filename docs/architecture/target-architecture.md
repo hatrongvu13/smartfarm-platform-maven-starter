@@ -39,7 +39,7 @@ flowchart LR
 | R12 | Phân biệt mTLS (máy nào), JWT/JWKS (ai, token thật không), authorization (được làm gì) | ✅ trong code, 🟡 tài liệu | Ghi rõ ở [ADR-0003](adr/0003-mtls-ssl-bundles-spiffe.md), [ADR-0004](adr/0004-local-jwt-validation-cached-jwks.md) | — |
 | R13 | Farm không gọi Identity mỗi request; JWKS cache và chịu đổi khóa | ✅ | — (`TokenValidationTest`: 5 request không gọi JWKS; `kid` mới thì tải lại) | — |
 | R14 | Redis có TTL, timeout, access control, fail-closed, không log token | ✅ | — (M3 + `GatewayRedisIT` trên Redis 8 thật: ACL user, TTL, treo → 503). TLS chỉ cấu hình ở prod | — |
-| R15 | Identity và Farm không dùng chung bảng/credential | 🟡 | DB riêng; dev dùng chung user `postgres`; chưa có script tạo user riêng | M4 |
+| R15 | Identity và Farm không dùng chung bảng/credential | ✅ | — (M4: DB riêng, vai trò riêng, không vào được DB của nhau; `DatabaseRolesIT`) | — |
 | R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ | Giới hạn IP trong bộ nhớ, sai khi nhiều instance | M8 |
 | R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | 🟡 | Audit có; JSON chỉ ở identity prod; không tracing/metric export | M7 |
 | R18 | Actuator không lộ ra cổng công khai | ✅ | — (M2: cổng quản trị loopback ở cả ba service) | — |
@@ -83,7 +83,6 @@ flowchart LR
 
 - Ownership trong tenant. Token riêng cho từng route (ADR-0006 bước 2).
 - Redis ACL user (mới có hướng dẫn), TLS ở dev, test với Redis thật.
-- User PostgreSQL riêng cho từng service và phân quyền owner/app.
 - Tracing, metric export, log JSON ở gateway và farm.
 - Rate limit phân tán cho login.
 - CD (deploy).

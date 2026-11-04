@@ -2,8 +2,12 @@
 spring:
   datasource:
     url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/farmverse_identity}
-    username: ${IDENTITY_DB_USER:postgres}
-    password: ${IDENTITY_DB_PASSWORD:root}
+    username: ${IDENTITY_DB_USER:identity_app}          # chỉ DML (infra/postgres-init.sh)
+    password: ${IDENTITY_DB_PASSWORD:identity-app-dev}
+  # Flyway chạy bằng vai trò sở hữu schema; ứng dụng không có quyền đổi cấu trúc bảng.
+  flyway:
+    user: ${IDENTITY_DB_MIGRATION_USER:identity_owner}
+    password: ${IDENTITY_DB_MIGRATION_PASSWORD:identity-owner-dev}
 
 springdoc:
   api-docs:

@@ -3,6 +3,9 @@ spring:
     url: ${FARM_DB_URL}
     username: ${FARM_DB_USER}
     password: ${FARM_DB_PASSWORD}
+  flyway:
+    user: ${FARM_DB_MIGRATION_USER}
+    password: ${FARM_DB_MIGRATION_PASSWORD}
   security:
     oauth2:
       resourceserver:

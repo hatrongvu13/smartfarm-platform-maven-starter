@@ -6,8 +6,10 @@ JDK 17+, Maven 3.9+, Docker (cho PostgreSQL + Redis), Node 20+.
 
 ## Thứ tự
 
-1. `docker compose up -d` — tạo database `farmverse_identity`, `farmverse_farm` và Redis (mật khẩu `farmverse-dev`).
-   Nếu volume postgres đã có từ trước, tạo tay: `CREATE DATABASE farmverse_identity; CREATE DATABASE farmverse_farm;`
+1. `docker compose up -d` — PostgreSQL chạy `infra/postgres-init.sh`: database `farmverse_identity`, `farmverse_farm`, mỗi cái hai vai trò
+   (`<svc>_owner` cho Flyway, `<svc>_app` cho ứng dụng; mật khẩu dev `<svc>-owner-dev` / `<svc>-app-dev`). Redis có mật khẩu `farmverse-dev`.
+   **Volume postgres có từ trước M4** (service báo lỗi đăng nhập `identity_app`/`farm_app`): chạy lại script, không mất dữ liệu:
+   `docker compose exec -T postgres bash < infra/postgres-init.sh`
 2. `./scripts/generate-dev-keys.sh` — cặp khóa RSA ký JWT, nằm trong `services/identity-service/src/main/resources/.local/` (đã gitignore).
 3. mTLS (tùy chọn ở dev, mặc định TẮT; prod luôn bật):
    - Tắt (mặc định): `SPRING_PROFILES_ACTIVE=dev`. Mọi service chạy HTTP, identity ở `http://localhost:8092`.

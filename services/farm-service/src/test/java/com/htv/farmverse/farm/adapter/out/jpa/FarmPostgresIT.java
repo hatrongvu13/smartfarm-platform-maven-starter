@@ -1,5 +1,6 @@
 package com.htv.farmverse.farm.adapter.out.jpa;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,43 +19,53 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.MountableFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * F3: farm trên PostgreSQL thật — migration Flyway khớp entity ({@code validate}), cô lập tenant, và hai tranh chấp
+ * F3 + M4: farm trên PostgreSQL thật, chạy bằng vai trò ứng dụng {@code farm_app} — migration Flyway khớp entity ({@code validate}), cô lập tenant, và hai tranh chấp
  * đồng thời mà {@code FarmExceptionHandler} đổi thành 409. Test đơn vị chỉ giả lập exception; ở đây PostgreSQL
  * thật sự ném chúng.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({JpaFarmRepository.class, TenantFromTokenResolver.class, JpaConfiguration.class, FarmPostgresIT.Postgres.class})
+@Import({JpaFarmRepository.class, TenantFromTokenResolver.class, JpaConfiguration.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)  // mỗi thao tác tự mở transaction của nó
 @TestPropertySource(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate"})
 class FarmPostgresIT {
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class Postgres {
-        @Bean
-        @ServiceConnection
-        PostgreSQLContainer postgres() {
-            return new PostgreSQLContainer("postgres:17-alpine");
+    /** PostgreSQL dựng bằng CHÍNH infra/postgres-init.sh: ứng dụng = farm_app (chỉ DML), Flyway = farm_owner. */
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath(Path.of("../../infra/postgres-init.sh").toAbsolutePath().normalize(), 0755),
+                    "/docker-entrypoint-initdb.d/01-farmverse.sh");
+
+    @DynamicPropertySource
+    static void postgres(DynamicPropertyRegistry registry) {
+        if (!POSTGRES.isRunning()) {
+            POSTGRES.start();
         }
+        registry.add("spring.datasource.url", () -> "jdbc:postgresql://" + POSTGRES.getHost() + ":"
+                + POSTGRES.getFirstMappedPort() + "/farmverse_farm");
+        registry.add("spring.datasource.username", () -> "farm_app");
+        registry.add("spring.datasource.password", () -> "farm-app-dev");
+        registry.add("spring.flyway.user", () -> "farm_owner");
+        registry.add("spring.flyway.password", () -> "farm-owner-dev");
     }
 
     @Autowired JpaFarmRepository farms;

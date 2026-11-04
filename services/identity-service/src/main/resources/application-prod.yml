@@ -4,6 +4,9 @@ spring:
     url: ${IDENTITY_DB_URL}
     username: ${IDENTITY_DB_USER}
     password: ${IDENTITY_DB_PASSWORD}
+  flyway:
+    user: ${IDENTITY_DB_MIGRATION_USER}
+    password: ${IDENTITY_DB_MIGRATION_PASSWORD}
 
 server:
   servlet:

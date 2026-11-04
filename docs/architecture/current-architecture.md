@@ -111,8 +111,8 @@ Profile `mtls`; `prod` kéo theo `mtls` (`spring.profiles.group.prod: [mtls]` tr
 
 | Việc | Hiện trạng | Bằng chứng |
 |---|---|---|
-| Database | Hai database riêng `farmverse_identity`, `farmverse_farm` trên một PostgreSQL | [`infra/postgres-init.sql`](../../infra/postgres-init.sql) |
-| User DB | Dev: cả hai service dùng user `postgres` (superuser). Prod: biến `IDENTITY_DB_USER`, `FARM_DB_USER` riêng, nhưng **chưa có** script tạo user/quyền | `application-dev.yml`, `application-prod.yml` của từng service |
+| Database | Hai database riêng `farmverse_identity`, `farmverse_farm` trên một PostgreSQL | [`infra/postgres-init.sh`](../../infra/postgres-init.sh) |
+| User DB | Mỗi service hai vai trò: `<svc>_owner` (sở hữu DB + schema, Flyway dùng qua `spring.flyway.user`) và `<svc>_app` (ứng dụng, chỉ DML). `PUBLIC` bị thu hồi `CONNECT`: vai trò service này không vào được DB service kia. Không vai trò nào là superuser (M4) | [`infra/postgres-init.sh`](../../infra/postgres-init.sh), `application-dev.yml` / `application-prod.yml`, [`DatabaseRolesIT`](../../services/farm-service/src/test/java/com/htv/farmverse/farm/DatabaseRolesIT.java), `PostgresFlowsIT`, `FarmPostgresIT` |
 | Migration | Flyway, `ddl-auto: validate` | `services/*/src/main/resources/db/migration/` |
 
 ## 8. Build, test, đóng gói

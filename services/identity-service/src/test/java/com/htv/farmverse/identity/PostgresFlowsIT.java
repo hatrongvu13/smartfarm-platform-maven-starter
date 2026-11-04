@@ -4,30 +4,33 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * I8: chạy lại các luồng chính của identity trên PostgreSQL thật thay cho H2.
+ * I8 + M4: chạy lại các luồng chính của identity trên PostgreSQL thật, bằng vai trò ứng dụng {@code identity_app}
+ * (chỉ DML), migration bằng {@code identity_owner} — đúng như production.
  *
  * <p>Các lớp lồng kế thừa test có sẵn ({@link AuthorizationCodeFlowTest}, {@link TokenLifecycleTest},
  * {@link TotpLoginFlowTest}), nên mọi kịch bản đó chạy nguyên vẹn, chỉ đổi kho dữ liệu. Bắt được những gì H2 không bắt:
- * migration lệch entity, kiểu cột JSON/{@code bytea} của SAS, ràng buộc và khóa của PostgreSQL.
- * Mọi lớp dùng chung cấu hình nên dùng chung một context và một container.
+ * migration lệch entity, kiểu cột JSON/{@code bytea} của SAS, ràng buộc, và quyền thiếu của vai trò ứng dụng.
+ * Cấu hình ở lớp ngoài áp cho mọi lớp lồng; cùng cấu hình nên dùng chung một context.
  */
 class PostgresFlowsIT {
+
+    @DynamicPropertySource
+    static void postgres(DynamicPropertyRegistry registry) {
+        PostgresTestcontainer.register(registry);
+    }
 
     @Nested
     @SpringBootTest
     @ActiveProfiles("test")
-    @Import(PostgresTestcontainer.class)
-    @TestPropertySource(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
-            "spring.sql.init.mode=never"})
     class Schema {
 
         @Autowired
@@ -42,6 +45,14 @@ class PostgresFlowsIT {
                     String.class)).containsExactly("1", "2");
         }
 
+        /** Bảng do Flyway (identity_owner) tạo; ứng dụng chạy bằng identity_app, không phải chủ bảng. */
+        @Test
+        void applicationRunsAsTheDmlOnlyRoleOnTablesOwnedByTheMigrationRole() {
+            assertThat(jdbc.queryForObject("select current_user", String.class)).isEqualTo("identity_app");
+            assertThat(jdbc.queryForList("select distinct tableowner from pg_tables where schemaname = 'public'", String.class))
+                    .containsExactly("identity_owner");
+        }
+
         /** Client OAuth khai trong cấu hình được ghi vào bảng JDBC của SAS lúc khởi động và đọc lại được. */
         @Test
         void oauthClientsAreProvisionedIntoPostgres() {
@@ -50,23 +61,14 @@ class PostgresFlowsIT {
     }
 
     @Nested
-    @Import(PostgresTestcontainer.class)
-    @TestPropertySource(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
-            "spring.sql.init.mode=never"})
     class AuthorizationCodeFlow extends AuthorizationCodeFlowTest {
     }
 
     @Nested
-    @Import(PostgresTestcontainer.class)
-    @TestPropertySource(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
-            "spring.sql.init.mode=never"})
     class TokenLifecycle extends TokenLifecycleTest {
     }
 
     @Nested
-    @Import(PostgresTestcontainer.class)
-    @TestPropertySource(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
-            "spring.sql.init.mode=never"})
     class TotpLoginFlow extends TotpLoginFlowTest {
     }
 }

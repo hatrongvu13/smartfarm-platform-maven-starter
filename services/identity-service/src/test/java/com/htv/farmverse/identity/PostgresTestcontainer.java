@@ -1,24 +1,41 @@
 package com.htv.farmverse.identity;
 
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
+import java.nio.file.Path;
+
+import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.MountableFile;
 
 /**
- * PostgreSQL thật cho {@code *IT} (Testcontainers, cần Docker). {@link ServiceConnection} nối datasource vào container,
- * thay cho H2 của profile test. Cùng phiên bản image với {@code compose.yaml}.
+ * PostgreSQL 17 thật cho {@code *IT}, dựng bằng CHÍNH {@code infra/postgres-init.sh} (như {@code compose.yaml}):
+ * database {@code farmverse_identity}, vai trò {@code identity_owner} (Flyway) và {@code identity_app} (ứng dụng, chỉ DML).
+ * Ứng dụng trong test chạy bằng {@code identity_app}, nên quyền thiếu là test đỏ, giống production.
  *
- * <p>Dùng kèm {@code spring.flyway.enabled=true}, {@code spring.jpa.hibernate.ddl-auto=validate},
- * {@code spring.sql.init.mode=never}: Flyway chạy migration thật, Hibernate chỉ kiểm, không chạy
- * {@code oauth2-test-schema.sql} — đúng như production, nên migration lệch entity là test đỏ.
+ * <p>Một container cho cả JVM test (static), dừng khi JVM thoát.
  */
-@TestConfiguration(proxyBeanMethods = false)
-public class PostgresTestcontainer {
+final class PostgresTestcontainer {
 
-    @Bean
-    @ServiceConnection
-    PostgreSQLContainer postgres() {
-        return new PostgreSQLContainer("postgres:17-alpine");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath(Path.of("../../infra/postgres-init.sh").toAbsolutePath().normalize(), 0755),
+                    "/docker-entrypoint-initdb.d/01-farmverse.sh");
+
+    private PostgresTestcontainer() {
+    }
+
+    /** Datasource = identity_app, Flyway = identity_owner, schema thật (Flyway + validate, không dùng script test của H2). */
+    static void register(DynamicPropertyRegistry registry) {
+        if (!POSTGRES.isRunning()) {
+            POSTGRES.start();
+        }
+        String url = "jdbc:postgresql://" + POSTGRES.getHost() + ":" + POSTGRES.getFirstMappedPort() + "/farmverse_identity";
+        registry.add("spring.datasource.url", () -> url);
+        registry.add("spring.datasource.username", () -> "identity_app");
+        registry.add("spring.datasource.password", () -> "identity-app-dev");
+        registry.add("spring.flyway.user", () -> "identity_owner");
+        registry.add("spring.flyway.password", () -> "identity-owner-dev");
+        registry.add("spring.flyway.enabled", () -> "true");
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+        registry.add("spring.sql.init.mode", () -> "never");
     }
 }
