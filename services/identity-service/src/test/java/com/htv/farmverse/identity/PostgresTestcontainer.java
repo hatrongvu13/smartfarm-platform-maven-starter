@@ -37,5 +37,9 @@ final class PostgresTestcontainer {
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.sql.init.mode", () -> "never");
+        // Bộ đếm đăng nhập thật trên PostgreSQL (M8). Giới hạn cao: các test luồng đăng nhập dùng chung một IP
+        // và một database; hành vi giới hạn được kiểm riêng ở LoginRateLimitPostgresIT.
+        registry.add("farmverse.identity.rate-limit.store", () -> "jdbc");
+        registry.add("farmverse.identity.rate-limit.max-attempts", () -> "1000");
     }
 }

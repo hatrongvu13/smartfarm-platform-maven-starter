@@ -42,7 +42,7 @@ public record IdentityProperties(
 ) {
 
     public IdentityProperties {
-        rateLimit = rateLimit == null ? new RateLimit(10, Duration.ofMinutes(1)) : rateLimit;
+        rateLimit = rateLimit == null ? new RateLimit(10, Duration.ofMinutes(1), RateLimit.Store.JDBC) : rateLimit;
         clients = clients == null ? List.of() : List.copyOf(clients);
         catalog = catalog == null ? new Catalog(List.of()) : catalog;
         bootstrap = bootstrap == null ? new Bootstrap(null, null, null) : bootstrap;
@@ -76,8 +76,14 @@ public record IdentityProperties(
      *
      * @param maxAttempts số lần tối đa trong một cửa sổ
      * @param window      độ dài cửa sổ
+     * @param store       nơi đếm: {@code jdbc} (PostgreSQL, chung mọi instance, mặc định) hoặc {@code memory}
+     *                    (một instance, chỉ cho test trên H2) — M8
      */
-    public record RateLimit(@Positive int maxAttempts, @NotNull Duration window) {
+    public record RateLimit(@DefaultValue("10") @Positive int maxAttempts,
+                            @DefaultValue("1m") @NotNull Duration window,
+                            @DefaultValue("jdbc") @NotNull Store store) {
+
+        public enum Store { JDBC, MEMORY }
     }
 
     /**

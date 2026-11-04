@@ -4,6 +4,9 @@ import java.time.Clock;
 
 import com.htv.farmverse.identity.account.AccountService;
 import com.htv.farmverse.identity.login.AccountUserDetailsService;
+import com.htv.farmverse.identity.login.InMemoryLoginAttemptCounter;
+import com.htv.farmverse.identity.login.JdbcLoginAttemptCounter;
+import com.htv.farmverse.identity.login.LoginAttemptCounter;
 import com.htv.farmverse.identity.login.LoginRateLimitFilter;
 import com.htv.farmverse.identity.login.TenantAuthenticationProvider;
 import com.htv.farmverse.identity.login.TenantLoginDetails;
@@ -92,11 +95,12 @@ public class SecurityConfiguration {
     @Bean
     @Order(3)
     SecurityFilterChain loginChain(HttpSecurity http, TenantAuthenticationProvider tenantAuthentication,
-                                   TotpService totp, IdentityProperties properties, Clock clock) throws Exception {
+                                   TotpService totp, IdentityProperties properties,
+                                   LoginAttemptCounter loginAttempts) throws Exception {
         IdentityProperties.RateLimit rateLimit = properties.rateLimit();
         http.authenticationProvider(tenantAuthentication)
                 // Giới hạn thử đăng nhập theo IP, đứng trước mọi filter xác thực
-                .addFilterBefore(new LoginRateLimitFilter(rateLimit.maxAttempts(), rateLimit.window(), clock),
+                .addFilterBefore(new LoginRateLimitFilter(rateLimit.maxAttempts(), rateLimit.window(), loginAttempts),
                         SecurityContextHolderFilter.class)
                 // POST /login/totp: yếu tố thứ hai, gộp FACTOR_TOTP vào phiên đã đăng nhập bằng mật khẩu
                 .addFilterBefore(TotpLogin.filter(totp), UsernamePasswordAuthenticationFilter.class)
@@ -131,6 +135,14 @@ public class SecurityConfiguration {
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    /** M8: bộ đếm giới hạn đăng nhập theo IP. Mặc định ở PostgreSQL, chung cho mọi instance. */
+    @Bean
+    LoginAttemptCounter loginAttemptCounter(IdentityProperties properties, JdbcTemplate jdbc, Clock clock) {
+        return properties.rateLimit().store() == IdentityProperties.RateLimit.Store.MEMORY
+                ? new InMemoryLoginAttemptCounter(clock)
+                : new JdbcLoginAttemptCounter(jdbc);
     }
 
     /** Phát {@code AuthorizationDeniedEvent} khi {@code @PreAuthorize} từ chối, để nhật ký bảo mật ghi lại. */

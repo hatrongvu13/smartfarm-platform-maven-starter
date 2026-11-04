@@ -18,6 +18,8 @@ public final class IdentityErrors {
     public static final String SELF_LOCKOUT = "SF-IDENTITY-013";
     public static final String TENANT_EXISTS = "SF-IDENTITY-014";
     public static final String TENANT_REQUIRED = "SF-IDENTITY-015";
+    /** 503: bộ đếm giới hạn đăng nhập (database) không dùng được; không cho thử đăng nhập (M8). */
+    public static final String LOGIN_UNAVAILABLE = "SF-IDENTITY-016";
 
     private IdentityErrors() {
     }

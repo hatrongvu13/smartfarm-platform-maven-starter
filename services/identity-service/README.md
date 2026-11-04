@@ -51,7 +51,7 @@ Access token không thu hồi tức thì được: service kiểm JWT tại ch�
 | Đăng nhập theo tổ chức | Email + mật khẩu + mã tổ chức; principal là membership | `AuthorizationCodeFlowTest` |
 | Mật khẩu | `{bcrypt}` qua `DelegatingPasswordEncoder`; mật khẩu mới dài 12–128 ký tự | `ValidationProblemTest` |
 | Khóa tài khoản | 5 lần sai thì khóa 15 phút | **Chưa có test** |
-| Giới hạn theo IP | `POST /login`, `POST /login/totp`: 10 lần/phút/IP | `LoginRateLimitFilterTest` |
+| Giới hạn theo IP | `POST /login`, `POST /login/totp`: 10 lần/phút/IP. Bộ đếm ở PostgreSQL, chung mọi instance; database lỗi thì 503 | `LoginRateLimitFilterTest`, `LoginRateLimitPostgresIT` |
 | TOTP | Tài khoản đã bật TOTP phải nhập mã trước khi được cấp code; secret mã hóa AES-GCM; chống dùng lại mã; mã khôi phục dùng một lần | `TotpLoginFlowTest`, `RecoveryCodeServiceTest` |
 | Nhật ký bảo mật | Logger `SECURITY_AUDIT`, giá trị được làm sạch, không ghi mật khẩu/mã/token | `SecurityAuditTest`, `AdminAuditTest` |
 | Không lộ bí mật trong log | Logger in URL redirect (có `?code=`) bị ghim ở INFO | `IdentityObservabilityTest` ([ADR-0012](../../docs/architecture/adr/0012-observability.md)) |

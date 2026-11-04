@@ -59,7 +59,7 @@ flowchart LR
 | T4 | TB0→TB1 | I | Cookie đi qua HTTP | `Secure` ở prod; HSTS 1 năm ở prod (M5b) | — |
 | T5 | TB0→TB1 | I | Dò thông tin vận hành qua `/actuator/**` ẩn danh | Cổng quản trị loopback (M2); endpoint `gateway` không bật; `GatewayActuatorExposureTest` | — |
 | T6b | TB0→TB1 | D | Gọi dồn `/oauth2/authorization/**` làm ngập Redis bằng phiên rỗng, hoặc dội callback vào identity | Giới hạn theo IP ở gateway, chặn trước khi tạo phiên (G5, `GatewayRedisIT`) | — |
-| T6 | TB0→ID | S | Dò mật khẩu / mã TOTP | Khóa tài khoản, giới hạn IP, chống replay TOTP | Giới hạn IP phân tán (M8) |
+| T6 | TB0→ID | S | Dò mật khẩu / mã TOTP | Khóa tài khoản, giới hạn IP dùng chung mọi instance (PostgreSQL, M8), chống replay TOTP | Kẻ tấn công có nhiều IP vẫn chia nhỏ được; khóa theo tài khoản chặn phần đó |
 | T7 | TB0→ID | S | Giả mạo redirect, đánh cắp code | redirect URI chính xác, PKCE bắt buộc, `state` | — |
 | T7b | TB0→TB1 | T | Giả `X-Forwarded-Host` để gateway dựng URL theo host của kẻ tấn công | Chỉ tin header từ IP edge đã khai; nguồn khác bị xóa header (`ForwardedHeadersTest`); identity chỉ chấp nhận redirect URI đã đăng ký | Edge phải ghi đè header của trình duyệt |
 | T8 | TB1→TB2 | S | Máy lạ gọi farm/identity | mTLS + allowlist SAN | — |
@@ -93,7 +93,7 @@ flowchart LR
 | P2 | P2-5 | ~~Không tracing/metric; log JSON chỉ ở identity prod~~ **Đã sửa (M7)** | các `pom.xml`, `application-prod.yml`, ADR-0012 | M7 ✅ |
 | P2 | P2-6 | ~~2 test gateway cần Redis thật~~ **Đã sửa (M2a, 2026-11-04)** | [`InMemorySessionTestConfiguration`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/InMemorySessionTestConfiguration.java) | M2a ✅ |
 | P2 | P2-7 | ~~Healthcheck `Dockerfile` sai cổng~~ **Đã sửa (M2)**: dùng `MANAGEMENT_SERVER_PORT=9090`. Image build xanh trên CI; chưa chạy container thật | [`Dockerfile`](../../Dockerfile) | M2 ✅ |
-| P2 | P2-8 | Giới hạn IP login chỉ đúng với một instance | `LoginRateLimitFilter` | M8 |
+| P2 | P2-8 | ~~Giới hạn IP login chỉ đúng với một instance~~ **Đã sửa (M8)**: bộ đếm ở PostgreSQL | `JdbcLoginAttemptCounter`, `LoginRateLimitPostgresIT` | M8 ✅ |
 | P3 | P3-1 | ~~`.env.production.example`, `EXPOSE` lỗi thời~~ **Đã sửa (M2)** | [`.env.production.example`](../../.env.production.example), `Dockerfile` | M2 ✅ |
 | P3 | P3-2 | README identity là bản cũ | [`services/identity-service/README.md`](../../services/identity-service/README.md) | M2 |
 | P3 | P3-3 | Cảnh báo `@Valid` trên List khi gateway khởi động | log test gateway | — |

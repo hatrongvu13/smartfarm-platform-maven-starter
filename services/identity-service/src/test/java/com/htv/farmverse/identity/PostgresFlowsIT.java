@@ -40,9 +40,9 @@ class PostgresFlowsIT {
         RegisteredClientRepository clients;
 
         @Test
-        void flywayAppliedBothBaselinesAndHibernateValidatedTheSchema() {
+        void flywayAppliedAllMigrationsAndHibernateValidatedTheSchema() {
             assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                    String.class)).containsExactly("1", "2");
+                    String.class)).containsExactly("1", "2", "3");
         }
 
         /** Bảng do Flyway (identity_owner) tạo; ứng dụng chạy bằng identity_app, không phải chủ bảng. */

@@ -8,9 +8,11 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.htv.farmverse.identity.login.InMemoryLoginAttemptCounter;
 import com.htv.farmverse.identity.login.LoginRateLimitFilter;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -34,7 +36,7 @@ class LoginRateLimitFilterTest {
             return Instant.ofEpochMilli(now.get());
         }
     };
-    private final LoginRateLimitFilter filter = new LoginRateLimitFilter(3, Duration.ofMinutes(1), clock);
+    private final LoginRateLimitFilter filter = new LoginRateLimitFilter(3, Duration.ofMinutes(1), new InMemoryLoginAttemptCounter(clock));
 
     private MockHttpServletResponse post(String path, String address) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
@@ -98,6 +100,23 @@ class LoginRateLimitFilterTest {
         assertThat(response.getHeader("Location")).isEqualTo("/login/totp?limited=60");
         assertThat(response.getHeader("Retry-After")).isEqualTo("60");
         assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    /** M8: bộ đếm (database) lỗi thì không cho thử đăng nhập: 503, request không đi tiếp (fail-closed). */
+    @Test
+    void counterFailureRejectsTheLoginInsteadOfSkippingTheLimit() throws Exception {
+        LoginRateLimitFilter broken = new LoginRateLimitFilter(3, Duration.ofMinutes(1), (key, window) -> {
+            throw new DataAccessResourceFailureException("db down");
+        });
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        broken.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("\"code\":\"SF-IDENTITY-016\"").doesNotContain("db down");
+        assertThat(chain.getRequest()).as("không chuyển tiếp tới filter đăng nhập").isNull();
     }
 
     private MockHttpServletResponse filterGet(String path, String address) throws Exception {

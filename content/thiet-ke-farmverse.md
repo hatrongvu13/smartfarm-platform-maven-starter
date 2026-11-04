@@ -143,7 +143,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 |---|---|:-:|---|
 | I1 | OIDC chuẩn (code + PKCE, refresh, revoke, RP logout) | 🟡 | Có test code+PKCE và vòng đời token; rà lại test revoke và logout |
 | I2 | MFA đầy đủ (TOTP + mã khôi phục) | ✅ | — (MFA bằng factor TOTP của Spring Security chưa có từ 7.1.2, nên đang dùng bản tự viết nhỏ) |
-| I3 | Chống dò mật khẩu (khóa tài khoản + giới hạn theo IP) | ✅ | Giới hạn IP đang trong bộ nhớ, đúng với một instance; nhiều instance cần Redis |
+| I3 | Chống dò mật khẩu (khóa tài khoản + giới hạn theo IP) | ✅ | Giới hạn IP dùng chung mọi instance (PostgreSQL, M8, `LoginRateLimitPostgresIT`) |
 | I4 | Nhật ký bảo mật (đăng nhập, từ chối, đổi role, khóa tài khoản) | ✅ | — |
 | I5 | Xoay khóa ký (JWKS nhiều khóa) | ✅ | Runbook: `docs/operations/key-rotation.md` |
 | I6 | Lỗi API thống nhất (ProblemDetail + `code`) | ✅ | — |

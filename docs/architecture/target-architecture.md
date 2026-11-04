@@ -40,7 +40,7 @@ flowchart LR
 | R13 | Farm không gọi Identity mỗi request; JWKS cache và chịu đổi khóa | ✅ | — (`TokenValidationTest`: 5 request không gọi JWKS; `kid` mới thì tải lại) | — |
 | R14 | Redis có TTL, timeout, access control, fail-closed, không log token | ✅ | — (M3 + `GatewayRedisIT` trên Redis 8 thật: ACL user, TTL, treo → 503). TLS chỉ cấu hình ở prod | — |
 | R15 | Identity và Farm không dùng chung bảng/credential | ✅ | — (M4: DB riêng, vai trò riêng, không vào được DB của nhau; `DatabaseRolesIT`) | — |
-| R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ | Giới hạn IP trong bộ nhớ, sai khi nhiều instance | M8 |
+| R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ | — (M8: giới hạn IP dùng chung mọi instance, `LoginRateLimitPostgresIT`) | — |
 | R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | ✅ | — (M7: trace W3C + OTLP, Prometheus ở cổng quản trị, ECS JSON ở prod cả ba, test lọc log ở DEBUG). Còn: collector, alert, dashboard thật | — |
 | R18 | Actuator không lộ ra cổng công khai | ✅ | — (M2: cổng quản trị loopback ở cả ba service) | — |
 | R19 | Build và test lặp lại được, có CI | ✅ | — (CI xanh lần đầu 2026-11-04). CD chưa có, ngoài phạm vi | — |
@@ -77,7 +77,7 @@ flowchart LR
 | Token riêng từng route (bước 2) | Giới hạn thiệt hại tối đa | Gateway cần token exchange hoặc resource indicator |
 | Redis fail-closed | Không bao giờ cho qua khi mất phiên | Redis sập = mọi người dùng nhận 503 tới khi Redis về |
 | Rate limit fail-open (mặc định SCG) | Redis chập chờn không chặn người đã có phiên hợp lệ | Lúc Redis lỗi, không còn giới hạn tốc độ; chỉ chấp nhận được vì phiên được nạp trước và cũng cần Redis |
-| Rate limit trong bộ nhớ (identity) | Không cần Redis cho identity | Sai khi chạy nhiều instance |
+| Rate limit login ở PostgreSQL (identity, M8) | Không thêm Redis cho identity; chung mọi instance; database lỗi thì 503 (fail-closed) | Mỗi lần thử đăng nhập thêm một câu `UPSERT`; ổn ở mức 10 lần/phút/IP |
 
 ## 6. Chưa triển khai (không được coi là đã có)
 

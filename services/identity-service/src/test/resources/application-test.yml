@@ -17,6 +17,9 @@ spring:
 
 farmverse:
   identity:
+    # H2 không có INSERT ... ON CONFLICT: test thường đếm trong bộ nhớ. *IT dùng bộ đếm PostgreSQL thật.
+    rate-limit:
+      store: memory
     issuer: http://localhost:8092
     signing-key:
       key-id: test-key
