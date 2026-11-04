@@ -169,8 +169,8 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 
 | # | Tiêu chí | Trạng thái | Việc cần làm |
 |---|---|:-:|---|
-| W1 | `npm run build` xanh, không lỗi type | ❓ | Chưa chạy lại; trước đây vướng lỗi chứng chỉ npm trên máy |
-| W2 | Giao diện thống nhất, bỏ chủ đề cũ (Mộc Linh, FarmWorldScene) | ❓ | Rà `src/` |
+| W1 | `npm run build` xanh, không lỗi type | ✅ | `tsc -b --noEmit` + `vite build` xanh (2026-11-04) |
+| W2 | Giao diện thống nhất, bỏ chủ đề cũ (Mộc Linh, FarmWorldScene) | ✅ | Thương hiệu FarmVerse, cùng bảng màu với trang đăng nhập identity; bỏ cảnh 3D và `three` (JS 248 kB, hết cảnh báo chunk > 500 kB); bỏ 30 class CSS chết. Chưa có chế độ tối (identity có) |
 | W3 | Loading / rỗng / lỗi (đọc `code` của ProblemDetail) / 401 tự chuyển đăng nhập | ❓ | |
 | W4 | Truy cập (nhãn form, focus, tương phản, bàn phím) | ❓ | |
 | W5 | Tiếng Việt nhất quán, gom chuỗi vào một chỗ | ❓ | |
