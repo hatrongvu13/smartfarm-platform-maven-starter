@@ -39,7 +39,7 @@ Chi tiết API và dạng lỗi (ProblemDetail, `code` dạng `SF-<MIEN>-<SO>`):
 | Token | Thời hạn | Ghi chú |
 |---|---|---|
 | Access token (JWT RS256) | 5 phút | `aud=[farm-service, identity-service]` ([ADR-0006](../../docs/architecture/adr/0006-per-service-audience.md)), `scope`, `tenant_id`, `membership_id`, `roles`, `perms`, `token_type` |
-| Refresh token | 14 ngày | Xoay vòng mỗi lần dùng, lưu ở `oauth2_authorization` |
+| Refresh token | 14 ngày | Xoay vòng mỗi lần dùng. Dùng lại token cũ (quá 30 giây sau lần xoay) thì thu hồi cả authorization. Gateway thu hồi khi đăng xuất ([ADR-0013](../../docs/architecture/adr/0013-token-revocation.md)) |
 | ID token | theo SAS | Gateway dùng làm `id_token_hint` khi đăng xuất |
 
 Access token không thu hồi tức thì được: service kiểm JWT tại chỗ bằng JWKS cache. Khóa tài khoản hay đổi quyền chỉ có hiệu lực khi token cũ hết hạn, tối đa sau 5 phút. Xoay khóa ký: [`docs/operations/key-rotation.md`](../../docs/operations/key-rotation.md).
@@ -50,7 +50,7 @@ Access token không thu hồi tức thì được: service kiểm JWT tại ch�
 |---|---|---|
 | Đăng nhập theo tổ chức | Email + mật khẩu + mã tổ chức; principal là membership | `AuthorizationCodeFlowTest` |
 | Mật khẩu | `{bcrypt}` qua `DelegatingPasswordEncoder`; mật khẩu mới dài 12–128 ký tự | `ValidationProblemTest` |
-| Khóa tài khoản | 5 lần sai thì khóa 15 phút | **Chưa có test** |
+| Khóa tài khoản | 5 lần sai thì khóa 15 phút; đăng nhập đúng thì đếm lại; quản trị viên mở khóa được | `AccountLockoutTest` |
 | Giới hạn theo IP | `POST /login`, `POST /login/totp`: 10 lần/phút/IP. Bộ đếm ở PostgreSQL, chung mọi instance; database lỗi thì 503 | `LoginRateLimitFilterTest`, `LoginRateLimitPostgresIT` |
 | TOTP | Tài khoản đã bật TOTP phải nhập mã trước khi được cấp code; secret mã hóa AES-GCM; chống dùng lại mã; mã khôi phục dùng một lần | `TotpLoginFlowTest`, `RecoveryCodeServiceTest` |
 | Nhật ký bảo mật | Logger `SECURITY_AUDIT`, giá trị được làm sạch, không ghi mật khẩu/mã/token | `SecurityAuditTest`, `AdminAuditTest` |

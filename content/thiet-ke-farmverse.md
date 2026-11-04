@@ -50,7 +50,7 @@ Chưa có: gRPC, CI, observability tập trung. Test chạy được không cầ
 |---|---|---|
 | S1 | `.env.production.example` còn biến của kiến trúc cũ | **Đã sửa (2026-11-04, M2)**: chỉ còn tên biến thật của 3 service |
 | S2 | Mật khẩu Redis dev | **Đã chốt và sửa (2026-11-04, M3)**: luôn có mật khẩu, `compose.yaml` và gateway cùng đọc `REDIS_PASSWORD` |
-| S3 | `services/identity-service/README.md` là bản cũ gần như toàn bộ (endpoint `/api/v1/auth/*`, gRPC admin đều đã xóa) | Đã gắn cảnh báo; viết lại là việc riêng (mục 7) |
+| S3 | `services/identity-service/README.md` là bản cũ gần như toàn bộ (endpoint `/api/v1/auth/*`, gRPC admin đều đã xóa) | **Đã viết lại (2026-11-04)** theo hiện trạng |
 
 ## 3. Kiến trúc và luồng đăng nhập
 
@@ -141,9 +141,9 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 
 | # | Tiêu chí | Trạng thái | Còn lại |
 |---|---|:-:|---|
-| I1 | OIDC chuẩn (code + PKCE, refresh, revoke, RP logout) | 🟡 | Có test code+PKCE và vòng đời token; rà lại test revoke và logout |
+| I1 | OIDC chuẩn (code + PKCE, refresh, revoke, RP logout) | ✅ | ADR-0013: đăng xuất thu hồi refresh token (`LogoutRevocationTest`); dùng lại refresh token đã xoay thì thu hồi cả họ (`RefreshTokenReuseTest`, RFC 9700); test chạy cả trên PostgreSQL. Access token vẫn sống tới hết hạn (5 phút) |
 | I2 | MFA đầy đủ (TOTP + mã khôi phục) | ✅ | — (MFA bằng factor TOTP của Spring Security chưa có từ 7.1.2, nên đang dùng bản tự viết nhỏ) |
-| I3 | Chống dò mật khẩu (khóa tài khoản + giới hạn theo IP) | ✅ | Giới hạn IP dùng chung mọi instance (PostgreSQL, M8, `LoginRateLimitPostgresIT`) |
+| I3 | Chống dò mật khẩu (khóa tài khoản + giới hạn theo IP) | ✅ | Giới hạn IP dùng chung mọi instance (PostgreSQL, M8, `LoginRateLimitPostgresIT`). Sửa lỗi đếm hai lần mỗi lần sai mật khẩu (trước khóa sau 3 lần thay vì 5); `AccountLockoutTest` |
 | I4 | Nhật ký bảo mật (đăng nhập, từ chối, đổi role, khóa tài khoản) | ✅ | — |
 | I5 | Xoay khóa ký (JWKS nhiều khóa) | ✅ | Runbook: `docs/operations/key-rotation.md` |
 | I6 | Lỗi API thống nhất (ProblemDetail + `code`) | ✅ | — |
@@ -419,7 +419,7 @@ Mỗi bước: build xanh, test xanh, hoàn tác bằng `git revert`. Commit do 
 | 4 | gRPC P1-P4 (mục 6.8), **nếu** D7 được duyệt | Theo bảng 6.8 |
 | 5 | Giao diện W1-W7 (rà trạng thái ❓ trước) | `npm run build` + Vitest xanh |
 | 6 | Test cần Docker: I8, G6, F3 (chạy ở CI hoặc máy có Docker) | Xanh |
-| 7 | Viết lại README identity theo hiện trạng | Không còn câu sai |
+| 7 | ~~Viết lại README identity theo hiện trạng~~ Đã xong (2026-11-04) | Không còn câu sai |
 | — | Tự chấm lại bảng mục 5 | Đủ 10/10 thì mở miền mới |
 
 Bài học thiết kế nên nắm theo từng bước: cô lập tenant (F1), ProblemDetail RFC 9457, khóa lạc quan so với ràng buộc unique ở DB, hợp đồng proto tương thích ngược, deadline cho mọi lời gọi mạng, mTLS (máy nào) khác authority (hàm nào) khác tenant (của ai).

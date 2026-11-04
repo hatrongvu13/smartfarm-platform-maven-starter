@@ -16,3 +16,4 @@ Mẫu: Bối cảnh → Quyết định → Hệ quả → Bằng chứng. Trạ
 | [0010](0010-security-headers.md) | CSP theo profile và HSTS sau edge TLS | Đã chốt (M5b) |
 | [0011](0011-trusted-proxy-forwarded-headers.md) | Chỉ tin header forwarded từ edge đã khai | Đã chốt (M5c) |
 | [0012](0012-observability.md) | Trace, metric và log JSON không chứa bí mật | Đã chốt (M7) |
+| [0013](0013-token-revocation.md) | Đăng xuất thu hồi refresh token, phát hiện dùng lại refresh token | Đã chốt (I1) |

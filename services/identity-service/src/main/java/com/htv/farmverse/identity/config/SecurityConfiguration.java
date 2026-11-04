@@ -94,10 +94,16 @@ public class SecurityConfiguration {
 
     @Bean
     @Order(3)
-    SecurityFilterChain loginChain(HttpSecurity http, TenantAuthenticationProvider tenantAuthentication,
+    SecurityFilterChain loginChain(HttpSecurity http, AccountUserDetailsService userDetails, PasswordEncoder passwordEncoder,
+                                   MembershipRepository memberships, AccountService accounts,
                                    TotpService totp, IdentityProperties properties,
                                    LoginAttemptCounter loginAttempts) throws Exception {
         IdentityProperties.RateLimit rateLimit = properties.rateLimit();
+        // Provider tạo tại chỗ, KHÔNG là bean: bean AuthenticationProvider duy nhất được Spring Security gắn thêm vào
+        // AuthenticationManager cha, nên mật khẩu sai bị kiểm hai lần và đếm hai lần sai (khóa sau 3 lần thay vì 5).
+        // AccountLockoutTest khóa lại hành vi này.
+        TenantAuthenticationProvider tenantAuthentication =
+                new TenantAuthenticationProvider(userDetails, passwordEncoder, memberships, accounts);
         http.authenticationProvider(tenantAuthentication)
                 // Giới hạn thử đăng nhập theo IP, đứng trước mọi filter xác thực
                 .addFilterBefore(new LoginRateLimitFilter(rateLimit.maxAttempts(), rateLimit.window(), loginAttempts),
@@ -116,14 +122,6 @@ public class SecurityConfiguration {
                         .authenticationDetailsSource(TenantLoginDetails.source())
                         .permitAll());
         return http.build();
-    }
-
-    @Bean
-    TenantAuthenticationProvider tenantAuthenticationProvider(AccountUserDetailsService userDetails,
-                                                              PasswordEncoder passwordEncoder,
-                                                              MembershipRepository memberships,
-                                                              AccountService accounts) {
-        return new TenantAuthenticationProvider(userDetails, passwordEncoder, memberships, accounts);
     }
 
     /** {@code {bcrypt}...}: chuẩn của Spring, đổi thuật toán sau này không cần migrate. */
@@ -159,8 +157,12 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    OAuth2AuthorizationService authorizationService(JdbcTemplate jdbc, RegisteredClientRepository clients) {
-        return new JdbcOAuth2AuthorizationService(jdbc, clients);
+    OAuth2AuthorizationService authorizationService(JdbcTemplate jdbc, RegisteredClientRepository clients, Clock clock,
+            @org.springframework.beans.factory.annotation.Value("${farmverse.identity.refresh-token-reuse-grace:30s}")
+            java.time.Duration reuseGrace) {
+        // I1: dùng lại refresh token đã xoay (quá reuseGrace) thì thu hồi cả authorization
+        return new com.htv.farmverse.identity.oauth2.RefreshTokenReuseDetection(
+                new JdbcOAuth2AuthorizationService(jdbc, clients), jdbc, clock, reuseGrace);
     }
 
     @Bean

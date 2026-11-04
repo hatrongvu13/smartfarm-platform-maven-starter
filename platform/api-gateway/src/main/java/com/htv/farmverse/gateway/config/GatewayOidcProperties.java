@@ -30,6 +30,7 @@ public record GatewayOidcProperties(
     public String tokenUri() { return issuer + "/oauth2/token"; }
     public String jwkSetUri() { return issuer + "/oauth2/jwks"; }
     public String endSessionUri() { return issuer + "/connect/logout"; }
+    public String revocationUri() { return issuer + "/oauth2/revoke"; }
 
     public boolean mtls() {
         return sslBundle != null && !sslBundle.isBlank();

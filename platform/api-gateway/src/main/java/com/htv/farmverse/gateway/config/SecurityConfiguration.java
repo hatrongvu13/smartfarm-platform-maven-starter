@@ -58,6 +58,8 @@ public class SecurityConfiguration {
     SecurityWebFilterChain security(ServerHttpSecurity http, ReactiveClientRegistrationRepository clients,
                                     OidcAuthorizationCodeReactiveAuthenticationManager oidcLogin,
                                     GatewayOidcProperties oidc,
+                                    ServerOAuth2AuthorizedClientRepository authorizedClients,
+                                    org.springframework.web.reactive.function.client.WebClient identityWebClient,
                                     @Value("${farmverse.gateway.headers.content-security-policy}") String csp,
                                     @Value("${farmverse.gateway.headers.hsts:false}") boolean hsts) {
         DefaultServerOAuth2AuthorizationRequestResolver pkce = new DefaultServerOAuth2AuthorizationRequestResolver(clients);
@@ -75,7 +77,11 @@ public class SecurityConfiguration {
                         .authorizationRequestResolver(pkce)
                         .authenticationManager(oidcLogin))   // đổi code + kiểm id_token qua mTLS
                 .oauth2Client(Customizer.withDefaults())
-                .logout(out -> out.logoutSuccessHandler(logout))
+                // I1: thu hồi refresh token ở identity trước khi xóa phiên (RevokeTokensOnLogoutHandler)
+                .logout(out -> out
+                        .logoutHandler(handlers -> handlers.add(0,
+                                new RevokeTokensOnLogoutHandler(authorizedClients, identityWebClient, oidc.revocationUri())))
+                        .logoutSuccessHandler(logout))
                 // 401/403 cùng dạng ProblemDetail với service phía sau (SF-AUTH-001/002). CSRF có handler riêng,
                 // nên phải gắn lại ở csrf(...), nếu không lỗi thiếu token CSRF vẫn là text/plain "Access Denied".
                 .exceptionHandling(errors -> errors

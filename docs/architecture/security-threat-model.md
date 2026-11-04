@@ -39,7 +39,7 @@ flowchart LR
 
 | Tài sản | Nơi ở | Hậu quả nếu lộ |
 |---|---|---|
-| Access/refresh token | Redis (session), `oauth2_authorization` ở identity | Mạo danh người dùng tới hết hạn refresh (14 ngày) |
+| Access/refresh token | Redis (session), `oauth2_authorization` ở identity | Mạo danh người dùng tới hết hạn refresh (14 ngày), hoặc tới khi đăng xuất (thu hồi) hay khi token cũ bị dùng lại (thu hồi cả họ), ADR-0013 |
 | Cookie `FV_SESSION` | Trình duyệt | Chiếm phiên |
 | Khóa ký JWT | File PEM do `IDENTITY_PRIVATE_KEY_PATH` trỏ tới | Tự cấp token bất kỳ |
 | Secret TOTP | `user_totp` (mã hóa) + khóa `IDENTITY_MFA_ENCRYPTION_*` | Vượt 2FA |

@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * (chỉ DML), migration bằng {@code identity_owner} — đúng như production.
  *
  * <p>Các lớp lồng kế thừa test có sẵn ({@link AuthorizationCodeFlowTest}, {@link TokenLifecycleTest},
- * {@link TotpLoginFlowTest}), nên mọi kịch bản đó chạy nguyên vẹn, chỉ đổi kho dữ liệu. Bắt được những gì H2 không bắt:
+ * {@link TotpLoginFlowTest}, {@link RefreshTokenReuseTest}, {@link AccountLockoutTest}), nên mọi kịch bản đó chạy nguyên vẹn, chỉ đổi kho dữ liệu. Bắt được những gì H2 không bắt:
  * migration lệch entity, kiểu cột JSON/{@code bytea} của SAS, ràng buộc, và quyền thiếu của vai trò ứng dụng.
  * Cấu hình ở lớp ngoài áp cho mọi lớp lồng; cùng cấu hình nên dùng chung một context.
  */
@@ -42,7 +42,7 @@ class PostgresFlowsIT {
         @Test
         void flywayAppliedAllMigrationsAndHibernateValidatedTheSchema() {
             assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank",
-                    String.class)).containsExactly("1", "2", "3");
+                    String.class)).containsExactly("1", "2", "3", "4");
         }
 
         /** Bảng do Flyway (identity_owner) tạo; ứng dụng chạy bằng identity_app, không phải chủ bảng. */
@@ -70,5 +70,13 @@ class PostgresFlowsIT {
 
     @Nested
     class TotpLoginFlow extends TotpLoginFlowTest {
+    }
+
+    @Nested
+    class RefreshTokenReuse extends RefreshTokenReuseTest {
+    }
+
+    @Nested
+    class AccountLockout extends AccountLockoutTest {
     }
 }

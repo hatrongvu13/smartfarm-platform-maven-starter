@@ -56,3 +56,11 @@ CREATE TABLE IF NOT EXISTS oauth2_authorization_consent (
     authorities varchar(1000) NOT NULL,
     PRIMARY KEY (registered_client_id, principal_name)
 );
+
+-- Bản H2 của V4__rotated_refresh_token.sql (I1)
+CREATE TABLE IF NOT EXISTS oauth2_rotated_refresh_token (
+    token_hash char(64) NOT NULL PRIMARY KEY,
+    authorization_id varchar(100) NOT NULL REFERENCES oauth2_authorization (id) ON DELETE CASCADE,
+    rotated_at timestamp with time zone NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);

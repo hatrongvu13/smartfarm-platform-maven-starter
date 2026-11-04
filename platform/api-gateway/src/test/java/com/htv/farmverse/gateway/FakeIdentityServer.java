@@ -45,12 +45,19 @@ final class FakeIdentityServer implements AutoCloseable {
     volatile String nonce;
     /** Body form của lần đổi code gần nhất (để kiểm PKCE {@code code_verifier}). Không chứa secret: client dùng Basic. */
     volatile Map<String, String> lastTokenRequest = Map.of();
+    /** Refresh token cấp ở lần đổi code gần nhất. */
+    volatile String lastRefreshToken;
+    /** Các lần gọi {@code POST /oauth2/revoke}: body form và header Authorization. */
+    final List<Map<String, String>> revocations = new java.util.concurrent.CopyOnWriteArrayList<>();
+    /** Mã trả về của {@code /oauth2/revoke} (test lỗi identity). */
+    volatile int revokeStatus = 200;
 
     FakeIdentityServer() throws IOException, JOSEException {
         key = new RSAKeyGenerator(2048).keyID("test-key").generate();
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/oauth2/jwks", ex -> json(ex, new JWKSet(key.toPublicJWK()).toString()));
         server.createContext("/oauth2/token", this::token);
+        server.createContext("/oauth2/revoke", this::revoke);
         server.start();
     }
 
@@ -73,11 +80,19 @@ final class FakeIdentityServer implements AutoCloseable {
                     .claim("tenant_id", TENANT_ID).claim("perms", List.of("farm:farm:read"))
                     .claim("scope", "openid profile email farmverse.api").build());
             json(ex, "{\"access_token\":\"" + accessToken + "\",\"token_type\":\"Bearer\",\"expires_in\":300,"
-                    + "\"refresh_token\":\"" + UUID.randomUUID() + "\",\"scope\":\"openid profile email farmverse.api\","
+                    + "\"refresh_token\":\"" + (lastRefreshToken = "rt-" + UUID.randomUUID()) + "\",\"scope\":\"openid profile email farmverse.api\","
                     + "\"id_token\":\"" + idToken + "\"}");
         } catch (JOSEException e) {
             ex.sendResponseHeaders(500, -1);
         }
+    }
+
+    private void revoke(HttpExchange ex) throws IOException {
+        Map<String, String> request = new LinkedHashMap<>(form(new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
+        request.put("authorization", String.valueOf(ex.getRequestHeaders().getFirst("Authorization")));
+        revocations.add(request);
+        ex.sendResponseHeaders(revokeStatus, -1);
+        ex.close();
     }
 
     private String sign(JWTClaimsSet claims) throws JOSEException {
