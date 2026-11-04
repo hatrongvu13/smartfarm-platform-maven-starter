@@ -38,7 +38,7 @@ flowchart LR
 | R11 | Farm kiểm ownership | ⬜ | Chưa có khái niệm chủ sở hữu; cần thiết kế nghiệp vụ trước | ngoài roadmap ngắn |
 | R12 | Phân biệt mTLS (máy nào), JWT/JWKS (ai, token thật không), authorization (được làm gì) | ✅ trong code, 🟡 tài liệu | Ghi rõ ở [ADR-0003](adr/0003-mtls-ssl-bundles-spiffe.md), [ADR-0004](adr/0004-local-jwt-validation-cached-jwks.md) | — |
 | R13 | Farm không gọi Identity mỗi request; JWKS cache và chịu đổi khóa | 🟡 | Cache mặc định của Nimbus; chưa có test phía farm cho khóa mới | M6 |
-| R14 | Redis có TTL, timeout, access control, fail-closed, không log token | 🟡 | Đã có (M3): TTL, namespace, timeout, mật khẩu, 503 fail-closed, log không chứa cookie/token. Còn: ACL user và TLS chỉ mô tả, chưa có test với Redis thật | M3 phần còn lại (cần Docker/CI) |
+| R14 | Redis có TTL, timeout, access control, fail-closed, không log token | ✅ | — (M3 + `GatewayRedisIT` trên Redis 8 thật: ACL user, TTL, treo → 503). TLS chỉ cấu hình ở prod | — |
 | R15 | Identity và Farm không dùng chung bảng/credential | 🟡 | DB riêng; dev dùng chung user `postgres`; chưa có script tạo user riêng | M4 |
 | R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ | Giới hạn IP trong bộ nhớ, sai khi nhiều instance | M8 |
 | R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | 🟡 | Audit có; JSON chỉ ở identity prod; không tracing/metric export | M7 |

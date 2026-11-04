@@ -58,6 +58,7 @@ flowchart LR
 | T3 | TB0→TB1 | S | Session fixation | Đổi id phiên khi đăng nhập, id cũ vô dụng (`LoginSessionSecurityTest`) | — |
 | T4 | TB0→TB1 | I | Cookie đi qua HTTP | `Secure` ở prod; HSTS 1 năm ở prod (M5b) | — |
 | T5 | TB0→TB1 | I | Dò thông tin vận hành qua `/actuator/**` ẩn danh | Cổng quản trị loopback (M2); endpoint `gateway` không bật; `GatewayActuatorExposureTest` | — |
+| T6b | TB0→TB1 | D | Gọi dồn `/oauth2/authorization/**` làm ngập Redis bằng phiên rỗng, hoặc dội callback vào identity | Giới hạn theo IP ở gateway, chặn trước khi tạo phiên (G5, `GatewayRedisIT`) | — |
 | T6 | TB0→ID | S | Dò mật khẩu / mã TOTP | Khóa tài khoản, giới hạn IP, chống replay TOTP | Giới hạn IP phân tán (M8) |
 | T7 | TB0→ID | S | Giả mạo redirect, đánh cắp code | redirect URI chính xác, PKCE bắt buộc, `state` | — |
 | T7b | TB0→TB1 | T | Giả `X-Forwarded-Host` để gateway dựng URL theo host của kẻ tấn công | Chỉ tin header từ IP edge đã khai; nguồn khác bị xóa header (`ForwardedHeadersTest`); identity chỉ chấp nhận redirect URI đã đăng ký | Edge phải ghi đè header của trình duyệt |
@@ -66,9 +67,9 @@ flowchart LR
 | T10 | TB2 | S | Token giả | Kiểm chữ ký bằng JWKS, `iss`, `exp`, `nbf`, `aud` | — |
 | T11 | TB2 | E | Người tenant A đọc dữ liệu tenant B | `@TenantId` từ claim, `TenantIsolationTest` | — |
 | T12 | TB2 | E | Người cùng tenant đọc farm của người khác | Chỉ `perms` | Ownership (chưa có yêu cầu) |
-| T13 | TB1→TB3 | I | Đọc session (token) trong Redis | Mật khẩu bắt buộc (dev + prod), cổng dev chỉ `127.0.0.1`, TLS prod, namespace riêng | ACL user riêng (hướng dẫn ở [deployment.md](deployment.md)) |
+| T13 | TB1→TB3 | I | Đọc session (token) trong Redis | Mật khẩu bắt buộc, cổng dev chỉ `127.0.0.1`, TLS prod, namespace riêng; ACL user tối thiểu đã kiểm trên Redis thật (`GatewayRedisIT`) | Bật ACL ở hạ tầng prod |
 | T14b | TB1→TB2 | D | Service phía sau treo giữ request của gateway | Timeout response 10s, connect 3s ở mọi profile → 504/502 (`GatewayErrorProblemsTest`) | Circuit breaker để trả lỗi ngay khi service sập kéo dài |
-| T14 | TB1→TB3 | D | Redis treo làm gateway treo | Timeout lệnh 2s, kết nối 1s; lỗi → 503 nhanh (`RedisSessionHardeningTest`) | Test Redis treo thật (không chỉ từ chối kết nối) cần Testcontainers |
+| T14 | TB1→TB3 | D | Redis treo làm gateway treo | Timeout lệnh 2s, kết nối 1s; treo thật (`docker pause`) → 503 trong khoảng timeout (`GatewayRedisIT`) | — |
 | T15 | TB2→TB3 | E | Farm bị chiếm đọc DB identity | DB riêng | User riêng, không superuser (M4) |
 | T16 | TB4 | I | Token, mã, cookie lọt vào log | `SecurityAudit` làm sạch; quy tắc cấm | Test lọc log cho gateway/farm (M7) |
 | T17 | TB2 | R | Không truy được ai làm gì | Audit ở identity | Trace id xuyên service (M7) |

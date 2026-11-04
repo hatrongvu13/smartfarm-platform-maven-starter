@@ -42,9 +42,13 @@ import static org.assertj.core.api.Assertions.assertThat;
         "GATEWAY_SESSION_TIMEOUT=7m",
         "REDIS_TIMEOUT=1s",
         "REDIS_CONNECT_TIMEOUT=500ms",
-        "FARM_URL=http://127.0.0.1:1"
+        "FARM_URL=http://127.0.0.1:1",
+        "farmverse.gateway.login-rate-limit.max-attempts=" + GatewayRedisIT.LIMIT
 })
 class GatewayRedisIT {
+
+    /** Đủ cho các test đăng nhập khác (mỗi test 2 lượt); test giới hạn tự dọn bộ đếm sau khi chạy. */
+    static final int LIMIT = 25;
 
     static final String ADMIN_PASSWORD = "it-admin-password";
     static final String GATEWAY_PASSWORD = "it-gateway-password";
@@ -55,7 +59,7 @@ class GatewayRedisIT {
      * {@code TIME}, lệnh này không thuộc các nhóm ở trên (thiếu nó, bộ giới hạn âm thầm cho qua mọi request).
      */
     static final String ACL = "on >" + GATEWAY_PASSWORD
-            + " ~farmverse:gateway:session:* ~request_rate_limiter.*"
+            + " ~farmverse:gateway:* ~request_rate_limiter.*"
             + " +@read +@write +@keyspace +@scripting +@connection +time -@dangerous";
 
     static final GenericContainer<?> REDIS = new GenericContainer<>("redis:8-alpine")
@@ -123,6 +127,41 @@ class GatewayRedisIT {
 
         assertThat(keys("request_rate_limiter.*")).as("script Lua của RequestRateLimiter phải chạy được bằng user ACL")
                 .isNotEmpty();
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    com.htv.farmverse.gateway.config.LoginAttemptCounter loginAttempts;
+
+    /** G5, phần Redis: script INCR + PEXPIRE chạy bằng user ACL, key có TTL đúng cửa sổ (không bao giờ thiếu TTL). */
+    @Test
+    void loginCounterScriptRunsUnderTheAclUserAndAlwaysHasATtl() {
+        String key = "it-" + System.nanoTime();
+        assertThat(loginAttempts).isInstanceOf(com.htv.farmverse.gateway.config.RedisLoginAttemptCounter.class);
+        assertThat(loginAttempts.increment(key, Duration.ofSeconds(30)).block()).isEqualTo(1L);
+        assertThat(loginAttempts.increment(key, Duration.ofSeconds(30)).block()).isEqualTo(2L);
+
+        long ttl = Long.parseLong(admin("PTTL", "farmverse:gateway:login-limit:" + key).trim());
+        assertThat(ttl).isBetween(1L, 30_000L);
+    }
+
+    /** G5 qua HTTP với Redis thật: vượt giới hạn thì 429 ProblemDetail. Dọn bộ đếm để không chặn test khác. */
+    @Test
+    void tooManyLoginStartsFromOneIpGet429() {
+        try {
+            int status = 0;
+            for (int i = 0; i < LIMIT + 1; i++) {
+                status = web().get().uri("/oauth2/authorization/farmverse").exchange()
+                        .expectBody().returnResult().getStatus().value();
+            }
+            assertThat(status).isEqualTo(429);
+            web().get().uri("/oauth2/authorization/farmverse").exchange()
+                    .expectStatus().isEqualTo(429)
+                    .expectHeader().exists("Retry-After")
+                    .expectCookie().doesNotExist("FV_SESSION")   // chặn trước Security: không tạo phiên trong Redis
+                    .expectBody().jsonPath("$.code").isEqualTo("SF-GATEWAY-429");
+        } finally {
+            keys("farmverse:gateway:login-limit:*").forEach(k -> admin("DEL", k));
+        }
     }
 
     @Test

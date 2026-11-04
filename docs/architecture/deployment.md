@@ -24,7 +24,7 @@ flowchart TB
 
 | Mục | Hiện trạng | Mục tiêu |
 |---|---|---|
-| Xác thực | Mật khẩu bắt buộc: gateway `REDIS_PASSWORD`, `compose.yaml` `--requirepass ${REDIS_PASSWORD:-farmverse-dev}` | ACL user riêng, đặt `SPRING_DATA_REDIS_USERNAME`. **Đã kiểm trên Redis 8 thật** (`GatewayRedisIT`): `ACL SETUSER gateway on >… ~farmverse:gateway:session:* ~request_rate_limiter.* +@read +@write +@keyspace +@scripting +@connection +time -@dangerous`. Cần `+time` vì script Lua của bộ giới hạn gọi `TIME`; thiếu nó, bộ giới hạn **âm thầm cho qua** mọi request (chỉ có log `Error calling rate limiter lua`) |
+| Xác thực | Mật khẩu bắt buộc: gateway `REDIS_PASSWORD`, `compose.yaml` `--requirepass ${REDIS_PASSWORD:-farmverse-dev}` | ACL user riêng, đặt `SPRING_DATA_REDIS_USERNAME`. **Đã kiểm trên Redis 8 thật** (`GatewayRedisIT`): `ACL SETUSER gateway on >… ~farmverse:gateway:* ~request_rate_limiter.* +@read +@write +@keyspace +@scripting +@connection +time -@dangerous` (`farmverse:gateway:*` gồm phiên và bộ đếm đăng nhập theo IP). Cần `+time` vì script Lua của bộ giới hạn gọi `TIME`; thiếu nó, bộ giới hạn **âm thầm cho qua** mọi request (chỉ có log `Error calling rate limiter lua`) |
 | TLS | Prod `spring.data.redis.ssl.enabled: ${REDIS_SSL:true}` | Giữ; thêm CA tin cậy qua SSL bundle |
 | Timeout | Lệnh `${REDIS_TIMEOUT:2s}`, kết nối `${REDIS_CONNECT_TIMEOUT:1s}` (M3) | Giữ; chỉnh theo độ trễ thật |
 | TTL phiên | `${GATEWAY_SESSION_TIMEOUT:30m}`, namespace `farmverse:gateway:session` (M3) | Giữ |

@@ -38,3 +38,14 @@ Cổng công khai `:8080` của gateway không có `/actuator/**`.
 mvn -B test                                   # không cần Docker (H2)
 mvn -B verify                                 # thêm *IT trên PostgreSQL/Redis thật (cần Docker)
 ```
+
+`*IT` dùng Testcontainers (PostgreSQL 17, Redis 8). Với Colima trên macOS:
+
+```bash
+colima start
+export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+mvn -B verify
+```
+
+`*IT` tự dựng container ở cổng ngẫu nhiên, không đụng `compose.yaml` đang chạy.

@@ -148,7 +148,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 | I5 | Xoay khóa ký (JWKS nhiều khóa) | ✅ | Runbook: `docs/operations/key-rotation.md` |
 | I6 | Lỗi API thống nhất (ProblemDetail + `code`) | ✅ | — |
 | I7 | Tài liệu API (springdoc, chỉ bật ở dev) | ✅ | `docs/operations/identity-api.md` |
-| I8 | Test trên PostgreSQL thật | ⬜ | `*IT` Testcontainers; cần Docker |
+| I8 | Test trên PostgreSQL thật | ✅ | `PostgresFlowsIT`: Flyway + validate, SAS JDBC, luồng OIDC/token/TOTP chạy lại trên PostgreSQL 17 |
 | I9 | Mã sạch (bỏ phần chết) | ✅ | Module cũ đã xóa |
 | I10 | Trang login / TOTP thống nhất giao diện | ✅ | — |
 
@@ -160,8 +160,8 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 | G2 | Lỗi thống nhất: 401, 403, 429, 502, 503, 504 trả ProblemDetail có `code` | ✅ | `GatewayProblems`, `DownstreamErrorHandler`, `RateLimitProblemFilter`; test `GatewayErrorProblemsTest` (2026-11-04) |
 | G3 | Timeout và chịu lỗi theo route; circuit breaker trả 503 nhanh | 🟡 | Timeout mọi profile (connect 3s, response 10s, quá hạn → 504) ✅. Circuit breaker ⬜: cần thêm `spring-cloud-starter-circuitbreaker-reactor-resilience4j` |
 | G4 | Header bảo mật (CSP, nosniff, Referrer-Policy, HSTS ở prod) | ✅ | ADR-0010, `SecurityHeadersTest`, thử trên Chrome |
-| G5 | Rate limit: theo user cho `/api/**` ✅; theo IP cho `/oauth2/authorization/**` ⬜ | 🟡 | Thêm key resolver theo IP |
-| G6 | Session: test với Redis thật; timeout; đăng xuất xóa sạch | 🟡 | TTL 30m, namespace, fail-closed 503, đăng xuất ✅; test với Redis thật ⬜ (cần Docker/CI) |
+| G5 | Rate limit: theo user cho `/api/**`; theo IP cho `/oauth2/authorization/**` và callback | ✅ | `LoginRateLimitFilter` (20/phút/IP, Redis), `GatewayRedisIT` |
+| G6 | Session: test với Redis thật; timeout; đăng xuất xóa sạch | ✅ | `GatewayRedisIT`: TTL, namespace, đổi id phiên, Redis treo → 503, ACL user |
 | G7 | mTLS xuống service | ✅ | Mục 4 |
 | G8 | Quan sát: `traceparent` + request id trong log | ⬜ | Micrometer Tracing |
 
@@ -183,7 +183,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 |---|---|:-:|
 | F1 | Hexagonal, tách tenant bằng `@TenantId`, có test cô lập tenant | ✅ |
 | F2 | Khóa lạc quan `@Version`; tranh chấp ghi trả 409 `SF-FARM-010`; trùng mã đồng thời trả 409 `SF-FARM-011` | ✅ (2026-11-04, chưa commit) |
-| F3 | Test đồng thời thật trên PostgreSQL | ⬜ (cần Docker) |
+| F3 | Test đồng thời thật trên PostgreSQL | ✅ |
 
 **Cổng chất lượng:** tự chấm lại bảng 5.1-5.4; đủ 10/10 mới mở miền nghiệp vụ tiếp theo (trừ ngoại lệ được duyệt ở D7).
 

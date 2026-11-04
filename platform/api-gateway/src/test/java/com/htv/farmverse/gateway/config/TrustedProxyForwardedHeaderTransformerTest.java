@@ -85,4 +85,20 @@ class TrustedProxyForwardedHeaderTransformerTest {
 
         assertThat(result.getURI().toString()).isEqualTo("https://farm.example.test/x");   // prefix bị bỏ qua
     }
+
+    /** Bộ giới hạn đăng nhập theo IP đọc remoteAddress: phải là IP khách khi đi qua edge, IP TCP khi gọi thẳng. */
+    @Test
+    void clientIpComesFromTheEdgeOnlyWhenTrusted() {
+        var transformer = new TrustedProxyForwardedHeaderTransformer(List.of("10.0.0.0/8"));
+
+        ServerHttpRequest viaEdge = transformer.apply(MockServerHttpRequest.get("http://gw.internal/x")
+                .remoteAddress(new InetSocketAddress("10.1.2.3", 4000))
+                .header("X-Forwarded-For", "198.51.100.7").build());
+        assertThat(viaEdge.getRemoteAddress().getHostString()).isEqualTo("198.51.100.7");
+
+        ServerHttpRequest direct = transformer.apply(MockServerHttpRequest.get("http://gw.internal/x")
+                .remoteAddress(new InetSocketAddress("203.0.113.9", 4000))
+                .header("X-Forwarded-For", "198.51.100.7").build());
+        assertThat(direct.getRemoteAddress().getHostString()).isEqualTo("203.0.113.9");
+    }
 }
