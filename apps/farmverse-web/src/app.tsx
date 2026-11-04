@@ -9,16 +9,17 @@ import Profile from './pages/Profile'
 import Users from './pages/admin/Users'
 import Authorization from './pages/admin/Authorization'
 import { Button } from './components/ui'
+import { vi } from './i18n/vi'
 
 export default function App() {
   const { status, login } = useAuth()
-  if (status === 'loading') return <div className="p-10 text-stone-600">Đang tải…</div>
+  if (status === 'loading') return <div role="status" className="p-10 text-stone-600">{vi.app.loading}</div>
 
   // Chưa có session ở gateway: đăng nhập diễn ra trên trang của identity-service (OIDC).
   if (status === 'anonymous') {
     return (
-      <AuthShell title="Đăng nhập FarmVerse" sub="Bạn sẽ được chuyển sang trang đăng nhập của hệ thống.">
-        <Button onClick={login}>Đăng nhập</Button>
+      <AuthShell title={vi.auth.loginTitle} sub={vi.auth.loginSub}>
+        <Button onClick={login}>{vi.auth.login}</Button>
       </AuthShell>
     )
   }

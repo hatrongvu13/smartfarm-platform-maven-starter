@@ -4,6 +4,7 @@ import { api, identity } from '../../lib/api'
 import { hasPermission, useAuth } from '../../lib/auth'
 import { useConfirm } from '../../components/dialog'
 import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState } from '../../components/ui'
+import { vi } from '../../i18n/vi'
 
 type Role = { code: string; name: string; description?: string; systemOwned: boolean; permissions: string[] }
 type Permission = { code: string; resourceType: string; action: string; description?: string; systemOwned: boolean }
@@ -40,25 +41,25 @@ export default function Authorization() {
 
   return (
     <>
-      <PageHeader title="Phân quyền" sub="Role của tổ chức, mỗi role là một nhóm permission" />
+      <PageHeader title={vi.authorization.title} sub={vi.authorization.sub} />
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card title="Role">
+        <Card title={vi.authorization.roles}>
           <ErrorMsg error={remove.error} />
-          <QueryState query={roles} loadingLabel="Đang tải role…" empty="Chưa có role nào.">
+          <QueryState query={roles} loadingLabel={vi.authorization.loading} empty={vi.authorization.empty}>
             {list => (
           <ul className="divide-y text-sm">
             {list.map(r => (
               <li key={r.code} className="flex items-start justify-between gap-3 py-2">
                 <div>
-                  <div className="font-medium">{r.code} {r.systemOwned && <Badge tone="warn">hệ thống</Badge>}</div>
-                  <div className="text-stone-600">{r.name} · {r.permissions.length} quyền</div>
+                  <div className="font-medium">{r.code} {r.systemOwned && <Badge tone="warn">{vi.common.system}</Badge>}</div>
+                  <div className="text-stone-600">{vi.authorization.permissionCount(r.name, r.permissions.length)}</div>
                 </div>
                 {canManage && !r.systemOwned && (
                   <div className="space-x-1 whitespace-nowrap">
-                    <Button variant="ghost" aria-label={`Sửa role ${r.code}`} onClick={() => edit(r)}>Sửa</Button>
-                    <Button variant="danger" aria-label={`Xóa role ${r.code}`} onClick={async () => {
-                      if (await confirm({ title: `Xóa role ${r.code}?`, body: 'Người dùng đang có role này sẽ mất các quyền của nó ở lần đăng nhập hoặc làm mới token kế tiếp.', confirmLabel: 'Xóa role', danger: true })) remove.mutate(r.code)
-                    }}>Xóa</Button>
+                    <Button variant="ghost" aria-label={vi.authorization.editLabel(r.code)} onClick={() => edit(r)}>{vi.common.edit}</Button>
+                    <Button variant="danger" aria-label={vi.authorization.deleteLabel(r.code)} onClick={async () => {
+                      if (await confirm({ ...vi.authorization.confirmDelete(r.code), danger: true })) remove.mutate(r.code)
+                    }}>{vi.common.delete}</Button>
                   </div>
                 )}
               </li>
@@ -69,15 +70,15 @@ export default function Authorization() {
         </Card>
 
         {canManage && (
-          <Card title={editing ? `Sửa role ${editing}` : 'Tạo role'}>
+          <Card title={editing ? vi.authorization.edit(editing) : vi.authorization.create}>
             <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
-              <Field label="Mã" hint="CHỮ HOA, ví dụ FARM_WORKER">
+              <Field label={vi.common.code} hint={vi.authorization.codeHint}>
                 <Input required pattern="[A-Z][A-Z0-9_]{1,39}" disabled={!!editing} value={draft.code} onChange={e => setDraft({ ...draft, code: e.target.value })} />
               </Field>
-              <Field label="Tên"><Input required value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field>
-              <Field label="Mô tả"><Input value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} /></Field>
+              <Field label={vi.common.name}><Input required value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field>
+              <Field label={vi.common.description}><Input value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} /></Field>
               <fieldset className="max-h-72 space-y-1 overflow-y-auto rounded border p-2 text-sm">
-                <legend className="px-1 text-xs text-stone-600">Permission</legend>
+                <legend className="px-1 text-xs text-stone-600">{vi.authorization.permissions}</legend>
                 {permissions.data?.map(p => (
                   <label key={p.code} className="flex items-center gap-2">
                     <input type="checkbox" checked={draft.permissions.includes(p.code)} onChange={() => toggle(p.code)} />
@@ -87,8 +88,8 @@ export default function Authorization() {
               </fieldset>
               <ErrorMsg error={save.error ?? permissions.error} />
               <div className="space-x-2">
-                <Button disabled={save.isPending}>{editing ? 'Lưu' : 'Tạo'}</Button>
-                {editing && <Button type="button" variant="ghost" onClick={() => { setEditing(null); setDraft(empty) }}>Hủy</Button>}
+                <Button disabled={save.isPending}>{editing ? vi.common.save : vi.common.create}</Button>
+                {editing && <Button type="button" variant="ghost" onClick={() => { setEditing(null); setDraft(empty) }}>{vi.common.cancel}</Button>}
               </div>
             </form>
           </Card>

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button } from './ui'
+import { vi } from '../i18n/vi'
 
 /**
  * Hộp thoại dùng thẻ <dialog> gốc của trình duyệt với showModal():
@@ -69,7 +70,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       <Dialog open={!!pending} onClose={() => finish(false)} title={pending?.title ?? ''} description={pending?.body}>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" autoFocus={pending?.danger} onClick={() => finish(false)}>Hủy</Button>
+          <Button type="button" variant="ghost" autoFocus={pending?.danger} onClick={() => finish(false)}>{vi.common.cancel}</Button>
           <Button type="button" variant={pending?.danger ? 'danger' : 'primary'} autoFocus={!pending?.danger}
             onClick={() => finish(true)}>{pending?.confirmLabel}</Button>
         </div>
@@ -81,6 +82,6 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
 /** const confirm = useConfirm(); if (await confirm({ ... })) mutate() */
 export function useConfirm() {
   const confirm = useContext(ConfirmContext)
-  if (!confirm) throw new Error('useConfirm cần nằm trong ConfirmProvider')
+  if (!confirm) throw new Error('useConfirm must be used inside ConfirmProvider')
   return confirm
 }

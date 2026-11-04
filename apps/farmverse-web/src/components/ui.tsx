@@ -1,6 +1,7 @@
 import { cloneElement, useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { describeError } from '../lib/errors'
+import { vi } from '../i18n/vi'
 
 const cx = (...a: (string | false | undefined)[]) => a.filter(Boolean).join(' ')
 
@@ -83,16 +84,16 @@ export function ErrorMsg({ error, onRetry }: { error: unknown; onRetry?: () => v
       )}
       <div className="mt-1 flex items-center gap-3">
         {onRetry && view.retryable && (
-          <button type="button" onClick={onRetry} className={cx('font-medium text-red-900 underline underline-offset-2', focusRing)}>Thử lại</button>
+          <button type="button" onClick={onRetry} className={cx('font-medium text-red-900 underline underline-offset-2', focusRing)}>{vi.common.retry}</button>
         )}
-        {view.code && <span className="text-xs text-red-800">Mã lỗi: {view.code}</span>}
+        {view.code && <span className="text-xs text-red-800">{vi.common.errorCode(view.code)}</span>}
       </div>
     </div>
   )
 }
 
 /** Đang tải: role="status" để trình đọc màn hình báo, thay vì một vùng trống trông như "không có dữ liệu". */
-export function Loading({ label = 'Đang tải…' }: { label?: string }) {
+export function Loading({ label = vi.app.loading }: { label?: string }) {
   return <p role="status" aria-live="polite" className="py-6 text-center text-sm text-stone-600">{label}</p>
 }
 
@@ -123,15 +124,9 @@ function defaultIsEmpty(data: unknown): boolean {
   return Array.isArray(content) && content.length === 0
 }
 
-export const DevOnly = () => <Badge tone="warn">dev-only</Badge>
-
-export function Json({ data }: { data: unknown }) {
-  return <pre className="max-h-80 overflow-auto rounded-lg bg-stone-900 p-3 text-xs text-stone-100">{JSON.stringify(data, null, 2)}</pre>
-}
-
 /** Tiêu đề trang; đồng thời đặt tiêu đề tab trình duyệt (WCAG 2.4.2), để người dùng nhiều tab và trình đọc màn hình biết đang ở đâu. */
 export function PageHeader({ title, sub, right }: { title: string; sub?: ReactNode; right?: ReactNode }) {
-  useEffect(() => { document.title = `${title} · FarmVerse` }, [title])
+  useEffect(() => { document.title = `${title}${vi.app.titleSuffix}` }, [title])
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>

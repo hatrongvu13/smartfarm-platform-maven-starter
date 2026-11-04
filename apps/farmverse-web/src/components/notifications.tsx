@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { Dialog } from './dialog'
 import { Button } from './ui'
+import { vi } from '../i18n/vi'
 
 type NotificationTone = 'info' | 'success' | 'warning' | 'error'
 export type AppNotification = {
@@ -60,24 +61,24 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   function show() { setOpen(true); markAllRead() }
   return <>
-    <button type="button" aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ''}`} onClick={show}
+    <button type="button" aria-label={vi.notifications.button(unreadCount)} onClick={show}
       className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-lg shadow-sm transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
       <span aria-hidden>🔔</span>
       {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1 text-center text-[11px] font-semibold leading-5 text-white">{unreadCount > 99 ? '99+' : unreadCount}</span>}
     </button>
-    <Dialog open={open} onClose={() => setOpen(false)} title="Thông báo"
-      description="Đồng bộ quyền, thao tác quản trị và lỗi hệ thống." className="sm:w-[min(42rem,calc(100vw-2rem))]">
+    <Dialog open={open} onClose={() => setOpen(false)} title={vi.notifications.title}
+      description={vi.notifications.description} className="sm:w-[min(42rem,calc(100vw-2rem))]">
       <div className="max-h-[60dvh] space-y-3 overflow-y-auto overscroll-contain">
-        {!notifications.length && <p className="py-10 text-center text-sm text-stone-600">Chưa có thông báo.</p>}
+        {!notifications.length && <p className="py-10 text-center text-sm text-stone-600">{vi.notifications.empty}</p>}
         {notifications.map(value => <article key={value.id} className={`min-w-0 rounded-xl border p-3 ${toneClass[value.tone]}`}>
           <div className="flex min-w-0 items-start justify-between gap-3"><strong className="min-w-0 break-words text-sm">{value.title}</strong><time className="shrink-0 text-[11px]">{new Date(value.createdAt).toLocaleTimeString('vi-VN')}</time></div>
           <p className="mt-1 break-words text-sm">{value.message}</p>
-          {!!value.details?.length && <details className="mt-2"><summary className="cursor-pointer text-xs font-medium">Xem chi tiết ({value.details.length})</summary><ul className="mt-2 max-h-52 list-disc space-y-1 overflow-auto pl-5 text-xs">{value.details.map((item, index) => <li key={`${value.id}-${index}`} className="break-all">{item}</li>)}</ul></details>}
+          {!!value.details?.length && <details className="mt-2"><summary className="cursor-pointer text-xs font-medium">{vi.notifications.details(value.details.length)}</summary><ul className="mt-2 max-h-52 list-disc space-y-1 overflow-auto pl-5 text-xs">{value.details.map((item, index) => <li key={`${value.id}-${index}`} className="break-all">{item}</li>)}</ul></details>}
         </article>)}
       </div>
       <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={clearAll} disabled={!notifications.length}>Xóa tất cả</Button>
-        <Button type="button" onClick={() => setOpen(false)}>Đóng</Button>
+        <Button type="button" variant="ghost" onClick={clearAll} disabled={!notifications.length}>{vi.notifications.clearAll}</Button>
+        <Button type="button" onClick={() => setOpen(false)}>{vi.common.close}</Button>
       </div>
     </Dialog>
   </>

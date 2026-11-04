@@ -1,4 +1,5 @@
 import { ApiError } from './api'
+import { vi } from '../i18n/vi'
 
 /**
  * Đổi lỗi thành nội dung hiển thị cho người dùng. Một chỗ duy nhất, để mọi trang nói cùng một kiểu.
@@ -24,7 +25,7 @@ const BUSINESS = /^SF-(?!AUTH-|GATEWAY-|HTTP-|VALIDATION-)[A-Z]+-\d+$/
 export function describeError(error: unknown): ErrorView {
   if (!(error instanceof ApiError)) {
     // fetch() ném TypeError khi không tới được gateway (mất mạng, gateway tắt)
-    return { kind: 'network', title: 'Không kết nối được máy chủ', detail: 'Kiểm tra kết nối mạng rồi thử lại.', fields: [], retryable: true }
+    return { kind: 'network', title: vi.errors.network.title, detail: vi.errors.network.detail, fields: [], retryable: true }
   }
   const body = (error.body ?? {}) as { detail?: string; errors?: { field?: string; message?: string }[] }
   const code = error.code
@@ -35,28 +36,28 @@ export function describeError(error: unknown): ErrorView {
     const fields = (body.errors ?? [])
       .filter(e => e && e.message)
       .map(e => ({ field: e.field && e.field !== '-' ? e.field : '', message: String(e.message) }))
-    return { ...base, kind: 'validation', title: 'Dữ liệu chưa hợp lệ', detail: fields.length ? undefined : serverDetail, fields, retryable: false }
+    return { ...base, kind: 'validation', title: vi.errors.validation.title, detail: fields.length ? undefined : serverDetail, fields, retryable: false }
   }
   if (error.status === 401) {
-    return { ...base, kind: 'auth', title: 'Phiên đăng nhập đã hết', detail: 'Hãy đăng nhập lại để tiếp tục.', retryable: false }
+    return { ...base, kind: 'auth', title: vi.errors.auth.title, detail: vi.errors.auth.detail, retryable: false }
   }
   if (error.status === 403) {
-    return { ...base, kind: 'forbidden', title: 'Bạn không có quyền làm thao tác này', detail: 'Quyền có thể vừa được thay đổi. Liên hệ quản trị viên nếu bạn cần quyền này.', retryable: false }
+    return { ...base, kind: 'forbidden', title: vi.errors.forbidden.title, detail: vi.errors.forbidden.detail, retryable: false }
   }
   if (error.status === 404) {
-    return { ...base, kind: 'not-found', title: 'Không tìm thấy', detail: serverDetail, retryable: false }
+    return { ...base, kind: 'not-found', title: vi.errors.notFound.title, detail: serverDetail, retryable: false }
   }
   if (error.status === 409) {
-    return { ...base, kind: 'conflict', title: 'Dữ liệu vừa thay đổi', detail: serverDetail ?? 'Hãy tải lại rồi thử lại.', retryable: true }
+    return { ...base, kind: 'conflict', title: vi.errors.conflict.title, detail: serverDetail ?? vi.errors.conflict.detail, retryable: true }
   }
   if (error.status === 422 || (code && BUSINESS.test(code) && error.status < 500)) {
-    return { ...base, kind: 'rule', title: serverDetail ?? 'Không thực hiện được thao tác', retryable: false }
+    return { ...base, kind: 'rule', title: serverDetail ?? vi.errors.rule.title, retryable: false }
   }
   if (error.status === 429) {
-    return { ...base, kind: 'rate-limit', title: 'Bạn thao tác quá nhanh', detail: 'Đợi vài giây rồi thử lại.', retryable: true }
+    return { ...base, kind: 'rate-limit', title: vi.errors.rateLimit.title, detail: vi.errors.rateLimit.detail, retryable: true }
   }
   if (error.status === 502 || error.status === 503 || error.status === 504) {
-    return { ...base, kind: 'unavailable', title: 'Hệ thống tạm thời không phản hồi', detail: 'Thường tự hết sau ít phút. Hãy thử lại.', retryable: true }
+    return { ...base, kind: 'unavailable', title: vi.errors.unavailable.title, detail: vi.errors.unavailable.detail, retryable: true }
   }
-  return { ...base, kind: 'server', title: 'Đã có lỗi phía máy chủ', detail: 'Dữ liệu của bạn chưa bị thay đổi. Hãy thử lại sau.', retryable: error.status >= 500 }
+  return { ...base, kind: 'server', title: vi.errors.server.title, detail: vi.errors.server.detail, retryable: error.status >= 500 }
 }

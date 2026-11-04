@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity } from '../lib/api'
 import { Badge, Button, Card, ErrorMsg, Field, Input, Loading } from './ui'
 import { useConfirm } from './dialog'
+import { vi } from '../i18n/vi'
 
 type Enrollment = { secret: string; otpauthUri: string }
 type MfaStatus = { totpEnabled: boolean; recoveryCodesRemaining: number }
@@ -37,61 +38,61 @@ export default function TotpSettings() {
   })
 
   const codeInput = (
-    <Field label="Mã 6 số từ ứng dụng">
+    <Field label={vi.totp.codeLabel}>
       <Input required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="one-time-code"
         value={code} onChange={e => setCode(e.target.value)} />
     </Field>
   )
 
   return (
-    <Card title="Xác thực hai bước (TOTP)" actions={status.data && <Badge tone={status.data.totpEnabled ? 'ok' : 'neutral'}>{status.data.totpEnabled ? 'Đang bật' : 'Đang tắt'}</Badge>}>
-      {status.isPending && <Loading label="Đang tải trạng thái…" />}
+    <Card title={vi.totp.title} actions={status.data && <Badge tone={status.data.totpEnabled ? 'ok' : 'neutral'}>{status.data.totpEnabled ? vi.totp.on : vi.totp.off}</Badge>}>
+      {status.isPending && <Loading label={vi.totp.loading} />}
       {status.isError && <ErrorMsg error={status.error} onRetry={() => status.refetch()} />}
       <ErrorMsg error={begin.error ?? confirm.error ?? regenerate.error ?? disable.error} />
 
       {recovery && (
         <div className="space-y-2 text-sm" role="status">
-          <p className="font-medium">Lưu các mã khôi phục này ở nơi an toàn. Sẽ không hiện lại.</p>
-          <p>Mỗi mã dùng được một lần, để đăng nhập khi mất điện thoại.</p>
+          <p className="font-medium">{vi.totp.recoveryTitle}</p>
+          <p>{vi.totp.recoveryHelp}</p>
           <ul className="grid grid-cols-2 gap-1 rounded bg-stone-100 p-2 font-mono text-xs">
             {recovery.map(c => <li key={c}>{c}</li>)}
           </ul>
-          <Button variant="ghost" onClick={() => setRecovery(null)}>Tôi đã lưu</Button>
+          <Button variant="ghost" onClick={() => setRecovery(null)}>{vi.totp.recoverySaved}</Button>
         </div>
       )}
 
       {status.data && !status.data.totpEnabled && !enrollment && (
         <div className="space-y-2 text-sm">
-          <p>Dùng Google Authenticator, Microsoft Authenticator, 1Password… để sinh mã đăng nhập.</p>
-          <Button onClick={() => begin.mutate()} disabled={begin.isPending}>Bật xác thực hai bước</Button>
+          <p>{vi.totp.apps}</p>
+          <Button onClick={() => begin.mutate()} disabled={begin.isPending}>{vi.totp.enable}</Button>
         </div>
       )}
 
       {enrollment && (
         <form className="space-y-3 text-sm" onSubmit={(e: FormEvent) => { e.preventDefault(); confirm.mutate() }}>
-          <p>1. Trong ứng dụng, chọn "Thêm tài khoản" → "Nhập khóa", dán khóa sau (hoặc mở liên kết trên điện thoại):</p>
+          <p>{vi.totp.step1}</p>
           <code className="block break-all rounded bg-stone-100 p-2 text-xs">{enrollment.secret}</code>
           <a className="block break-all text-xs underline" href={enrollment.otpauthUri}>{enrollment.otpauthUri}</a>
-          <p>2. Nhập mã ứng dụng hiện ra:</p>
+          <p>{vi.totp.step2}</p>
           {codeInput}
-          <Button disabled={confirm.isPending}>Xác nhận và bật</Button>
+          <Button disabled={confirm.isPending}>{vi.totp.confirmEnable}</Button>
         </form>
       )}
 
       {status.data?.totpEnabled && (
         <form className="space-y-3 text-sm" onSubmit={async (e: FormEvent) => {
           e.preventDefault()
-          if (await ask({ title: 'Tắt xác thực hai bước?', body: 'Đăng nhập sẽ chỉ còn mật khẩu. Các mã khôi phục hiện tại mất hiệu lực.', confirmLabel: 'Tắt', danger: true })) disable.mutate()
+          if (await ask({ ...vi.totp.confirmDisable, danger: true })) disable.mutate()
         }}>
-          <p>Còn {status.data.recoveryCodesRemaining} mã khôi phục chưa dùng.</p>
-          <p>Nhập mã hiện tại để sinh lại mã khôi phục (bộ cũ mất hiệu lực) hoặc để tắt xác thực hai bước.</p>
+          <p>{vi.totp.remaining(status.data.recoveryCodesRemaining)}</p>
+          <p>{vi.totp.manageHelp}</p>
           {codeInput}
           <div className="flex gap-2">
             <Button type="button" variant="ghost" disabled={regenerate.isPending || code.length !== 6}
               onClick={async () => {
-                if (await ask({ title: 'Sinh lại mã khôi phục?', body: 'Bộ mã cũ mất hiệu lực ngay. Hãy lưu bộ mã mới.', confirmLabel: 'Sinh lại', danger: true })) regenerate.mutate()
-              }}>Sinh lại mã khôi phục</Button>
-            <Button variant="danger" disabled={disable.isPending}>Tắt xác thực hai bước</Button>
+                if (await ask({ ...vi.totp.confirmRegenerate, danger: true })) regenerate.mutate()
+              }}>{vi.totp.regenerate}</Button>
+            <Button variant="danger" disabled={disable.isPending}>{vi.totp.disable}</Button>
           </div>
         </form>
       )}

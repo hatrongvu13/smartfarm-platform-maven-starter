@@ -173,7 +173,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 | W2 | Giao diện thống nhất, bỏ chủ đề cũ (Mộc Linh, FarmWorldScene) | ✅ | Thương hiệu FarmVerse, cùng bảng màu với trang đăng nhập identity; bỏ cảnh 3D và `three` (JS 248 kB, hết cảnh báo chunk > 500 kB); bỏ 30 class CSS chết. Chưa có chế độ tối (identity có) |
 | W3 | Loading / rỗng / lỗi (đọc `code` của ProblemDetail) / 401 tự chuyển đăng nhập | ✅ | `QueryState` (tải → lỗi có thử lại → rỗng → dữ liệu) ở Farms, Users, Authorization, Profile, TOTP; `describeError` đổi `status`+`code` thành câu tiếng Việt, lỗi theo ô (400), mã lỗi; lỗi hạ tầng không lộ chi tiết; 401 về màn đăng nhập (đã có) |
 | W4 | Truy cập (nhãn form, focus, tương phản, bàn phím) | ✅ | axe-core 4.14 (WCAG 2.1 A/AA + best-practice) trên 6 trang: 10 → 0 phần tử vi phạm; hộp thoại `<dialog>` gốc (focus vào hộp, Escape, trả focus); hỏi xác nhận 6 thao tác khó hoàn tác; link bỏ qua; tiêu đề tab theo trang; gợi ý nối `aria-describedby`. Chưa kiểm bằng trình đọc màn hình thật |
-| W5 | Tiếng Việt nhất quán, gom chuỗi vào một chỗ | ❓ | |
+| W5 | Tiếng Việt nhất quán, gom chuỗi vào một chỗ | ✅ | Mọi chuỗi giao diện nằm trong `src/i18n/vi.ts` (object `vi`, `statusLabel`), không thêm thư viện; thuật ngữ thống nhất (vai trò, quyền, tổ chức, xác thực hai bước); `npm run check:i18n` chặn chữ tiếng Việt ngoài `vi.ts`; CI có job `web` (typecheck, check:i18n, build). Chưa hỗ trợ ngôn ngữ thứ hai |
 | W6 | Test (Vitest + Testing Library) cho `api.ts`, `auth.tsx`, form chính | ⬜ | |
 | W7 | Chỉ hiển thị việc người dùng được làm (ẩn nút theo permission, xử lý 403) | ✅ | Ẩn menu/nút theo permission (một danh sách nav); 403 giữa phiên hiện "không có quyền", không có nút thử lại. Chưa có hộp xác nhận cho Xóa / Reset 2FA |
 

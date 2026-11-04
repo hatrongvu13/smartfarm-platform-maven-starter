@@ -5,6 +5,7 @@ import { hasPermission, useAuth } from '../lib/auth'
 import { useFarm } from '../lib/farm'
 import { useConfirm } from '../components/dialog'
 import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState, Empty, statusTone } from '../components/ui'
+import { vi, statusLabel } from '../i18n/vi'
 
 type Barn = { code: string; name: string; capacity: number }
 type Farm = { id: string; code: string; name: string; address?: string; status: string; totalCapacity: number; barns: Barn[] }
@@ -38,23 +39,23 @@ export default function Farms() {
 
   return (
     <>
-      <PageHeader title="Trang trại" sub="Trang trại và chuồng của tổ chức" />
+      <PageHeader title={vi.farms.title} sub={vi.farms.sub} />
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card title="Danh sách" className="xl:col-span-2">
-          <QueryState query={farms} loadingLabel="Đang tải trang trại…"
-            empty={canWrite ? 'Chưa có trang trại nào. Tạo trang trại đầu tiên ở khung bên cạnh.' : 'Chưa có trang trại nào.'}>
+        <Card title={vi.farms.list} className="xl:col-span-2">
+          <QueryState query={farms} loadingLabel={vi.farms.loading}
+            empty={canWrite ? vi.farms.emptyCanCreate : vi.farms.empty}>
             {list => (
           <ul className="divide-y text-sm">
             {list.map(f => (
               <li key={f.id} className="flex items-center justify-between gap-3 py-2">
                 <div>
                   <div className="font-medium">{f.name} <span className="text-stone-600">({f.code})</span></div>
-                  <div className="text-stone-600">{f.barns.length} chuồng · sức chứa {f.totalCapacity}</div>
+                  <div className="text-stone-600">{vi.farms.summary(f.barns.length, f.totalCapacity)}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge tone={statusTone(f.status)}>{f.status}</Badge>
+                  <Badge tone={statusTone(f.status)}>{statusLabel(f.status)}</Badge>
                   <Button variant={selected?.id === f.id ? 'primary' : 'ghost'} onClick={() => setFarmId(f.id)}>
-                    {selected?.id === f.id ? 'Đang chọn' : 'Chọn'}
+                    {selected?.id === f.id ? vi.farms.selected : vi.farms.select}
                   </Button>
                 </div>
               </li>
@@ -65,33 +66,33 @@ export default function Farms() {
         </Card>
 
         {canWrite && (
-          <Card title="Tạo trang trại">
+          <Card title={vi.farms.create}>
             <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); create.mutate() }}>
-              <Field label="Mã" hint="viết thường, ví dụ green-valley">
+              <Field label={vi.common.code} hint={vi.farms.codeHint}>
                 <Input required pattern="[a-z0-9][a-z0-9-]{1,49}" value={draft.code} onChange={e => setDraft({ ...draft, code: e.target.value })} />
               </Field>
-              <Field label="Tên"><Input required value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field>
-              <Field label="Địa chỉ"><Input value={draft.address} onChange={e => setDraft({ ...draft, address: e.target.value })} /></Field>
+              <Field label={vi.common.name}><Input required value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field>
+              <Field label={vi.common.address}><Input value={draft.address} onChange={e => setDraft({ ...draft, address: e.target.value })} /></Field>
               <ErrorMsg error={create.error} />
-              <Button disabled={create.isPending}>Tạo</Button>
+              <Button disabled={create.isPending}>{vi.common.create}</Button>
             </form>
           </Card>
         )}
 
         {selected && (
-          <Card title={`Chuồng của ${selected.name}`} className="xl:col-span-2">
+          <Card title={vi.farms.barnsOf(selected.name)} className="xl:col-span-2">
             <ErrorMsg error={removeBarn.error} />
             {selected.barns.length === 0
-              ? <Empty>{canWrite && selected.status === 'ACTIVE' ? 'Chưa có chuồng nào. Thêm chuồng ở khung bên cạnh.' : 'Chưa có chuồng nào.'}</Empty>
+              ? <Empty>{canWrite && selected.status === 'ACTIVE' ? vi.farms.noBarnsCanAdd : vi.farms.noBarns}</Empty>
               : <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase text-stone-600"><tr><th scope="col" className="py-2">Mã</th><th scope="col">Tên</th><th scope="col">Sức chứa</th><th scope="col"><span className="sr-only">Thao tác</span></th></tr></thead>
+              <thead className="border-b text-xs uppercase text-stone-600"><tr><th scope="col" className="py-2">{vi.common.code}</th><th scope="col">{vi.common.name}</th><th scope="col">{vi.farms.capacity}</th><th scope="col"><span className="sr-only">{vi.common.actions}</span></th></tr></thead>
               <tbody>
                 {selected.barns.map(b => (
                   <tr key={b.code} className="border-b last:border-0">
                     <td className="py-2">{b.code}</td><td>{b.name}</td><td>{b.capacity}</td>
-                    <td className="text-right">{canWrite && <Button variant="ghost" aria-label={`Xóa chuồng ${b.code}`} onClick={async () => {
-                      if (await confirm({ title: `Xóa chuồng ${b.code}?`, body: `Chuồng "${b.name}" sẽ bị gỡ khỏi ${selected.name}.`, confirmLabel: 'Xóa chuồng', danger: true })) removeBarn.mutate(b.code)
-                    }}>Xóa</Button>}</td>
+                    <td className="text-right">{canWrite && <Button variant="ghost" aria-label={vi.farms.deleteBarnLabel(b.code)} onClick={async () => {
+                      if (await confirm({ ...vi.farms.confirmDeleteBarn(b.code, b.name, selected.name), danger: true })) removeBarn.mutate(b.code)
+                    }}>{vi.common.delete}</Button>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -100,13 +101,13 @@ export default function Farms() {
         )}
 
         {selected && canWrite && selected.status === 'ACTIVE' && (
-          <Card title="Thêm chuồng">
+          <Card title={vi.farms.addBarn}>
             <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); addBarn.mutate() }}>
-              <Field label="Mã" hint="VIẾT HOA, ví dụ B-1"><Input required value={barn.code} onChange={e => setBarn({ ...barn, code: e.target.value.toUpperCase() })} /></Field>
-              <Field label="Tên"><Input required value={barn.name} onChange={e => setBarn({ ...barn, name: e.target.value })} /></Field>
-              <Field label="Sức chứa"><Input type="number" min={1} required value={barn.capacity} onChange={e => setBarn({ ...barn, capacity: Number(e.target.value) })} /></Field>
+              <Field label={vi.common.code} hint={vi.farms.barnCodeHint}><Input required value={barn.code} onChange={e => setBarn({ ...barn, code: e.target.value.toUpperCase() })} /></Field>
+              <Field label={vi.common.name}><Input required value={barn.name} onChange={e => setBarn({ ...barn, name: e.target.value })} /></Field>
+              <Field label={vi.farms.capacity}><Input type="number" min={1} required value={barn.capacity} onChange={e => setBarn({ ...barn, capacity: Number(e.target.value) })} /></Field>
               <ErrorMsg error={addBarn.error} />
-              <Button disabled={addBarn.isPending}>Thêm</Button>
+              <Button disabled={addBarn.isPending}>{vi.common.add}</Button>
             </form>
           </Card>
         )}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { vi } from '../i18n/vi'
 
 /**
  * Khung trang khi chưa đăng nhập. Cùng hình thức với trang đăng nhập của identity (thẻ trắng giữa nền xanh nhạt),
@@ -11,7 +12,7 @@ export default function AuthShell({ title, sub, children }: { title: string; sub
       <section className="w-full max-w-[420px] rounded-2xl border border-stone-300 bg-white px-7 py-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3 text-lg font-bold">
           <span className="farm-brand-mark" aria-hidden="true">✿</span>
-          <span>FarmVerse</span>
+          <span>{vi.app.name}</span>
         </div>
         <h1 className="text-xl font-semibold">{title}</h1>
         {sub && <p className="mb-5 mt-1 text-sm text-stone-600">{sub}</p>}

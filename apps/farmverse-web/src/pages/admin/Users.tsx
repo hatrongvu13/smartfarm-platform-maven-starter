@@ -4,6 +4,7 @@ import { api, identity, type Page } from '../../lib/api'
 import { hasPermission, useAuth } from '../../lib/auth'
 import { useConfirm } from '../../components/dialog'
 import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState, Select, statusTone } from '../../components/ui'
+import { vi, statusLabel } from '../../i18n/vi'
 
 type User = { userId: string; email: string; displayName: string; status: 'ACTIVE' | 'SUSPENDED' | 'DISABLED'; roles: string[]; locked: boolean; lastLoginAt?: string }
 type Role = { code: string; name: string }
@@ -54,42 +55,42 @@ export default function Users() {
 
   return (
     <>
-      <PageHeader title="Người dùng" sub={`Tổ chức ${me?.tenantCode ?? ''}${users.data ? ` · ${users.data.page.totalElements} người` : ''}`} />
+      <PageHeader title={vi.users.title} sub={vi.users.sub(me?.tenantCode ?? '', users.data?.page.totalElements)} />
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card title="Danh sách" className="xl:col-span-2">
+        <Card title={vi.users.list} className="xl:col-span-2">
           <ErrorMsg error={setStatus.error ?? setRoles.error ?? unlock.error ?? resetMfa.error} />
           {roles.isError && canManage && <ErrorMsg error={roles.error} onRetry={() => roles.refetch()} />}
-          <QueryState query={users} loadingLabel="Đang tải người dùng…" empty="Tổ chức chưa có người dùng nào.">
+          <QueryState query={users} loadingLabel={vi.users.loading} empty={vi.users.empty}>
             {() => (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b text-xs uppercase text-stone-600">
-                <tr><th scope="col" className="py-2 pr-3">Người dùng</th><th scope="col" className="py-2 pr-3">Trạng thái</th><th scope="col" className="py-2 pr-3">Role</th><th scope="col" className="py-2"><span className="sr-only">Thao tác</span></th></tr>
+                <tr><th scope="col" className="py-2 pr-3">{vi.users.user}</th><th scope="col" className="py-2 pr-3">{vi.users.status}</th><th scope="col" className="py-2 pr-3">{vi.users.role}</th><th scope="col" className="py-2"><span className="sr-only">{vi.common.actions}</span></th></tr>
               </thead>
               <tbody>
                 {rows.map(u => (
                   <tr key={u.userId} className="border-b align-top last:border-0">
                     <td className="py-2 pr-3"><div className="font-medium">{u.displayName}</div><div className="text-stone-600">{u.email}</div></td>
-                    <td className="py-2 pr-3"><Badge tone={statusTone(u.status)}>{u.status}</Badge>{u.locked && <Badge tone="bad">khóa tạm</Badge>}</td>
+                    <td className="py-2 pr-3"><Badge tone={statusTone(u.status)}>{statusLabel(u.status)}</Badge>{u.locked && <Badge tone="bad">{vi.users.locked}</Badge>}</td>
                     <td className="py-2 pr-3">
                       {canManage ? (
-                        <Select aria-label={`Role của ${u.email}`} value={u.roles[0] ?? ''}
+                        <Select aria-label={vi.users.roleOf(u.email)} value={u.roles[0] ?? ''}
                           onChange={e => setRoles.mutate({ userId: u.userId, roles: e.target.value ? [e.target.value] : [] })}>
-                          <option value="">(không role)</option>
+                          <option value="">{vi.users.noRole}</option>
                           {roles.data?.map(r => <option key={r.code} value={r.code}>{r.code}</option>)}
                         </Select>
                       ) : u.roles.join(', ')}
                     </td>
                     <td className="space-x-1 whitespace-nowrap py-2 text-right">
                       {canManage && u.userId !== me?.userId && (u.status === 'ACTIVE'
-                        ? <Button variant="ghost" aria-label={`Tạm khóa ${u.email}`} onClick={async () => {
-                            if (await confirm({ title: `Tạm khóa ${u.email}?`, body: 'Người này không đăng nhập được và không làm mới được token cho tới khi được mở lại.', confirmLabel: 'Tạm khóa', danger: true })) setStatus.mutate({ userId: u.userId, status: 'SUSPENDED' })
-                          }}>Tạm khóa</Button>
-                        : <Button variant="ghost" onClick={() => setStatus.mutate({ userId: u.userId, status: 'ACTIVE' })}>Mở lại</Button>)}
-                      {canManage && u.locked && <Button variant="ghost" onClick={() => unlock.mutate(u.userId)}>Mở khóa</Button>}
-                      {canManage && u.userId !== me?.userId && <Button variant="ghost" aria-label={`Reset 2FA của ${u.email}`} onClick={async () => {
-                        if (await confirm({ title: `Reset 2FA của ${u.email}?`, body: 'Dùng khi người dùng mất thiết bị authenticator. Mã TOTP và mọi mã khôi phục hiện tại mất hiệu lực; họ phải đăng ký lại.', confirmLabel: 'Reset 2FA', danger: true })) resetMfa.mutate(u.userId)
-                      }}>Reset 2FA</Button>}
+                        ? <Button variant="ghost" aria-label={vi.users.suspendLabel(u.email)} onClick={async () => {
+                            if (await confirm({ ...vi.users.confirmSuspend(u.email), danger: true })) setStatus.mutate({ userId: u.userId, status: 'SUSPENDED' })
+                          }}>{vi.users.suspend}</Button>
+                        : <Button variant="ghost" onClick={() => setStatus.mutate({ userId: u.userId, status: 'ACTIVE' })}>{vi.users.reactivate}</Button>)}
+                      {canManage && u.locked && <Button variant="ghost" onClick={() => unlock.mutate(u.userId)}>{vi.users.unlock}</Button>}
+                      {canManage && u.userId !== me?.userId && <Button variant="ghost" aria-label={vi.users.resetMfaLabel(u.email)} onClick={async () => {
+                        if (await confirm({ ...vi.users.confirmResetMfa(u.email), danger: true })) resetMfa.mutate(u.userId)
+                      }}>{vi.users.resetMfa}</Button>}
                     </td>
                   </tr>
                 ))}
@@ -99,28 +100,28 @@ export default function Users() {
             )}
           </QueryState>
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <Button variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>‹ Trước</Button>
-            <span>Trang {page + 1} / {Math.max(totalPages, 1)}</span>
-            <Button variant="ghost" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>Sau ›</Button>
+            <Button variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>{vi.users.previous}</Button>
+            <span>{vi.users.page(page + 1, Math.max(totalPages, 1))}</span>
+            <Button variant="ghost" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>{vi.users.next}</Button>
           </div>
         </Card>
 
         {canManage && (
-          <Card title="Thêm người dùng">
+          <Card title={vi.users.add}>
             <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); add.mutate() }}>
-              <Field label="Email"><Input type="email" required value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })} /></Field>
-              <Field label="Tên hiển thị"><Input required value={draft.displayName} onChange={e => setDraft({ ...draft, displayName: e.target.value })} /></Field>
-              <Field label="Mật khẩu" hint="Chỉ cần khi email chưa có tài khoản (≥ 12 ký tự)">
+              <Field label={vi.common.email}><Input type="email" required value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })} /></Field>
+              <Field label={vi.users.displayName}><Input required value={draft.displayName} onChange={e => setDraft({ ...draft, displayName: e.target.value })} /></Field>
+              <Field label={vi.users.password} hint={vi.users.passwordHint}>
                 <Input type="password" minLength={12} autoComplete="new-password" value={draft.password} onChange={e => setDraft({ ...draft, password: e.target.value })} />
               </Field>
-              <Field label="Role">
+              <Field label={vi.users.role}>
                 <Select value={draft.role} onChange={e => setDraft({ ...draft, role: e.target.value })}>
-                  <option value="">(không role)</option>
+                  <option value="">{vi.users.noRole}</option>
                   {roles.data?.map(r => <option key={r.code} value={r.code}>{r.code} — {r.name}</option>)}
                 </Select>
               </Field>
               <ErrorMsg error={add.error} />
-              <Button disabled={add.isPending}>Thêm</Button>
+              <Button disabled={add.isPending}>{vi.common.add}</Button>
             </form>
           </Card>
         )}
