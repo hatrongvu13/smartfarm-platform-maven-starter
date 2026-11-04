@@ -1,5 +1,6 @@
 package com.htv.farmverse.gateway.config;
 
+import java.net.URI;
 import java.security.Principal;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +30,8 @@ import org.springframework.security.web.server.authentication.HttpStatusServerEn
 import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository;
 import org.springframework.security.web.server.csrf.CsrfToken;
 import org.springframework.security.web.server.csrf.ServerCsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.server.header.ReferrerPolicyServerHttpHeadersWriter.ReferrerPolicy;
+import org.springframework.security.web.server.header.StaticServerHttpHeadersWriter;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.session.CookieWebSessionIdResolver;
 import org.springframework.web.server.session.WebSessionIdResolver;
@@ -48,9 +51,16 @@ public class SecurityConfiguration {
 
     public static final String REGISTRATION_ID = "farmverse";
 
+    /** Chỗ giữ trong CSP cho origin của identity (đích redirect của form đăng xuất). */
+    static final String IDENTITY_ORIGIN = "{identity-origin}";
+    static final String HSTS = "max-age=31536000";
+
     @Bean
     SecurityWebFilterChain security(ServerHttpSecurity http, ReactiveClientRegistrationRepository clients,
-                                    OidcAuthorizationCodeReactiveAuthenticationManager oidcLogin) {
+                                    OidcAuthorizationCodeReactiveAuthenticationManager oidcLogin,
+                                    GatewayOidcProperties oidc,
+                                    @Value("${farmverse.gateway.headers.content-security-policy}") String csp,
+                                    @Value("${farmverse.gateway.headers.hsts:false}") boolean hsts) {
         DefaultServerOAuth2AuthorizationRequestResolver pkce = new DefaultServerOAuth2AuthorizationRequestResolver(clients);
         pkce.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
 
@@ -70,8 +80,37 @@ public class SecurityConfiguration {
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler()));
+                        .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler()))
+                .headers(headers -> securityHeaders(headers, csp.replace(IDENTITY_ORIGIN, origin(oidc.issuer())), hsts));
         return http.build();
+    }
+
+    /**
+     * Header bảo mật cho mọi phản hồi, kể cả trang SPA mà gateway proxy (route {@code web}) và lỗi 401/403.
+     * Giữ mặc định của Spring (nosniff, X-Frame-Options DENY, Cache-Control cho phản hồi động) và thêm:
+     * <ul>
+     *   <li>CSP lấy từ {@code farmverse.gateway.headers.content-security-policy}: prod chỉ {@code 'self'};
+     *       dev nới cho Vite (script/style nhúng, websocket HMR). {@code form-action} gồm origin identity vì form
+     *       đăng xuất redirect sang {@code /connect/logout} của identity, và trình duyệt áp CSP cả cho redirect đó.</li>
+     *   <li>HSTS: bộ ghi của Spring chỉ ghi khi request là HTTPS. Ở prod TLS kết thúc ở edge nên gateway thấy HTTP,
+     *       vì vậy tắt bộ ghi đó và tự ghi khi bật {@code farmverse.gateway.headers.hsts}. Trình duyệt bỏ qua HSTS
+     *       nhận qua HTTP, nên ghi luôn không gây hại. Không {@code includeSubDomains}: ảnh hưởng tên miền khác.</li>
+     * </ul>
+     */
+    private static void securityHeaders(ServerHttpSecurity.HeaderSpec headers, String csp, boolean hsts) {
+        headers.contentSecurityPolicy(policy -> policy.policyDirectives(csp))
+                .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=(), payment=()"))
+                .hsts(ServerHttpSecurity.HeaderSpec.HstsSpec::disable);
+        if (hsts) {
+            headers.writer(StaticServerHttpHeadersWriter.builder().header("Strict-Transport-Security", HSTS).build());
+        }
+    }
+
+    /** {@code https://id.example.com/idp} → {@code https://id.example.com}: CSP so khớp theo origin. */
+    static String origin(String url) {
+        URI uri = URI.create(url);
+        return uri.getScheme() + "://" + uri.getRawAuthority();
     }
 
     /** Token CSRF của WebFlux được tạo lười; filter này buộc tạo để cookie XSRF-TOKEN luôn có cho SPA. */

@@ -13,3 +13,4 @@ Mẫu: Bối cảnh → Quyết định → Hệ quả → Bằng chứng. Trạ
 | [0007](0007-hermetic-gateway-tests.md) | Test gateway dùng kho session trong bộ nhớ | Đã chốt (M2a) |
 | [0008](0008-gateway-management-port.md) | Actuator gateway trên cổng quản trị loopback | Đã chốt (M2) |
 | [0009](0009-redis-fail-closed.md) | Redis lỗi thì gateway fail-closed với 503 | Đã chốt (M3) |
+| [0010](0010-security-headers.md) | CSP theo profile và HSTS sau edge TLS | Đã chốt (M5b) |

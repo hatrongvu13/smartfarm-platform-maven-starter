@@ -59,6 +59,15 @@ spring:
 # ---- Gateway là OIDC client của identity (xem GatewayOidcProperties) ----
 farmverse:
   gateway:
+    # Header bảo mật (SecurityConfiguration#securityHeaders). CSP này dành cho bản build của SPA: chỉ tài nguyên
+    # cùng origin, không script/style nhúng. {identity-origin} được thay bằng origin của issuer (đích redirect
+    # khi đăng xuất). Dev ghi đè trong application-dev.yml cho Vite.
+    headers:
+      content-security-policy: >-
+        default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:;
+        font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self';
+        frame-ancestors 'none'; form-action 'self' {identity-origin}
+      hsts: false
     oidc:
       issuer: ${IDENTITY_ISSUER:http://localhost:8092}
       client-id: farmverse-gateway

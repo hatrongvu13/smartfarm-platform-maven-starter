@@ -53,10 +53,10 @@ flowchart LR
 
 | # | Ranh giới | STRIDE | Mối đe dọa | Biện pháp hiện có | Còn thiếu |
 |---|---|---|---|---|---|
-| T1 | TB0→TB1 | S | Đánh cắp token qua XSS | Token không ở trình duyệt; cookie `HttpOnly` | CSP (M5) |
+| T1 | TB0→TB1 | S | Đánh cắp token / hành động thay người dùng qua XSS | Token không ở trình duyệt; cookie `HttpOnly`; CSP prod không cho script nhúng (M5b, đã thử trên Chrome thật) | — |
 | T2 | TB0→TB1 | T | CSRF lên `/api/**`, `/logout` | CSRF cookie + header/field | — |
 | T3 | TB0→TB1 | S | Session fixation | Đổi id phiên khi đăng nhập, id cũ vô dụng (`LoginSessionSecurityTest`) | — |
-| T4 | TB0→TB1 | I | Cookie đi qua HTTP | `Secure` ở prod, có test khóa cấu hình | HSTS (M5b) |
+| T4 | TB0→TB1 | I | Cookie đi qua HTTP | `Secure` ở prod; HSTS 1 năm ở prod (M5b) | — |
 | T5 | TB0→TB1 | I | Dò thông tin vận hành qua `/actuator/**` ẩn danh | Cổng quản trị loopback (M2); endpoint `gateway` không bật; `GatewayActuatorExposureTest` | — |
 | T6 | TB0→ID | S | Dò mật khẩu / mã TOTP | Khóa tài khoản, giới hạn IP, chống replay TOTP | Giới hạn IP phân tán (M8) |
 | T7 | TB0→ID | S | Giả mạo redirect, đánh cắp code | redirect URI chính xác, PKCE bắt buộc, `state` | — |
@@ -83,8 +83,9 @@ flowchart LR
 | P1 | P1-4 | ~~Không có CI~~ **Đã có workflow (M2)**; còn chờ lần chạy đầu trên GitHub | [`ci.yml`](../../.github/workflows/ci.yml) | M2 ✅ (chờ xác nhận) |
 | P2 | P2-1 | Farm không kiểm `scope` | `FarmController` | M6 |
 | P2 | P2-2 | ~~Chưa có test session fixation, cookie, `state`/`nonce`~~ **Đã có (M5)** | `LoginSessionSecurityTest`, `SessionCookieAttributesTest` | M5 ✅ |
-| P2 | P2-3 | Không có CSP/HSTS tùy chỉnh ở gateway | `SecurityConfiguration` | M5b |
-| P3 | P3-5 | Cookie `XSRF-TOKEN` không đặt `SameSite` riêng (mặc định trình duyệt: Lax). Cố ý không `HttpOnly` để SPA đọc | `SecurityConfiguration#security` | M5b |
+| P2 | P2-3 | ~~Không có CSP/HSTS~~ **Đã có (M5b)** | `SecurityConfiguration#securityHeaders`, `SecurityHeadersTest` | M5b ✅ |
+| P3 | P3-5 | Cookie `XSRF-TOKEN` không đặt `SameSite` riêng (mặc định trình duyệt: Lax). Cố ý không `HttpOnly` để SPA đọc. Chưa sửa: token CSRF vô dụng với trang khác origin nên rủi ro thấp | `SecurityConfiguration#security` | — |
+| P1 | P1-5 | **Mới, chưa kiểm trên hạ tầng thật.** Gateway không bật `server.forward-headers-strategy`. Ở sau edge TLS, `{baseUrl}` thành `http://...`, nên `redirect_uri` lệch với URI `https://` đã đăng ký ở identity → đăng nhập prod có thể hỏng. Bật thì phải bảo đảm chỉ edge gửi được `X-Forwarded-*` | gateway `application-prod.yml`, `OidcClientConfiguration` (`{baseUrl}/login/oauth2/code/...`), identity `application-prod.yml` (`${GATEWAY_PUBLIC_URL}`) | M5c |
 | P2 | P2-4 | ~~Redis chưa khai TTL, timeout~~ **Đã sửa (M3)** | gateway `application.yml`, `RedisSessionHardeningTest` | M3 ✅ |
 | P2 | P2-5 | Không tracing/metric; log JSON chỉ ở identity prod | các `pom.xml`, `application-prod.yml` | M7 |
 | P2 | P2-6 | ~~2 test gateway cần Redis thật~~ **Đã sửa (M2a, 2026-11-04)** | [`InMemorySessionTestConfiguration`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/InMemorySessionTestConfiguration.java) | M2a ✅ |

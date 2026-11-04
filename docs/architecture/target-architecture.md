@@ -61,7 +61,7 @@ flowchart LR
 
 ## 4. Giả định
 
-1. TLS từ trình duyệt kết thúc ở edge (load balancer/ingress) phía trước gateway. Gateway không tự cấp cert công khai.
+1. TLS từ trình duyệt kết thúc ở edge (load balancer/ingress) phía trước gateway. Gateway không tự cấp cert công khai. **Hệ quả chưa xử lý (P1-5):** gateway chưa tin header `X-Forwarded-*`, nên ở sau edge nó thấy `http://` và dựng `redirect_uri` sai scheme.
 2. Mạng nội bộ không tin cậy hoàn toàn: đó là lý do dùng mTLS chứ không chỉ dựa vào firewall.
 3. Một tenant là ranh giới cô lập dữ liệu chính. Ownership trong tenant là yêu cầu nghiệp vụ chưa định nghĩa.
 4. Redis và PostgreSQL production do hạ tầng quản lý (managed hoặc cluster riêng), có TLS.
@@ -81,7 +81,6 @@ flowchart LR
 ## 6. Chưa triển khai (không được coi là đã có)
 
 - Audience riêng `farm-service`, kiểm `scope` ở farm, ownership.
-- Header bảo mật tùy chỉnh (CSP, HSTS) ở gateway (M5b).
 - Redis ACL user (mới có hướng dẫn), TLS ở dev, test với Redis thật.
 - User PostgreSQL riêng cho từng service và phân quyền owner/app.
 - Tracing, metric export, log JSON ở gateway và farm.

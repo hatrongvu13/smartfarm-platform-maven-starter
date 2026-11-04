@@ -7,8 +7,8 @@ flowchart LR
     M2a[M2a Test gateway độc lập Redis<br/>XONG] --> M2[M2 CI + Dockerfile + actuator<br/>XONG, chờ CI chạy]
     M2 --> M3[M3 Redis cứng hóa<br/>XONG phần cấu hình]
     M2 --> M4[M4 User DB riêng]
-    M2 --> M5[M5 Cookie, fixation, state/nonce<br/>XONG] --> M5b[M5b CSP, HSTS]
-    M5b --> M6[M6 aud=farm-service + scope]
+    M2 --> M5[M5 Cookie, fixation, state/nonce<br/>XONG] --> M5b[M5b CSP, HSTS<br/>XONG] --> M5c[M5c Forwarded headers sau edge]
+    M5c --> M6[M6 aud=farm-service + scope]
     M2 --> M7[M7 Observability]
     M3 --> M8[M8 Rate limit login phân tán]
 ```
@@ -20,7 +20,8 @@ flowchart LR
 | **M3** ✅ (trừ IT) | P1 | Redis (thêm `*IT` Testcontainers cho hành vi Redis thật — **còn lại**, cần Docker): bật lại mật khẩu dev, bind `127.0.0.1`; khai `spring.data.redis.timeout`, `spring.session.timeout`, namespace; 503 ProblemDetail khi Redis lỗi; tài liệu ACL prod | M2 (cần bạn chốt D8) | Test: Redis lỗi → 503, không cho qua; test cấu hình timeout | Revert cấu hình | Fail-closed có test |
 | M4 | P1 | Script tạo `<svc>_owner`/`<svc>_app`, `REVOKE` chéo; dev dùng user riêng | M2 | `*IT` Testcontainers: farm user không connect được DB identity | Revert script; dev quay lại `postgres` | IT xanh ở CI |
 | **M5** ✅ | P2 | Test session fixation, thuộc tính cookie, `state`/`nonce`/PKCE bằng luồng đăng nhập thật với identity giả | M2 | `LoginSessionSecurityTest` (5), `SessionCookieAttributesTest` (3); đối chứng: tắt đổi id phiên → 2 test đỏ | Xóa test (chỉ thêm test, không đổi code chính) | R2, R3, R5 ✅ — xong 2026-11-04 |
-| M5b | P2 | Header CSP, HSTS (prod), `SameSite` cho cookie CSRF | M5 | Test header trên trang web và `/api/**`; chạy thử SPA với CSP | Revert cấu hình header | P2-3, P3-5 đóng |
+| **M5b** ✅ | P2 | Header CSP (theo profile), HSTS (prod), Referrer/Permissions-Policy ([ADR-0010](adr/0010-security-headers.md)) | M5 | `SecurityHeadersTest` (5; đỏ trước khi sửa); Chrome headless: SPA bản build qua gateway 0 lỗi CSP, đối chứng dương tính bắt được script nhúng; Vite dev qua gateway 0 lỗi | Revert khối `headers` trong `SecurityConfiguration` + yml | Xong 2026-11-04 |
+| M5c | P1 | Gateway tin `X-Forwarded-*` chỉ từ edge (`server.forward-headers-strategy`) để `redirect_uri` đúng `https://` (P1-5) | M5b | Test: request có `X-Forwarded-Proto: https` → `redirect_uri` bắt đầu bằng `https://`; không có header → giữ nguyên | Tắt thuộc tính | Đăng nhập chạy sau proxy TLS |
 | M6 | P1 | Audience riêng `farm-service` ([ADR-0006](adr/0006-per-service-audience.md)), giai đoạn chuyển tiếp chấp nhận cả hai; farm kiểm `scope`; test JWKS đổi khóa ở farm | M5 | Token `aud` khác → 401; thiếu scope → 403; khóa mới → vẫn 200 | Farm chấp nhận lại `farmverse-api` (cờ cấu hình) | Không còn token chung |
 | M7 | P2 | Micrometer Tracing + OTLP, log JSON cả ba service, test log không chứa token/cookie | M2 | Test trace id lan qua gateway → farm; test lọc log | Tắt bằng cấu hình | Trace xuyên service |
 | M8 | P2 | Rate limit login ở identity dùng bộ đếm chung (Redis) hoặc đẩy lên gateway | M3 | Hai instance chia chung giới hạn | Quay lại bộ đếm bộ nhớ | Test nhiều instance |
@@ -41,3 +42,4 @@ flowchart LR
 | 2026-11-04 | M2 | Xong local. 66 test xanh (`mvn verify`). CI và image chưa chạy vì chưa push |
 | 2026-11-04 | M3 | Cấu hình + 503 fail-closed xong, 72 test xanh. Còn `*IT` với Redis thật và ACL thật |
 | 2026-11-04 | M5 | Xong, chỉ thêm test. 80 test xanh. Không tìm thấy lỗi: Spring đã đổi id phiên mặc định |
+| 2026-11-04 | M5b | Xong. 85 test xanh. Phát hiện P1-5 (forwarded headers) |

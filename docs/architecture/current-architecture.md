@@ -68,7 +68,7 @@ flowchart TB
 | Đăng xuất | RP-initiated logout: chuyển trình duyệt tới `/connect/logout` của identity | `OidcClientInitiatedServerLogoutSuccessHandler`, test `logoutRedirectsTheBrowserToIdentityEndSession` |
 | `/bff/me` | Đọc claim từ access token để hiển thị, không trả token | [`BffController`](../../platform/api-gateway/src/main/java/com/htv/farmverse/gateway/bff/BffController.java) |
 | Actuator | Cổng quản trị riêng `${GATEWAY_MANAGEMENT_PORT:9080}`, bind `127.0.0.1`, chỉ `health,info` (M2, 2026-11-04). Cổng 8080 không còn `/actuator/**`. Endpoint `gateway` không bật | `application.yml` khối `management`, [`GatewayActuatorExposureTest`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/GatewayActuatorExposureTest.java), [ADR-0008](adr/0008-gateway-management-port.md) |
-| Header bảo mật (CSP, HSTS) | Không cấu hình riêng; chỉ có mặc định của Spring Security | — |
+| Header bảo mật | CSP theo profile (prod chỉ `'self'`, dev nới cho Vite), HSTS 1 năm khi `farmverse.gateway.headers.hsts=true` (prod), `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, cộng mặc định Spring (nosniff, `X-Frame-Options: DENY`). Áp cho cả trang SPA đi qua route `web` (M5b) | `SecurityConfiguration#securityHeaders`, [`SecurityHeadersTest`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/SecurityHeadersTest.java) |
 
 ## 4. Identity
 

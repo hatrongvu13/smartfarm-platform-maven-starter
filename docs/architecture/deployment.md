@@ -75,7 +75,17 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 | Metric | Không export | Micrometer registry (Prometheus hoặc OTLP) |
 | Lọc dữ liệu nhạy cảm | Quy ước trong `SecurityAudit` | Test khẳng định không có `Authorization`, `Cookie`, token trong log |
 
-## 7. Container
+## 7. Header bảo mật
+
+| Header | dev | prod |
+|---|---|---|
+| `Content-Security-Policy` | nới: `'unsafe-inline'` cho script/style, `ws://127.0.0.1:8080` (Vite HMR) | chỉ `'self'`; `form-action 'self' <origin identity>`; `frame-ancestors 'none'` |
+| `Strict-Transport-Security` | không | `max-age=31536000` (gateway tự ghi vì thấy HTTP sau edge; không `includeSubDomains`) |
+| `Referrer-Policy`, `Permissions-Policy`, `X-Frame-Options`, `X-Content-Type-Options` | có | có |
+
+Đổi CSP: sửa `farmverse.gateway.headers.content-security-policy`. Thêm thư viện tải từ CDN hoặc dùng `eval` sẽ bị chặn ở prod; chạy thử bản build (`npm run build`) qua gateway trước khi phát hành.
+
+## 8. Container
 
 [`Dockerfile`](../../Dockerfile) dùng chung, build theo `SERVICE_PATH` (`platform/api-gateway`, `services/identity-service`, `services/farm-service`), chạy user 1001.
 
