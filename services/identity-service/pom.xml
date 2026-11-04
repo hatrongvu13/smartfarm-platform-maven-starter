@@ -19,6 +19,15 @@
             <groupId>com.htv.farmverse</groupId>
             <artifactId>farmverse-starter-service</artifactId>
         </dependency>
+        <!-- P2: server gRPC IdentityDirectory (hợp đồng ở libs/farmverse-contracts) -->
+        <dependency>
+            <groupId>com.htv.farmverse</groupId>
+            <artifactId>farmverse-contracts</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-grpc-server</artifactId>
+        </dependency>
 
         <!-- OAuth2 / OIDC provider: /oauth2/authorize, /oauth2/token, /oauth2/jwks, /userinfo, /connect/logout -->
         <dependency>
@@ -117,6 +126,12 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- @LocalGrpcServerPort -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-grpc-server-test</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- Test nhanh không cần Docker; *IT dùng PostgreSQL thật qua Testcontainers -->

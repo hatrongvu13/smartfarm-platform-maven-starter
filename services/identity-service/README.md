@@ -31,6 +31,7 @@ Tài khoản dev: `admin@farmverse.local` / `Admin@123456789` (`IDENTITY_ADMIN_E
 | Đăng nhập (HTML) | `GET/POST /login`, `GET/POST /login/totp` | Trình duyệt |
 | Hồ sơ của tôi | `/me`, `/me/password`, `/me/mfa/**` | SPA qua gateway |
 | Quản trị | `/users/**`, `/roles/**`, `/permissions/**`, `/tenants/**` | SPA qua gateway, theo `perms` |
+| gRPC `:9093` | `farmverse.identity.v1.IdentityDirectory`: `GetMember`, `BatchGetMembers` | Farm (mTLS, SAN `farm`) mang access token của người dùng ([ADR-0014](../../docs/architecture/adr/0014-grpc-service-calls.md)) |
 
 Chi tiết API và dạng lỗi (ProblemDetail, `code` dạng `SF-<MIEN>-<SO>`): [`docs/operations/identity-api.md`](../../docs/operations/identity-api.md).
 
@@ -69,6 +70,7 @@ Access token không thu hồi tức thì được: service kiểm JWT tại ch�
 | `web` | REST quản trị, ánh xạ lỗi |
 | `config` | Security filter chain, mTLS, OpenAPI, thuộc tính `farmverse.identity.*` |
 | `bootstrap` | Seed danh mục quyền và super admin đầu tiên |
+| `directory`, `grpc` | Danh bạ thành viên chỉ-đọc và server gRPC của nó (mapper, bảo mật, guard prod) |
 
 Thiết kế chung: [`docs/patterns/oidc-sas.md`](../../docs/patterns/oidc-sas.md). Kiến trúc hiện tại: [`docs/architecture/current-architecture.md`](../../docs/architecture/current-architecture.md).
 
@@ -82,5 +84,5 @@ mvn -pl services/identity-service verify    # thêm PostgresFlowsIT trên Postgr
 ## Chưa có
 
 - Quên mật khẩu, xác minh email, CAPTCHA.
-- gRPC: chưa có, mới có thiết kế ([`content/thiet-ke-farmverse.md`](../../content/thiet-ke-farmverse.md), mục 6).
+- gRPC: identity đã có server (P2); farm chưa gọi (P3). Thiết kế ở [`content/thiet-ke-farmverse.md`](../../content/thiet-ke-farmverse.md), mục 6.
 - Token riêng cho từng service (ADR-0006 bước 2).

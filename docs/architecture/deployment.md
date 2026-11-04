@@ -113,6 +113,7 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 |---|---|
 | Cổng ứng dụng | `SERVER_PORT=8080` (TLS ở identity/farm khi `mtls`) — `EXPOSE 8080` |
 | Cổng quản trị | `MANAGEMENT_SERVER_PORT=9090`, loopback, không expose. Biến này ghi đè `management.server.port` của từng service |
+| Cổng gRPC (identity) | `IDENTITY_GRPC_PORT` (mặc định 9093; **không** dùng 9090, trùng cổng quản trị), `IDENTITY_GRPC_BIND_ADDRESS` (mặc định 127.0.0.1; trong container đặt 0.0.0.0 để farm gọi được). Prod bắt buộc mTLS (ADR-0014) |
 | Healthcheck | `curl http://127.0.0.1:9090/actuator/health/readiness` |
 | Bắt buộc khi chạy | `*_BIND_ADDRESS=0.0.0.0` (mặc định 127.0.0.1 thì ngoài container không gọi được); các biến trong [`.env.production.example`](../../.env.production.example) |
 

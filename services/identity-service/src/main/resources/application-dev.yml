@@ -1,5 +1,10 @@
 # DEV — chỉ giá trị dùng trên máy cá nhân. Không dùng ở prod.
 spring:
+  # P2: dev bật reflection để thử bằng grpcurl (prod tắt, GrpcProductionGuard kiểm)
+  grpc:
+    server:
+      reflection:
+        enabled: true
   datasource:
     url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/farmverse_identity}
     username: ${IDENTITY_DB_USER:identity_app}          # chỉ DML (infra/postgres-init.sh)

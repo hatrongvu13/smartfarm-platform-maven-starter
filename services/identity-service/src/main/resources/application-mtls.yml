@@ -5,10 +5,18 @@ farmverse:
   mtls:
     dir: ${FARMVERSE_MTLS_DIR:.local/mtls}
     allowed-callers: gateway,farm
+  grpc:
+    allowed-callers: farm
   identity:
     issuer: ${IDENTITY_ISSUER:https://localhost:8092}
 
 spring:
+  # P2: gRPC cũng bắt buộc mTLS (cùng CA và cert với REST). Chỉ farmverse.grpc.allowed-callers gọi được IdentityDirectory.
+  grpc:
+    server:
+      ssl:
+        bundle: farmverse
+        client-auth: REQUIRE
   ssl:
     bundle:
       pem:

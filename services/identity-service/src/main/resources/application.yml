@@ -13,6 +13,15 @@ spring:
       ddl-auto: validate          # schema do Flyway quản (db/migration)
   flyway:
     enabled: true
+  # P2: server gRPC IdentityDirectory (danh bạ thành viên cho farm). Cổng 9093: mặc định của Spring gRPC là 9090,
+  # trùng cổng quản trị trong container (MANAGEMENT_SERVER_PORT=9090). Bind loopback như cổng HTTP.
+  # Reflection tắt (dev bật). Bảo mật: GrpcSecurityConfiguration; mTLS ở application-mtls.yml.
+  grpc:
+    server:
+      port: ${IDENTITY_GRPC_PORT:9093}
+      address: ${IDENTITY_GRPC_BIND_ADDRESS:127.0.0.1}
+      reflection:
+        enabled: false
 
 server:
   port: 8092

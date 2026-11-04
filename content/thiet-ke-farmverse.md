@@ -189,7 +189,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 
 ## 6. gRPC giữa các service **[D7 đã duyệt 2026-11-04 · P1 xong]**
 
-P1 (probe build) đã xong: module `libs/farmverse-contracts` có proto `farmverse/identity/v1`, stub sinh lúc build, test khóa hợp đồng. Chưa có server hay client gRPC trong service nào (P2, P3).
+P1 xong: module `libs/farmverse-contracts` (proto `farmverse/identity/v1`, stub sinh lúc build, test khóa hợp đồng). **P2 xong**: identity chạy server gRPC `IdentityDirectory` ở `:9093` (mTLS + SAN + JWT người dùng, D3-B, [ADR-0014](../docs/architecture/adr/0014-grpc-service-calls.md)). Farm chưa gọi (P3).
 
 | Mục | Trạng thái | Bằng chứng |
 |---|---|---|
@@ -199,7 +199,7 @@ P1 (probe build) đã xong: module `libs/farmverse-contracts` có proto `farmver
 | Cổng mặc định của server gRPC | **Đã kiểm (P1): 9090** | **Trùng** `MANAGEMENT_SERVER_PORT=9090` trong container (Dockerfile). P2 phải đặt `spring.grpc.server.port=9093` |
 | API `GrpcSecurity` + mTLS | **Đã kiểm (P1) bằng probe chạy thật** (project tạm, không commit) | `authenticationExtractor(new SslContextPreAuthenticationExtractor(x509 → tên))` + `preauth(p -> p.userDetailsService(...))` + `authorizeRequests(r -> r.methods("farmverse.identity.v1.IdentityDirectory/*").hasAuthority("SERVICE_FARM").allRequests().denyAll())`, trả `AuthenticationProcessInterceptor` gắn `@GlobalServerInterceptor`. Kết quả với cert của `generate-dev-mtls.sh`: cert farm → OK; cert gateway → `PERMISSION_DENIED`; không cert → `UNAVAILABLE` (TLS từ chối) |
 | Chi tiết dễ sai | Đã gặp ở probe | (1) Bean không được tên `grpcSecurity`: trùng bean của auto-config, context không khởi động. (2) Extractor mặc định lấy CN của subject; ta truyền extractor đọc SAN `spiffe://farmverse/<service>` để giống `ServiceIdentityFilter` của REST. (3) Cổng thật lấy từ `GrpcServerLifecycle#getPort()` (thuộc tính `local.grpc.server.port` không có khi không dùng module test của Boot) |
-| Trộn mTLS và JWT trong một chuỗi bảo mật gRPC | Chưa kiểm | Chỉ cần nếu chọn D3-B |
+| Trộn mTLS và JWT trong một chuỗi bảo mật gRPC | **Đã kiểm (P2)** | Hai interceptor: `ServiceIdentityInterceptor` (SAN, chạy trước) và `AuthenticationProcessInterceptor` của `GrpcSecurity` với `oauth2ResourceServer().jwt()`. `IdentityGrpcMtlsTest`: cert gateway + token đúng → `PERMISSION_DENIED`; cert farm không token → `UNAUTHENTICATED` |
 
 Hiện chỉ có một lời gọi service → service là farm → identity lấy JWKS (HTTP, mTLS).
 
@@ -313,7 +313,7 @@ Quy ước tương thích (ghi vào `docs/patterns/grpc.md`):
 |---|---|---|
 | 1. Đường truyền | mTLS. Server `spring.grpc.server.ssl.bundle=farmverse`, `client-auth=REQUIRE`; client channel dùng cùng bundle. **Dùng chung CA và chứng chỉ với REST**, không tạo hệ khóa mới | Bên kia có phải máy FarmVerse? |
 | 2. Danh tính service | Đọc SAN `spiffe://farmverse/<service>` từ chứng chỉ, ánh xạ thành authority `SERVICE_FARM`. Mỗi rpc khai authority được phép. Danh sách cho phép: **chỉ `farm`** | Service nào được gọi hàm nào? |
-| 3. Ngữ cảnh tenant | Xem D3 | Gọi thay cho tenant nào? |
+| 3. Ngữ cảnh tenant | **D3-B (đã chốt)**: farm chuyển tiếp access token của người dùng trong metadata `authorization`. Identity kiểm bằng cùng `JwtDecoder` với REST (aud `identity-service`), đòi scope `farmverse.api` và `token_type=user`, lấy tenant từ claim `tenant_id`; `tenant_id` trong request khác token thì `PERMISSION_DENIED` | Gọi thay cho tenant nào? |
 
 Thêm vào đó:
 
@@ -322,7 +322,7 @@ Thêm vào đó:
 - **Không log** nội dung request có tên hay id người dùng ở mức INFO; chỉ log tên rpc, mã trạng thái, thời gian.
 - Dev không bật `mtls`: gRPC chạy plaintext trên `127.0.0.1`. Dev có `mtls` và prod: bắt buộc mTLS. Prod không cho phép plaintext (test cấu hình chặn).
 
-**Mô hình đe dọa còn lại (D3-A):** identity tin farm khi farm gửi `tenant_id`. Nếu farm bị chiếm, kẻ đó hỏi được thành viên của mọi tenant. Giảm thiểu: farm chỉ lấy `tenant_id` từ JWT đã kiểm; chỉ farm được gọi; dữ liệu trả về tối thiểu; có nhật ký audit. Phương án D3-B (chuyển tiếp JWT người dùng) đóng lỗ này, đổi lại phức tạp hơn và chưa kiểm khả thi.
+**Mô hình đe dọa còn lại (D3-B, đã chốt):** farm bị chiếm chỉ hỏi được tenant của người dùng mà nó đang giữ token hợp lệ (token sống 5 phút), không hỏi được tenant tùy ý như D3-A. Còn lại: token người dùng đi thêm một chặng (farm → identity); khi làm ADR-0006 bước 2 (token riêng cho từng service) thì farm cần token exchange để có token `aud=identity-service`. Mô hình D3-A (tin `tenant_id` do farm gửi) đã bỏ.
 
 ### 6.6 Sơ đồ tuần tự: gán người phụ trách
 
@@ -406,7 +406,7 @@ Test thường chạy trên H2/in-process; test trên PostgreSQL thật là `*IT
 | Bước | Việc | Điều kiện qua | Hoàn tác |
 |---|---|---|---|
 | P1 ✅ | Probe build (xong 2026-11-04): `libs/farmverse-contracts`, proto mẫu, sinh stub bằng plugin do BOM quản; xác minh thuộc tính `spring.grpc.*` và API bảo mật bằng build thật | Build xanh, stub sinh ra; bảng đầu mục 6 được cập nhật | Xóa module |
-| P2 | Identity: `MemberDirectoryService`, `adapter/in/grpc`, mapper, mTLS + authority theo rpc, health, reflection theo profile | T1, T2, T5, T7 xanh | Tắt `spring.grpc.server`, xóa adapter |
+| P2 ✅ | Identity (xong 2026-11-04): `directory/MemberDirectoryService`, `grpc/IdentityDirectoryGrpcService`, `MemberMapper`, mTLS + SAN (`ServiceIdentityInterceptor`) + JWT người dùng (`GrpcSecurityConfiguration`), health, reflection chỉ dev, `GrpcProductionGuard` | T1 `IdentityDirectoryGrpcTest` (8), T2 `IdentityGrpcMtlsTest` (5), T5 + T7 `GrpcConfigurationTest` (3) xanh | `spring.grpc.server.enabled=false` hoặc xóa package `grpc` |
 | P3 | Farm: cột `manager_user_id`, `Farm.assignManager`, port `MemberDirectory`, adapter gRPC client, 2 REST, ánh xạ lỗi, giảm cấp | T3, T4, T8 xanh; test cũ vẫn xanh | Xóa adapter, giữ cột nullable |
 | P4 | Tài liệu: `docs/patterns/grpc.md`, cập nhật `docs/patterns/mtls.md` và `docs/operations/local-development.md` (cổng 9093) | Link không gãy | Revert |
 
@@ -447,7 +447,7 @@ Bài học thiết kế nên nắm theo từng bước: cô lập tenant (F1), P
 |---|---|---|
 | D1 | Cột `manager_user_id` cho farm: sửa thẳng `V1` hay thêm `V2`? (đổi schema) | `V1`, theo quy ước gom baseline |
 | D2 | Tạo `libs/farmverse-contracts` (chỉ proto) hay để proto trong từng service? | **Đã chọn (P1): module riêng**, một nguồn sự thật, có test khóa hợp đồng |
-| D3 | Ngữ cảnh tenant trong gRPC: A mTLS + `tenant_id` do farm gửi / B chuyển tiếp JWT người dùng / C token `client_credentials` | A trước, ghi rõ mô hình đe dọa (mục 6.5) |
+| D3 | Ngữ cảnh tenant trong gRPC: A mTLS + `tenant_id` do farm gửi / B chuyển tiếp JWT người dùng / C token `client_credentials` | **Đã chốt B (2026-11-04)**, mục 6.5, ADR-0014 |
 | D4 | Ca dùng gRPC đầu tiên là "farm gán người phụ trách"? | Có |
 | D5 | Gateway → service giữ REST, chỉ service ↔ service dùng gRPC? | Có |
 | D6 | "Một cổng công khai `/idp`" (từng nằm trong tài liệu cũ đã xóa): làm không, và khi nào? | Tách thành thiết kế riêng khi cần. gRPC không phụ thuộc nó vì đi mạng nội bộ |

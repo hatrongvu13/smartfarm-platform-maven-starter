@@ -77,7 +77,8 @@ public class ServiceIdentityFilter extends OncePerRequestFilter {
         return spiffeId(chain[0]);
     }
 
-    static Optional<String> spiffeId(X509Certificate certificate) {
+    /** Id service trong SAN URI {@code spiffe://farmverse/<service>} của một cert. Dùng chung cho REST và gRPC. */
+    public static Optional<String> spiffeId(X509Certificate certificate) {
         try {
             Collection<List<?>> names = certificate.getSubjectAlternativeNames();
             if (names == null) {

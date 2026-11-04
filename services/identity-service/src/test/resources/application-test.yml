@@ -1,6 +1,10 @@
 # TEST — H2 trong bộ nhớ, không cần Docker. Schema domain do Hibernate tạo;
 # bảng của SAS lấy từ oauth2-test-schema.sql. *IT chạy Flyway trên PostgreSQL thật.
 spring:
+  # Cổng gRPC ngẫu nhiên: nhiều context test chạy cùng JVM không giẫm cổng 9093
+  grpc:
+    server:
+      port: 0
   datasource:
     url: jdbc:h2:mem:identity;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
     username: sa
