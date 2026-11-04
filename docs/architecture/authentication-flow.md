@@ -59,7 +59,7 @@ sequenceDiagram
     G->>G: RequestRateLimiter (Redis, theo user)
     G->>F: POST /farms + Authorization: Bearer [mTLS, cert gateway]
     F->>F: ServiceIdentityFilter: SAN = spiffe://farmverse/gateway?
-    F->>F: JwtDecoder: chữ ký (JWKS cache), iss, aud=farmverse-api, exp, nbf
+    F->>F: JwtDecoder: chữ ký (JWKS cache), iss, aud chứa farm-service, exp, nbf, scope farmverse.api
     opt kid lạ (khóa mới)
         F->>I: GET /oauth2/jwks [mTLS] (tải lại JWKS)
     end
@@ -76,7 +76,7 @@ Ba lớp kiểm khác nhau, mỗi lớp trả lời một câu hỏi:
 | JWT/JWKS | `JwtDecoder` + validator | Token có thật, còn hạn, đúng người nhận không? Người dùng là ai, tenant nào? | 401 `SF-AUTH-001` |
 | Authorization | `@PreAuthorize` + `@TenantId` | Người đó được làm gì, trên dữ liệu nào? | 403 `SF-AUTH-002` / không thấy dữ liệu |
 
-**[chưa có]** `aud=farm-service`, kiểm `scope`, ownership (M6).
+`aud=farm-service` và kiểm `scope` đã có (M6, ADR-0006 bước 1). **[chưa có]** ownership (R11).
 
 ## 3. Phiên (session)
 

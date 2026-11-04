@@ -94,7 +94,7 @@ flowchart TB
 | Phân quyền | Mọi request cần `SCOPE_farmverse.api` (M6), rồi `@PreAuthorize` theo `perms` (`farm:farm:read/write`) hoặc role `SUPER_ADMIN` | [`SecurityConfiguration`](../../services/farm-service/src/main/java/com/htv/farmverse/farm/config/SecurityConfiguration.java), [`FarmController`](../../services/farm-service/src/main/java/com/htv/farmverse/farm/adapter/in/rest/FarmController.java) |
 | Tenant | Hibernate `@TenantId`, tenant lấy từ claim `tenant_id`; không có token → tenant giả `__none__` | [`TenantFromTokenResolver`](../../services/farm-service/src/main/java/com/htv/farmverse/farm/adapter/out/jpa/TenantFromTokenResolver.java), `TenantIsolationTest` |
 | Ownership trong tenant | **Chưa có** (farm không có chủ sở hữu; mọi người cùng tenant có quyền như nhau theo `perms`) | — |
-| Đồng thời | `@Version`; 409 `SF-FARM-010` / `SF-FARM-011` (chưa commit) | [`FarmExceptionHandler`](../../services/farm-service/src/main/java/com/htv/farmverse/farm/adapter/in/rest/FarmExceptionHandler.java), `FarmControllerTest` |
+| Đồng thời | `@Version`; 409 `SF-FARM-010` / `SF-FARM-011` | [`FarmExceptionHandler`](../../services/farm-service/src/main/java/com/htv/farmverse/farm/adapter/in/rest/FarmExceptionHandler.java), `FarmControllerTest` |
 
 ## 6. mTLS
 

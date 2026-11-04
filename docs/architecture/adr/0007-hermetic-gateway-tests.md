@@ -9,7 +9,7 @@
 | Phương án | Ưu | Nhược |
 |---|---|---|
 | A. Bean `ReactiveMapSessionRepository` chỉ trong test | Không đụng code chính; nhanh; Boot tự lùi (`@ConditionalOnMissingBean(ReactiveSessionRepository)`) | Không kiểm hành vi riêng của Redis |
-| B. Testcontainers Redis cho mọi test | Gần production | Cần Docker ở mọi máy; chậm; máy dev hiện không có Docker |
+| B. Testcontainers Redis cho mọi test | Gần production | Cần Docker ở mọi máy; chậm (lúc chốt, máy dev chưa có Docker; nay Redis thật chạy ở `GatewayRedisIT`) |
 | C. Tắt auto-config Redis bằng thuộc tính | Ngắn | Phải liệt kê nhiều auto-config; dễ gãy khi nâng Boot |
 
 **Quyết định.** A cho test thường. Hành vi Redis thật (TTL, mất kết nối, fail-closed) để cho test tích hợp `*IT` với Testcontainers ở M3, chạy trong CI.

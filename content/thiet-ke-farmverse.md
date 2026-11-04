@@ -182,7 +182,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 | # | Tiêu chí | Trạng thái |
 |---|---|:-:|
 | F1 | Hexagonal, tách tenant bằng `@TenantId`, có test cô lập tenant | ✅ |
-| F2 | Khóa lạc quan `@Version`; tranh chấp ghi trả 409 `SF-FARM-010`; trùng mã đồng thời trả 409 `SF-FARM-011` | ✅ (2026-11-04, chưa commit) |
+| F2 | Khóa lạc quan `@Version`; tranh chấp ghi trả 409 `SF-FARM-010`; trùng mã đồng thời trả 409 `SF-FARM-011` | ✅ |
 | F3 | Test đồng thời thật trên PostgreSQL | ✅ |
 
 **Cổng chất lượng:** tự chấm lại bảng 5.1-5.4; đủ 10/10 mới mở miền nghiệp vụ tiếp theo (trừ ngoại lệ được duyệt ở D7).
@@ -377,7 +377,7 @@ Phía identity: ném `StatusRuntimeException` qua một `GrpcExceptionHandler` (
 | Giảm cấp | Đọc: bỏ tên. Ghi: từ chối | Mục 6.2 |
 | Health | Server bật health gRPC; client bật health của channel | Tắt máy êm |
 
-Chưa dùng circuit breaker (Resilience4j đã bỏ). Một lời gọi thì deadline + retry giới hạn là đủ.
+Lời gọi gRPC chưa cần circuit breaker: một lời gọi thì deadline + retry giới hạn là đủ. (Circuit breaker cho route của gateway là việc riêng, mục G3.)
 
 #### 6.7.3 Quan sát
 
@@ -396,7 +396,7 @@ Bật observation của Spring gRPC (server và client) để có metric và spa
 | T7 | Prod không cho plaintext (kiểm cấu hình) | Không hạ bảo mật nhầm |
 | T8 | Hai request gán người phụ trách đồng thời → một thắng, một 409 | Đồng thời |
 
-Test chạy trên H2/in-process như hiện nay (máy này không có Docker). Test PostgreSQL thật vẫn thuộc bước CI riêng.
+Test thường chạy trên H2/in-process; test trên PostgreSQL thật là `*IT` (Testcontainers, `mvn verify`), như các service hiện có.
 
 ### 6.8 Thứ tự làm gRPC
 
@@ -414,7 +414,7 @@ Mỗi bước: build xanh, test xanh, hoàn tác bằng `git revert`. Commit do 
 | Bước | Việc | Điều kiện qua |
 |:-:|---|---|
 | 1 | Chốt S2 (Redis mật khẩu) và S1 (`.env.production.example`); đồng bộ `local-development.md` | Bạn duyệt |
-| 2 | CI (GitHub Actions) chạy build + test — **đã có** `.github/workflows/ci.yml`, chờ lần chạy đầu. Thêm test khóa hợp đồng gRPC khi có | Xanh trên nhánh |
+| 2 | CI (GitHub Actions) chạy build + test — **đã có** `.github/workflows/ci.yml`, xanh lần đầu 2026-11-04 (run 41835098123). Thêm test khóa hợp đồng gRPC khi có | Xanh trên nhánh |
 | 3 | Gateway G2, G3, G4, G5(IP), G8 | Test từng mục |
 | 4 | gRPC P1-P4 (mục 6.8), **nếu** D7 được duyệt | Theo bảng 6.8 |
 | 5 | Giao diện W1-W7 (rà trạng thái ❓ trước) | `npm run build` + Vitest xanh |

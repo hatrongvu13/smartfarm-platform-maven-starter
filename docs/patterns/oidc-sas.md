@@ -19,7 +19,7 @@ sequenceDiagram
     I->>I: FarmVerseTokenCustomizer: aud, tenant_id, roles, perms
     I-->>G: access token 5 phút + refresh token xoay vòng
     G->>S: Bearer token
-    S->>S: kiểm chữ ký (JWKS), iss, aud=farmverse-api → @PreAuthorize
+    S->>S: kiểm chữ ký (JWKS), iss, aud (của chính service), scope → @PreAuthorize
 ```
 
 | Việc | Thành phần |

@@ -116,4 +116,4 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 | Healthcheck | `curl http://127.0.0.1:9090/actuator/health/readiness` |
 | Bắt buộc khi chạy | `*_BIND_ADDRESS=0.0.0.0` (mặc định 127.0.0.1 thì ngoài container không gọi được); các biến trong [`.env.production.example`](../../.env.production.example) |
 
-Đã kiểm (2026-11-04): chạy jar gateway với `SERVER_PORT`/`MANAGEMENT_SERVER_PORT` khác mặc định → readiness 200 trên cổng quản trị, cổng quản trị chỉ ở `127.0.0.1`, cổng công khai không có actuator. **Chưa** build image thật (máy không có Docker); job `image` của CI sẽ làm việc đó.
+Đã kiểm (2026-11-04): chạy jar gateway với `SERVER_PORT`/`MANAGEMENT_SERVER_PORT` khác mặc định → readiness 200 trên cổng quản trị, cổng quản trị chỉ ở `127.0.0.1`, cổng công khai không có actuator. Image của 3 service build xanh ở job `image` của CI (run 41835098123). **Chưa** chạy container thật.
