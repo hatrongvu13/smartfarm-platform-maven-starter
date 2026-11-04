@@ -68,7 +68,7 @@ flowchart LR
 | T11 | TB2 | E | Người tenant A đọc dữ liệu tenant B | `@TenantId` từ claim, `TenantIsolationTest` | — |
 | T12 | TB2 | E | Người cùng tenant đọc farm của người khác | Chỉ `perms` | Ownership (chưa có yêu cầu) |
 | T13 | TB1→TB3 | I | Đọc session (token) trong Redis | Mật khẩu bắt buộc, cổng dev chỉ `127.0.0.1`, TLS prod, namespace riêng; ACL user tối thiểu đã kiểm trên Redis thật (`GatewayRedisIT`) | Bật ACL ở hạ tầng prod |
-| T14b | TB1→TB2 | D | Service phía sau treo giữ request của gateway | Timeout response 10s, connect 3s ở mọi profile → 504/502 (`GatewayErrorProblemsTest`) | Circuit breaker để trả lỗi ngay khi service sập kéo dài |
+| T14b | TB1→TB2 | D | Service phía sau treo giữ request của gateway | Timeout response 10s, connect 3s ở mọi profile → 504/502 (`GatewayErrorProblemsTest`); circuit breaker mỗi route: service sập kéo dài thì trả 503 ngay, không gọi xuống (`CircuitBreakerTest`, G3) | Ngưỡng breaker chưa chỉnh theo tải thật |
 | T14 | TB1→TB3 | D | Redis treo làm gateway treo | Timeout lệnh 2s, kết nối 1s; treo thật (`docker pause`) → 503 trong khoảng timeout (`GatewayRedisIT`) | — |
 | T15 | TB2→TB3 | E | Farm bị chiếm đọc DB identity | DB riêng; vai trò riêng không superuser; `PUBLIC` mất `CONNECT`; ứng dụng chỉ có DML, không đổi được cấu trúc (`DatabaseRolesIT`) | Mật khẩu owner vẫn nằm trong ứng dụng (Flyway lúc khởi động); tách job migration để bỏ |
 | T16 | TB4 | I | Token, mã, cookie lọt vào log | `SecurityAudit` làm sạch; logger in bí mật ở DEBUG bị ghim ở INFO; gateway không chuyển `Cookie` xuống service; test ở DEBUG cho cả ba service (M7, ADR-0012) | Ai đặt DEBUG cho đúng tên logger đã ghim thì vẫn in được |

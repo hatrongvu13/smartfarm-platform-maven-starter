@@ -39,6 +39,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- G3: circuit breaker theo route (Resilience4j, version do Spring Cloud BOM quản) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+        </dependency>
         <!-- M7: trace (Micrometer Tracing -> OpenTelemetry, W3C traceparent), xuất OTLP khi có endpoint;
              metric dạng Prometheus ở cổng quản trị -->
         <dependency>

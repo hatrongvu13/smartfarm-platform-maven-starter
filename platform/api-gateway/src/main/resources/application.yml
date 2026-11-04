@@ -48,26 +48,39 @@ spring:
             # hay tay service khác (M7, T16).
             - RemoveRequestHeader=Cookie
           routes:
+            # CircuitBreaker đứng CUỐI danh sách: chỉ bọc lời gọi xuống service, không đếm lỗi của TokenRelay
+            # (refresh với identity) hay rate limiter. Mỗi route một breaker (G3, CircuitBreakerConfiguration).
             - id: identity-api
               uri: ${farmverse.gateway.routes.identity-uri}
               predicates: [ "Path=/api/identity/**" ]
-              filters: &api-filters
+              filters:
                 - StripPrefix=2
                 - TokenRelay=
-                - name: RequestRateLimiter
+                - &rate-limit
+                  name: RequestRateLimiter
                   args:
                     key-resolver: "#{@principalKeyResolver}"
                     redis-rate-limiter.replenishRate: 20
                     redis-rate-limiter.burstCapacity: 40
+                - CircuitBreaker=identity
             - id: farm-api
               uri: ${farmverse.gateway.routes.farm-uri}
               predicates: [ "Path=/api/farm/**" ]
-              filters: *api-filters
+              filters:
+                - StripPrefix=2
+                - TokenRelay=
+                - *rate-limit
+                - CircuitBreaker=farm
             # Mọi đường còn lại là trang web (SPA): một origin duy nhất cho trình duyệt.
             - id: web
               uri: ${WEB_URL:http://localhost:5173}
               predicates: [ "Path=/**" ]
               order: 1000
+
+    # G3: time limiter của Resilience4j tắt; quá hạn chỉ do httpclient.response-timeout ở trên quyết định
+    circuitbreaker:
+      resilience4j:
+        disable-time-limiter: true
 
 # ---- Gateway là OIDC client của identity (xem GatewayOidcProperties) ----
 farmverse:

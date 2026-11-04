@@ -49,4 +49,4 @@ flowchart LR
 | 2026-11-04 | G5 | Giới hạn đăng nhập theo IP. 110 unit + 19 IT xanh |
 | 2026-11-04 | M4 | Vai trò owner/app cho từng service, IT Postgres chạy bằng vai trò app. Đối chứng: bỏ REVOKE thì `DatabaseRolesIT` đỏ |
 | 2026-11-04 | M6 | `aud` theo service, farm đòi scope, test token ký thật + JWKS cache/xoay khóa. 122 unit + 19 IT xanh |
-| 2026-11-04 | G2 + G3 (timeout) | Lỗi gateway thành ProblemDetail, timeout mọi profile. 105 test xanh. Circuit breaker để sau |
+| 2026-11-04 | G2 + G3 (timeout) | Lỗi gateway thành ProblemDetail, timeout mọi profile. 105 test xanh. Circuit breaker làm sau (xong cùng ngày, `CircuitBreakerTest`) |

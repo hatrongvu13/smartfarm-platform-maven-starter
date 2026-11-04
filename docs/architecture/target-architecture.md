@@ -81,10 +81,11 @@ flowchart LR
 
 ## 6. Chưa triển khai (không được coi là đã có)
 
-- Ownership trong tenant. Token riêng cho từng route (ADR-0006 bước 2).
-- Redis ACL user (mới có hướng dẫn), TLS ở dev, test với Redis thật.
-- Tracing, metric export, log JSON ở gateway và farm.
-- Rate limit phân tán cho login.
-- CD (deploy).
-- Circuit breaker ở gateway.
-- gRPC (đang chờ duyệt trong [`content/thiet-ke-farmverse.md`](../../content/thiet-ke-farmverse.md) mục 6).
+Rà lại 2026-11-04. Các mục cũ đã làm (Redis thật + ACL ở `GatewayRedisIT`, tracing/metric/log JSON ở M7, rate limit login phân tán ở M8, circuit breaker ở G3) đã bỏ khỏi danh sách.
+
+- Ownership trong tenant (R11): cần thiết kế nghiệp vụ trước.
+- Token exchange / token riêng từng service (ADR-0006 bước 2).
+- gRPC: identity đã có server (P2); farm gọi identity (P3) và tài liệu pattern (P4) chưa làm.
+- CD (deploy) và chạy container thật; collector trace, Prometheus, alert thật.
+- Tách Flyway thành job riêng (bỏ mật khẩu owner khỏi ứng dụng).
+- Thu hồi access token tức thì (hiện sống tới hết hạn, tối đa 5 phút).

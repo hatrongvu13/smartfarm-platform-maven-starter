@@ -22,6 +22,8 @@ class DownstreamErrorHandlerTest {
                 .isEqualTo(HttpStatus.BAD_GATEWAY);
         assertThat(DownstreamErrorHandler.classify(new UnknownHostException("farm")))
                 .isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(DownstreamErrorHandler.classify(new org.springframework.cloud.gateway.support.ServiceUnavailableException()))
+                .as("circuit breaker đang mở").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     /** Hồi quy đã gặp: lỗi Redis chứa ConnectException; phải để cho RedisUnavailableHandler (503). */

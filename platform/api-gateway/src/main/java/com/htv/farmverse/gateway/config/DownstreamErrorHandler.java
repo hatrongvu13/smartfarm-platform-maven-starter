@@ -7,6 +7,8 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
+import org.springframework.cloud.gateway.support.ServiceUnavailableException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,6 +25,8 @@ import reactor.netty.http.client.PrematureCloseException;
  *   <li>504 {@value GatewayProblems#GATEWAY_TIMEOUT}: quá {@code response-timeout} (Spring Cloud Gateway ném
  *       {@code ResponseStatusException(GATEWAY_TIMEOUT)}) hoặc quá {@code connect-timeout}.</li>
  *   <li>502 {@value GatewayProblems#BAD_GATEWAY}: service từ chối kết nối, không phân giải được tên, đóng kết nối giữa chừng.</li>
+ *   <li>503 {@value GatewayProblems#UNAVAILABLE} + {@code Retry-After}: circuit breaker của route đang mở (G3,
+ *       {@link CircuitBreakerConfiguration}); gateway không gọi service, trả ngay.</li>
  * </ul>
  * Log ghi loại lỗi và route, không ghi thông điệp (chứa địa chỉ nội bộ). Lỗi khác đi tiếp như cũ.
  */
@@ -32,6 +36,12 @@ public class DownstreamErrorHandler implements WebExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(DownstreamErrorHandler.class);
 
+    private final long retryAfterSeconds;
+
+    public DownstreamErrorHandler(CircuitBreakerConfiguration.Settings circuitBreaker) {
+        this.retryAfterSeconds = Math.max(1, circuitBreaker.waitInOpenState().toSeconds());
+    }
+
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable error) {
         HttpStatus status = classify(error);
@@ -39,6 +49,11 @@ public class DownstreamErrorHandler implements WebExceptionHandler {
             return Mono.error(error);
         }
         log.warn("Service phía sau lỗi ({}), trả {} cho {}", rootType(error), status.value(), exchange.getRequest().getPath());
+        if (status == HttpStatus.SERVICE_UNAVAILABLE) {
+            exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds));
+            return GatewayProblems.write(exchange, status, GatewayProblems.UNAVAILABLE,
+                    "Dịch vụ phía sau đang tạm ngừng nhận yêu cầu, hãy thử lại sau ít giây");
+        }
         return status == HttpStatus.GATEWAY_TIMEOUT
                 ? GatewayProblems.write(exchange, status, GatewayProblems.GATEWAY_TIMEOUT,
                         "Dịch vụ phía sau không trả lời kịp, hãy thử lại")
@@ -50,6 +65,9 @@ public class DownstreamErrorHandler implements WebExceptionHandler {
         // Redis (kho phiên) cũng lỗi bằng ConnectException; đó là 503 của RedisUnavailableHandler, không phải 502.
         if (RedisUnavailableHandler.isRedisFailure(error)) {
             return null;
+        }
+        if (error instanceof ServiceUnavailableException) {
+            return HttpStatus.SERVICE_UNAVAILABLE;      // circuit breaker đang mở
         }
         if (error instanceof ResponseStatusException rse && rse.getStatusCode().value() == 504) {
             return HttpStatus.GATEWAY_TIMEOUT;

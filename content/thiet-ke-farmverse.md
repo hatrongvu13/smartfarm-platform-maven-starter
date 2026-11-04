@@ -158,7 +158,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 |---|---|:-:|---|
 | G1 | BFF đúng chuẩn | ✅ | Luồng đăng nhập HTTP thật với identity giả: PKCE, state, nonce, đổi id phiên (`LoginSessionSecurityTest`), qua edge TLS (`ForwardedHeadersTest`) |
 | G2 | Lỗi thống nhất: 401, 403, 429, 502, 503, 504 trả ProblemDetail có `code` | ✅ | `GatewayProblems`, `DownstreamErrorHandler`, `RateLimitProblemFilter`; test `GatewayErrorProblemsTest` (2026-11-04) |
-| G3 | Timeout và chịu lỗi theo route; circuit breaker trả 503 nhanh | 🟡 | Timeout mọi profile (connect 3s, response 10s, quá hạn → 504) ✅. Circuit breaker ⬜: cần thêm `spring-cloud-starter-circuitbreaker-reactor-resilience4j` |
+| G3 | Timeout và chịu lỗi theo route; circuit breaker trả 503 nhanh | ✅ | Timeout mọi profile (connect 3s, response 10s → 504). Circuit breaker Resilience4j mỗi route API (`identity`, `farm`): 50% lỗi trên 20 lời gọi (tối thiểu 10) thì mở 10s, trả ngay 503 `SF-GATEWAY-503` + `Retry-After`; chỉ đếm lỗi đường truyền, 5xx của service đi nguyên; `CircuitBreakerTest` (3, đối chứng: bỏ breaker thì 2 test đỏ) |
 | G4 | Header bảo mật (CSP, nosniff, Referrer-Policy, HSTS ở prod) | ✅ | ADR-0010, `SecurityHeadersTest`, thử trên Chrome |
 | G5 | Rate limit: theo user cho `/api/**`; theo IP cho `/oauth2/authorization/**` và callback | ✅ | `LoginRateLimitFilter` (20/phút/IP, Redis), `GatewayRedisIT` |
 | G6 | Session: test với Redis thật; timeout; đăng xuất xóa sạch | ✅ | `GatewayRedisIT`: TTL, namespace, đổi id phiên, Redis treo → 503, ACL user |
