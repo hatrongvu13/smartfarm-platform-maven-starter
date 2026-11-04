@@ -2,9 +2,11 @@
 # Action ghim theo SHA commit (tag có thể bị dời); tag tương ứng ghi ở cuối dòng.
 name: ci
 
+# Chạy trên mọi nhánh được push (kiểm sớm, không cần mở PR) và trên PR từ fork.
+# PR từ chính repo này đã có lần chạy do push; concurrency bên dưới hủy lần chạy cũ cùng ref.
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]
   pull_request:
 
 permissions:
