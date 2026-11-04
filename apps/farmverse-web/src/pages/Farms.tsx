@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, farm as farmApi } from '../lib/api'
 import { hasPermission, useAuth } from '../lib/auth'
 import { useFarm } from '../lib/farm'
-import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, statusTone } from '../components/ui'
+import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState, Empty, statusTone } from '../components/ui'
 
 type Barn = { code: string; name: string; capacity: number }
 type Farm = { id: string; code: string; name: string; address?: string; status: string; totalCapacity: number; barns: Barn[] }
@@ -39,9 +39,11 @@ export default function Farms() {
       <PageHeader title="Trang trại" sub="Trang trại và chuồng của tổ chức" />
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Danh sách" className="xl:col-span-2">
-          <ErrorMsg error={farms.error} />
+          <QueryState query={farms} loadingLabel="Đang tải trang trại…"
+            empty={canWrite ? 'Chưa có trang trại nào. Tạo trang trại đầu tiên ở khung bên cạnh.' : 'Chưa có trang trại nào.'}>
+            {list => (
           <ul className="divide-y text-sm">
-            {farms.data?.map(f => (
+            {list.map(f => (
               <li key={f.id} className="flex items-center justify-between gap-3 py-2">
                 <div>
                   <div className="font-medium">{f.name} <span className="text-stone-500">({f.code})</span></div>
@@ -56,7 +58,8 @@ export default function Farms() {
               </li>
             ))}
           </ul>
-          {farms.data?.length === 0 && <p className="text-sm text-stone-500">Chưa có trang trại nào.</p>}
+            )}
+          </QueryState>
         </Card>
 
         {canWrite && (
@@ -76,7 +79,9 @@ export default function Farms() {
         {selected && (
           <Card title={`Chuồng của ${selected.name}`} className="xl:col-span-2">
             <ErrorMsg error={removeBarn.error} />
-            <table className="w-full text-left text-sm">
+            {selected.barns.length === 0
+              ? <Empty>{canWrite && selected.status === 'ACTIVE' ? 'Chưa có chuồng nào. Thêm chuồng ở khung bên cạnh.' : 'Chưa có chuồng nào.'}</Empty>
+              : <table className="w-full text-left text-sm">
               <thead className="border-b text-xs uppercase text-stone-500"><tr><th className="py-2">Mã</th><th>Tên</th><th>Sức chứa</th><th /></tr></thead>
               <tbody>
                 {selected.barns.map(b => (
@@ -86,7 +91,7 @@ export default function Farms() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table>}
           </Card>
         )}
 

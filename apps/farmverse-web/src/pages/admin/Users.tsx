@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity, type Page } from '../../lib/api'
 import { hasPermission, useAuth } from '../../lib/auth'
-import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, Select, statusTone } from '../../components/ui'
+import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState, Select, statusTone } from '../../components/ui'
 
 type User = { userId: string; email: string; displayName: string; status: 'ACTIVE' | 'SUSPENDED' | 'DISABLED'; roles: string[]; locked: boolean; lastLoginAt?: string }
 type Role = { code: string; name: string }
@@ -52,10 +52,13 @@ export default function Users() {
 
   return (
     <>
-      <PageHeader title="Người dùng" sub={`Tổ chức ${me?.tenantCode ?? ''} · ${users.data?.page.totalElements ?? 0} người`} />
+      <PageHeader title="Người dùng" sub={`Tổ chức ${me?.tenantCode ?? ''}${users.data ? ` · ${users.data.page.totalElements} người` : ''}`} />
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Danh sách" className="xl:col-span-2">
-          <ErrorMsg error={users.error ?? setStatus.error ?? setRoles.error ?? unlock.error ?? resetMfa.error} />
+          <ErrorMsg error={setStatus.error ?? setRoles.error ?? unlock.error ?? resetMfa.error} />
+          {roles.isError && canManage && <ErrorMsg error={roles.error} onRetry={() => roles.refetch()} />}
+          <QueryState query={users} loadingLabel="Đang tải người dùng…" empty="Tổ chức chưa có người dùng nào.">
+            {() => (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b text-xs uppercase text-stone-500">
@@ -87,6 +90,8 @@ export default function Users() {
               </tbody>
             </table>
           </div>
+            )}
+          </QueryState>
           <div className="mt-3 flex items-center gap-2 text-sm">
             <Button variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>‹ Trước</Button>
             <span>Trang {page + 1} / {Math.max(totalPages, 1)}</span>

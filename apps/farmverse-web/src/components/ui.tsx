@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
-import { ApiError } from '../lib/api'
+import type { UseQueryResult } from '@tanstack/react-query'
+import { describeError } from '../lib/errors'
 
 const cx = (...a: (string | false | undefined)[]) => a.filter(Boolean).join(' ')
 
@@ -54,14 +55,62 @@ export function statusTone(s?: string): 'neutral' | 'ok' | 'warn' | 'bad' | 'inf
   return 'info'
 }
 
-export function ErrorMsg({ error, hint: hintOverride }: { error: unknown; hint?: string }) {
+/**
+ * Hộp báo lỗi thống nhất (W3). Nội dung lấy từ describeError: câu dễ hiểu, lỗi theo từng ô của form (400),
+ * mã lỗi nhỏ để báo hỗ trợ. role="alert" để trình đọc màn hình đọc ngay khi lỗi xuất hiện.
+ */
+export function ErrorMsg({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   if (!error) return null
-  const e = error as ApiError
-  const hint = hintOverride ?? (
-    e.status === 403 ? ' — thiếu quyền cho thao tác này.' :
-    e.status === 404 ? ' — không tìm thấy.' : ''
+  const view = describeError(error)
+  return (
+    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+      <p className="font-medium">{view.title}</p>
+      {view.detail && <p className="mt-0.5">{view.detail}</p>}
+      {view.fields.length > 0 && (
+        <ul className="mt-1 list-disc pl-5">
+          {view.fields.map((f, i) => <li key={i}>{f.field && <span className="font-medium">{f.field}: </span>}{f.message}</li>)}
+        </ul>
+      )}
+      <div className="mt-1 flex items-center gap-3">
+        {onRetry && view.retryable && (
+          <button type="button" onClick={onRetry} className="font-medium text-red-900 underline underline-offset-2">Thử lại</button>
+        )}
+        {view.code && <span className="text-xs text-red-800/80">Mã lỗi: {view.code}</span>}
+      </div>
+    </div>
   )
-  return <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{e.message}{e.status ? ` (HTTP ${e.status})` : ''}{hint}</div>
+}
+
+/** Đang tải: role="status" để trình đọc màn hình báo, thay vì một vùng trống trông như "không có dữ liệu". */
+export function Loading({ label = 'Đang tải…' }: { label?: string }) {
+  return <p role="status" aria-live="polite" className="py-6 text-center text-sm text-stone-600">{label}</p>
+}
+
+export function Empty({ children }: { children: ReactNode }) {
+  return <p className="py-6 text-center text-sm text-stone-600">{children}</p>
+}
+
+/**
+ * Bốn trạng thái của một query ở một chỗ: đang tải → lỗi (có thử lại) → rỗng → có dữ liệu.
+ * `isEmpty` mặc định: mảng rỗng hoặc trang (Page) không có phần tử.
+ */
+export function QueryState<T>({ query, empty, isEmpty = defaultIsEmpty, loadingLabel, children }: {
+  query: UseQueryResult<T>
+  empty?: ReactNode
+  isEmpty?: (data: T) => boolean
+  loadingLabel?: string
+  children: (data: T) => ReactNode
+}) {
+  if (query.isPending) return <Loading label={loadingLabel} />
+  if (query.isError) return <ErrorMsg error={query.error} onRetry={() => query.refetch()} />
+  if (empty !== undefined && isEmpty(query.data)) return <Empty>{empty}</Empty>
+  return <>{children(query.data)}</>
+}
+
+function defaultIsEmpty(data: unknown): boolean {
+  if (Array.isArray(data)) return data.length === 0
+  const content = (data as { content?: unknown[] } | null | undefined)?.content
+  return Array.isArray(content) && content.length === 0
 }
 
 export const DevOnly = () => <Badge tone="warn">dev-only</Badge>

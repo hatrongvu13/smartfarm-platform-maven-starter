@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity } from '../lib/api'
-import { Badge, Button, Card, ErrorMsg, Field, Input } from './ui'
+import { Badge, Button, Card, ErrorMsg, Field, Input, Loading } from './ui'
 
 type Enrollment = { secret: string; otpauthUri: string }
 type MfaStatus = { totpEnabled: boolean; recoveryCodesRemaining: number }
@@ -43,7 +43,9 @@ export default function TotpSettings() {
 
   return (
     <Card title="Xác thực hai bước (TOTP)" actions={status.data && <Badge tone={status.data.totpEnabled ? 'ok' : 'neutral'}>{status.data.totpEnabled ? 'Đang bật' : 'Đang tắt'}</Badge>}>
-      <ErrorMsg error={status.error ?? begin.error ?? confirm.error ?? regenerate.error ?? disable.error} />
+      {status.isPending && <Loading label="Đang tải trạng thái…" />}
+      {status.isError && <ErrorMsg error={status.error} onRetry={() => status.refetch()} />}
+      <ErrorMsg error={begin.error ?? confirm.error ?? regenerate.error ?? disable.error} />
 
       {recovery && (
         <div className="space-y-2 text-sm" role="status">

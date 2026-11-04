@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity } from '../../lib/api'
 import { hasPermission, useAuth } from '../../lib/auth'
-import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader } from '../../components/ui'
+import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState } from '../../components/ui'
 
 type Role = { code: string; name: string; description?: string; systemOwned: boolean; permissions: string[] }
 type Permission = { code: string; resourceType: string; action: string; description?: string; systemOwned: boolean }
@@ -41,9 +41,11 @@ export default function Authorization() {
       <PageHeader title="Phân quyền" sub="Role của tổ chức, mỗi role là một nhóm permission" />
       <div className="grid gap-4 xl:grid-cols-2">
         <Card title="Role">
-          <ErrorMsg error={roles.error ?? remove.error} />
+          <ErrorMsg error={remove.error} />
+          <QueryState query={roles} loadingLabel="Đang tải role…" empty="Chưa có role nào.">
+            {list => (
           <ul className="divide-y text-sm">
-            {roles.data?.map(r => (
+            {list.map(r => (
               <li key={r.code} className="flex items-start justify-between gap-3 py-2">
                 <div>
                   <div className="font-medium">{r.code} {r.systemOwned && <Badge tone="warn">hệ thống</Badge>}</div>
@@ -58,6 +60,8 @@ export default function Authorization() {
               </li>
             ))}
           </ul>
+            )}
+          </QueryState>
         </Card>
 
         {canManage && (

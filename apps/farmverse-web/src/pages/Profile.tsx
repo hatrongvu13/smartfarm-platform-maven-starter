@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity } from '../lib/api'
-import { Button, Card, ErrorMsg, Field, Input, PageHeader } from '../components/ui'
+import { Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState } from '../components/ui'
 import TotpSettings from '../components/TotpSettings'
 
 type Me = { userId: string; email: string; displayName: string; locale: string; timeZone: string; roles: string[]; permissions: string[] }
@@ -28,23 +28,28 @@ export default function Profile() {
   return (
     <>
       <PageHeader title="Hồ sơ của tôi" sub={me.data?.email} />
-      <ErrorMsg error={me.error} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Thông tin">
+          {/* Chưa tải xong thì không hiện form: tránh người dùng bấm Lưu với ô trống và ghi đè dữ liệu thật */}
+          <QueryState query={me} loadingLabel="Đang tải hồ sơ…">
+            {() => (
           <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
             <Field label="Tên hiển thị"><Input required value={value('displayName')} onChange={e => setProfile({ ...profile, displayName: e.target.value })} /></Field>
             <Field label="Ngôn ngữ"><Input value={value('locale')} onChange={e => setProfile({ ...profile, locale: e.target.value })} /></Field>
             <Field label="Múi giờ"><Input value={value('timeZone')} onChange={e => setProfile({ ...profile, timeZone: e.target.value })} /></Field>
             <ErrorMsg error={save.error} />
+            {save.isSuccess && <p role="status" className="text-sm text-emerald-700">Đã lưu.</p>}
             <Button disabled={save.isPending}>Lưu</Button>
           </form>
+            )}
+          </QueryState>
         </Card>
         <Card title="Đổi mật khẩu">
           <form className="space-y-3" onSubmit={(e: FormEvent) => { e.preventDefault(); changePassword.mutate() }}>
             <Field label="Mật khẩu hiện tại"><Input type="password" required autoComplete="current-password" value={password.currentPassword} onChange={e => setPassword({ ...password, currentPassword: e.target.value })} /></Field>
             <Field label="Mật khẩu mới" hint="Ít nhất 12 ký tự"><Input type="password" required minLength={12} autoComplete="new-password" value={password.newPassword} onChange={e => setPassword({ ...password, newPassword: e.target.value })} /></Field>
             <ErrorMsg error={changePassword.error} />
-            {changePassword.isSuccess && <p className="text-sm text-emerald-700">Đã đổi mật khẩu.</p>}
+            {changePassword.isSuccess && <p role="status" className="text-sm text-emerald-700">Đã đổi mật khẩu.</p>}
             <Button disabled={changePassword.isPending}>Đổi mật khẩu</Button>
           </form>
         </Card>

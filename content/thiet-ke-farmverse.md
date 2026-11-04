@@ -171,11 +171,11 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 |---|---|:-:|---|
 | W1 | `npm run build` xanh, không lỗi type | ✅ | `tsc -b --noEmit` + `vite build` xanh (2026-11-04) |
 | W2 | Giao diện thống nhất, bỏ chủ đề cũ (Mộc Linh, FarmWorldScene) | ✅ | Thương hiệu FarmVerse, cùng bảng màu với trang đăng nhập identity; bỏ cảnh 3D và `three` (JS 248 kB, hết cảnh báo chunk > 500 kB); bỏ 30 class CSS chết. Chưa có chế độ tối (identity có) |
-| W3 | Loading / rỗng / lỗi (đọc `code` của ProblemDetail) / 401 tự chuyển đăng nhập | ❓ | |
+| W3 | Loading / rỗng / lỗi (đọc `code` của ProblemDetail) / 401 tự chuyển đăng nhập | ✅ | `QueryState` (tải → lỗi có thử lại → rỗng → dữ liệu) ở Farms, Users, Authorization, Profile, TOTP; `describeError` đổi `status`+`code` thành câu tiếng Việt, lỗi theo ô (400), mã lỗi; lỗi hạ tầng không lộ chi tiết; 401 về màn đăng nhập (đã có) |
 | W4 | Truy cập (nhãn form, focus, tương phản, bàn phím) | ❓ | |
 | W5 | Tiếng Việt nhất quán, gom chuỗi vào một chỗ | ❓ | |
 | W6 | Test (Vitest + Testing Library) cho `api.ts`, `auth.tsx`, form chính | ⬜ | |
-| W7 | Chỉ hiện việc người dùng được làm (ẩn nút theo permission, xử lý 403) | 🟡 | |
+| W7 | Chỉ hiển thị việc người dùng được làm (ẩn nút theo permission, xử lý 403) | ✅ | Ẩn menu/nút theo permission (một danh sách nav); 403 giữa phiên hiện "không có quyền", không có nút thử lại. Chưa có hộp xác nhận cho Xóa / Reset 2FA |
 
 ### 5.4 Farm-service (khuôn nghiệp vụ)
 
