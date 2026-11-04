@@ -8,11 +8,25 @@ spring:
     group:
       prod: [ mtls ]
 
+  # Redis giữ session (có access/refresh token) và bộ đếm rate limit: tài sản nhạy cảm.
+  # Timeout ngắn để Redis treo không giữ request vô hạn; Redis lỗi thì request có phiên nhận 503
+  # (RedisUnavailableHandler), không bao giờ được cho qua.
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
+      # ACL user (prod): đặt SPRING_DATA_REDIS_USERNAME. Không khai ở đây vì chuỗi rỗng có thể bị gửi
+      # thành "AUTH '' <mật khẩu>" và Redis từ chối.
       password: ${REDIS_PASSWORD}
+      timeout: ${REDIS_TIMEOUT:2s}          # thời gian chờ một lệnh
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:1s}
+
+  # Phiên BFF: hết hạn sau thời gian không hoạt động; key riêng để không lẫn với ứng dụng khác dùng chung Redis.
+  session:
+    timeout: ${GATEWAY_SESSION_TIMEOUT:30m}
+    data:
+      redis:
+        namespace: farmverse:gateway:session
 
   cloud:
     gateway:
@@ -58,11 +72,17 @@ server:
   port: 8080
   address: ${GATEWAY_BIND_ADDRESS:127.0.0.1}
 
+# Actuator ở cổng quản trị riêng, chỉ loopback, không TLS (giống identity :9092, farm :9082).
+# Cổng công khai 8080 không có /actuator/** (ADR-0008). Probe: /actuator/health/{liveness,readiness}.
+# Endpoint "gateway" (liệt kê route + URI nội bộ) cố ý không bật; debug cục bộ thì tự thêm vào exposure.
 management:
+  server:
+    port: ${GATEWAY_MANAGEMENT_PORT:9080}
+    address: 127.0.0.1
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        include: health,info
   endpoint:
     health:
       probes:

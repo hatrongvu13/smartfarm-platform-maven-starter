@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -14,7 +15,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 
 /**
  * Không cần identity hay Redis đang chạy: client OIDC khai tĩnh (không discovery),
- * các request ở đây không mở session.
+ * session nằm trong bộ nhớ ({@link InMemorySessionTestConfiguration}).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "farmverse.gateway.oidc.client-secret=test-secret",
@@ -22,7 +23,14 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
         "spring.profiles.active=test"
 })
 @AutoConfigureWebTestClient
+@Import(InMemorySessionTestConfiguration.class)
 class GatewaySecurityTest {
+
+    /** Bảo đảm test thật sự dùng kho trong bộ nhớ; nếu Boot đổi điều kiện back-off, test này báo ngay. */
+    @Test
+    void sessionStoreInTestsIsInMemory(@Autowired org.springframework.session.ReactiveSessionRepository<?> sessions) {
+        assertThat(sessions).isInstanceOf(org.springframework.session.ReactiveMapSessionRepository.class);
+    }
 
     @Autowired
     WebTestClient web;

@@ -17,7 +17,8 @@ JDK 17+, Maven 3.9+, Docker (cho PostgreSQL + Redis), Node 20+.
 4. identity (`:8092`) → farm (`:8082`) → gateway (`:8080`) → `npm run dev` trong `apps/farmverse-web` (`:5173`).
 5. Mở `http://127.0.0.1:8080`.
 
-Health (không TLS, chỉ loopback): identity `:9092`, farm `:9082` — `/actuator/health`.
+Health (không TLS, chỉ loopback): gateway `:9080` (luôn), identity `:9092`, farm `:9082` (khi bật `mtls`) — `/actuator/health`.
+Cổng công khai `:8080` của gateway không có `/actuator/**`.
 
 ## Biến môi trường hay dùng
 
@@ -27,7 +28,8 @@ Health (không TLS, chỉ loopback): identity `:9092`, farm `:9082` — `/actuat
 | `GATEWAY_CLIENT_SECRET` | giá trị dev trong YAML | identity, gateway |
 | `IDENTITY_ADMIN_EMAIL` / `IDENTITY_ADMIN_PASSWORD` | `admin@farmverse.local` / `Admin@123456789` | identity (super admin đầu tiên) |
 | `IDENTITY_MFA_ENCRYPTION_PASSWORD` / `_SALT` | giá trị dev | identity (mã hóa secret TOTP) |
-| `REDIS_PASSWORD` | `farmverse-dev` | gateway |
+| `REDIS_PASSWORD` | `farmverse-dev` | gateway và `compose.yaml` (đổi một chỗ, cả hai cùng đọc) |
+| `GATEWAY_SESSION_TIMEOUT` | `30m` | gateway |
 | `FARMVERSE_MTLS_DIR` | `.local/mtls` (tính từ thư mục đang chạy; IntelliJ = gốc repo). Nên đặt đường dẫn tuyệt đối | mọi service (khi bật `mtls`) |
 
 ## Test

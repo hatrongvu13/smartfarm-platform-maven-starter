@@ -1,5 +1,7 @@
 # FarmVerse Identity Service | Java 17, Maven, Spring Boot 4
 
+> **README này là bản cũ.** Các endpoint `/api/v1/auth/*`, gRPC quản trị và `libs/farmverse-proto` đã bị xóa. Hiện trạng đúng: Spring Authorization Server (OIDC) + REST quản trị; xem `docs/operations/identity-api.md` và `docs/patterns/oidc-sas.md`. gRPC: chưa có, thiết kế ở `content/thiet-ke-farmverse.md` (mục 6).
+
 Self-hosted identity service with local accounts, tenant membership, MFA, RBAC, internal administration, and a partially implemented OAuth 2.0 Authorization Server/OIDC Provider. It now provides standard authorization/token, discovery, JWKS, UserInfo, and configured `client_credentials` endpoints backed by persisted OAuth state. Authorization Code + PKCE, the browser login/MFA integration, and OIDC claim mapping are implemented but not yet covered by end-to-end interoperability tests. Gateway/Web and machine/delegated callers still use legacy custom APIs; PostgreSQL V4 migration is not runtime-verified. Do not treat the protocol migration as product-ready. See [the target design and remaining gates](../../docs/architecture/identity-oauth2-oidc-target.md).
 
 ## Setup and run (dev)
@@ -72,7 +74,7 @@ The same service also exposes Authorization Server endpoints: `GET /.well-known/
 - `GET /api/v1/platform/deployment-state` -> reports whether first-super-admin bootstrap is required.
 - `GET /.well-known/jwks.json` -> public RSA JWK only; no private key.
 
-User, role, permission, session, and service-token administration are internal gRPC operations, not REST endpoints. The gRPC contract is in `libs/farmverse-proto/src/main/proto/farmverse/identity/v1/identity.proto`; see the platform gRPC documentation for available methods and authorities.
+(Cũ, không còn đúng) Identity hiện chưa phục vụ gRPC; `libs/farmverse-proto` đã bị xóa. Thiết kế gRPC mới: `content/thiet-ke-farmverse.md` (mục 6).
 
 ## Security design and remaining work
 
@@ -81,7 +83,7 @@ User, role, permission, session, and service-token administration are internal g
 - Refresh tokens are 48-byte random opaque values, stored only as SHA-256 hashes, rotated and grouped by family; reusing a revoked token revokes the family. A PostgreSQL integration test covers concurrent reuse, but it is release-gated and must be run against PostgreSQL.
 - Privileged roles require TOTP; enrollment uses a purpose-bound challenge token. Recovery codes and replay protection are implemented; concurrent persistence behavior still requires PostgreSQL integration coverage.
 - Role and permission catalog is currently global; admin assignments are tenant-scoped, but role/permission definitions are global and require platform authority. Tenant role assignment cannot delegate `PLATFORM_ADMIN`.
-- Legacy service-token issue/exchange and directory/administration APIs remain over gRPC. OAuth `client_credentials` is available to explicitly configured clients; RFC 8693 exchange and caller migration remain open. Cross-host gRPC requires TLS/mTLS and private network controls.
+- (Cũ) Phần gRPC legacy đã bị xóa. OAuth `client_credentials` dùng được cho client đã khai báo. gRPC mới sẽ bắt buộc mTLS, xem `content/thiet-ke-farmverse.md` (mục 6).
 - Rate limiting, CAPTCHA, email verification, password reset, distributed abuse detection, and a production secret-manager/rotation process remain open.
 - Production requires PostgreSQL environment variables, runs Flyway migrations, and uses Hibernate schema validation. Migration and PostgreSQL concurrency gates must pass before production release; the profile defaults HTTP and gRPC binds to loopback.
 - **Current status:** OAuth2/OIDC endpoints are implemented but not release-verified as interoperable. Do not treat the service as product-ready until PKCE/browser E2E, client migration, PostgreSQL V4 verification, secret rotation and operational release gates pass; see [identity-oauth2-oidc-target.md](../../docs/architecture/identity-oauth2-oidc-target.md).

@@ -3,7 +3,7 @@
 Hệ sinh thái học microservices với Spring Boot 4.1.2 + Spring Cloud 2025.1.4.
 
 Giai đoạn hiện tại: **hoàn thiện nền tảng** (identity, gateway, giao diện) tới 10/10 trước khi mở thêm miền
-nghiệp vụ. Kế hoạch: [`content/ke-hoach-hoan-thien.md`](content/ke-hoach-hoan-thien.md).
+nghiệp vụ. Kế hoạch: [`content/thiet-ke-farmverse.md`](content/thiet-ke-farmverse.md).
 
 | Module | Cổng | Vai trò |
 |---|---|---|

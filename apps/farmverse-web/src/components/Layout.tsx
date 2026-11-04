@@ -4,7 +4,7 @@ import { useFarm } from '../lib/farm'
 import { Button, Input } from './ui'
 import { NotificationBell, NotificationProvider } from './notifications'
 
-// Miền nghiệp vụ mới chỉ thêm khi nền tảng đạt 10/10 (content/ke-hoach-hoan-thien.md).
+// Miền nghiệp vụ mới chỉ thêm khi nền tảng đạt 10/10 (content/thiet-ke-farmverse.md).
 const nav = [
   { to: '/', label: 'Tổng quan', icon: '🌿', end: true },
   { to: '/farms', label: 'Trang trại', icon: '🏡' },

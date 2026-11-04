@@ -11,18 +11,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,6 +75,29 @@ class FarmControllerTest {
                 .andExpect(jsonPath("$.code").value("SF-VALIDATION-001"))
                 .andExpect(jsonPath("$.errors[?(@.field=='code')]").exists())
                 .andExpect(jsonPath("$.errors[?(@.field=='name')]").exists());
+    }
+
+    @Test
+    void concurrentUpdateBecomesProblemDetail409() throws Exception {
+        given(farms.archive(any()))
+                .willThrow(new ObjectOptimisticLockingFailureException("FarmEntity", "f1"));
+
+        mvc.perform(post("/farms/f1/archive").with(jwt().authorities(can("farm:farm:write"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SF-FARM-010"));
+    }
+
+    @Test
+    void duplicateKeyRaceBecomesProblemDetail409WithoutLeakingDbMessage() throws Exception {
+        given(farms.create(any(), any(), any()))
+                .willThrow(new DataIntegrityViolationException("duplicate key uk_farm_tenant_code"));
+
+        mvc.perform(post("/farms").with(jwt().authorities(can("farm:farm:write")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"valley\",\"name\":\"Valley\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SF-FARM-011"))
+                .andExpect(content().string(not(containsString("uk_farm_tenant_code"))));
     }
 
     @Test

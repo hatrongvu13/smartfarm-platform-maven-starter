@@ -18,5 +18,5 @@ Không mở issue công khai. Gửi riêng cho người duy trì dự án.
 
 ## Đầu việc còn thiếu
 
-Theo dõi trong [`content/ke-hoach-hoan-thien.md`](content/ke-hoach-hoan-thien.md): mTLS giữa service,
-mã khôi phục 2FA, giới hạn theo IP cho trang login, nhật ký bảo mật, xoay khóa ký, header bảo mật ở gateway.
+Theo dõi trong [`content/thiet-ke-farmverse.md`](content/thiet-ke-farmverse.md) (mục 5): header bảo mật, lỗi thống nhất và timeout
+ở gateway, giới hạn theo IP cho đường đăng nhập OIDC, mật khẩu Redis, gRPC bảo mật (đang chờ duyệt).
