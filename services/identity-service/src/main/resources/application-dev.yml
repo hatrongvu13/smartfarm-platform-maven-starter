@@ -37,3 +37,9 @@ farmverse:
     mfa:
       encryption-password: ${IDENTITY_MFA_ENCRYPTION_PASSWORD:dev-mfa-password-change-me}
       encryption-salt: ${IDENTITY_MFA_ENCRYPTION_SALT:5c0744940b5c369b}
+
+# M7: dev ghi trace cho mọi request (prod mặc định 10%)
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}

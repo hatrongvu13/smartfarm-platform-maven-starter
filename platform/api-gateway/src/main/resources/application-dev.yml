@@ -15,3 +15,9 @@ spring:
   data:
     redis:
       password: ${REDIS_PASSWORD:farmverse-dev}
+
+# M7: dev ghi trace cho mọi request (prod mặc định 10%)
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}

@@ -32,6 +32,25 @@ management:
     health:
       probes:
         enabled: true
+  # M7 (ADR-0012): nhận traceparent W3C từ gateway, traceId/spanId vào MDC của log; không đọc baggage.
+  # Xuất OTLP chỉ khi đặt MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT.
+  # Metric Prometheus chỉ mở ở profile mtls (cổng quản trị riêng); ở đây actuator chung cổng ứng dụng.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# M7, T16: ở DEBUG, DefaultRedirectStrategy in URL redirect, gồm cả ?code= gửi về gateway. Giữ ở INFO kể cả khi
+# bật DEBUG cho org.springframework.security (logger cụ thể thắng package). Đã kiểm ở IdentityObservabilityTest.
+logging:
+  level:
+    org.springframework.security.web.DefaultRedirectStrategy: INFO
 
 # Tài liệu OpenAPI + Swagger UI: mặc định TẮT (prod). application-dev.yml bật.
 springdoc:

@@ -34,3 +34,8 @@ management:
     address: 127.0.0.1
     ssl:
       enabled: false
+  # Cổng quản trị riêng (loopback): mở thêm metric Prometheus (M7)
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

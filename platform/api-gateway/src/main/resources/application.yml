@@ -8,6 +8,10 @@ spring:
     group:
       prod: [ mtls ]
 
+  # M7: chuyển context của Reactor (trace hiện tại) sang MDC trên mọi luồng, để log của gateway có traceId/spanId.
+  reactor:
+    context-propagation: auto
+
   # Redis giữ session (có access/refresh token) và bộ đếm rate limit: tài sản nhạy cảm.
   # Timeout ngắn để Redis treo không giữ request vô hạn; Redis lỗi thì request có phiên nhận 503
   # (RedisUnavailableHandler), không bao giờ được cho qua.
@@ -39,6 +43,10 @@ spring:
             response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:10s}
           default-filters:
             - SaveSession   # lưu session (có token mới refresh) trước khi chuyển request xuống service
+            # Cookie của trình duyệt (FV_SESSION, XSRF-TOKEN) chỉ dành cho gateway. Service xác thực bằng token
+            # (TokenRelay), SPA là file tĩnh: không ai phía sau cần cookie, nên không chuyển để nó không lọt vào log
+            # hay tay service khác (M7, T16).
+            - RemoveRequestHeader=Cookie
           routes:
             - id: identity-api
               uri: ${farmverse.gateway.routes.identity-uri}
@@ -102,8 +110,31 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # prometheus (M7): metric để scrape, cũng chỉ ở cổng quản trị loopback
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  # M7 (ADR-0012): trace W3C (traceparent) qua gateway tới service; traceId/spanId vào MDC của log.
+  # Xuất OTLP chỉ khi đặt MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT (ví dụ http://otel-collector:4318/v1/traces).
+  # Chỉ W3C. Tắt baggage ở cả ba service: header "baggage" do client gửi không được đọc vào context/MDC.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# M7, T16: hai logger này ở mức DEBUG in bí mật, nên giữ ở INFO kể cả khi bật DEBUG cho cả package
+# (cấu hình logger cụ thể thắng cấu hình package). Đã kiểm ở GatewayObservabilityTest.
+#  - ObservedRequest/ResponseHttpHeadersFilter: in mọi header (Cookie, Authorization, X-XSRF-TOKEN, Set-Cookie).
+#  - HttpWebHandlerAdapter: in URL kèm query, gồm cả ?code= của callback OAuth2.
+logging:
+  level:
+    org.springframework.cloud.gateway.filter.headers.observation: INFO
+    org.springframework.web.server.adapter.HttpWebHandlerAdapter: INFO

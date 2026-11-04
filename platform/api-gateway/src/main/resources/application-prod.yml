@@ -9,3 +9,9 @@ farmverse:
     secure-cookie: true
     headers:
       hsts: true          # TLS kết thúc ở edge; gateway vẫn gửi HSTS (max-age 1 năm, không includeSubDomains)
+
+# Log JSON (ECS), mỗi dòng có traceId / spanId (M7) để nối log giữa gateway, farm, identity.
+logging:
+  structured:
+    format:
+      console: ecs

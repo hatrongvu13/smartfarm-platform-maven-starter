@@ -71,8 +71,8 @@ flowchart LR
 | T14b | TB1→TB2 | D | Service phía sau treo giữ request của gateway | Timeout response 10s, connect 3s ở mọi profile → 504/502 (`GatewayErrorProblemsTest`) | Circuit breaker để trả lỗi ngay khi service sập kéo dài |
 | T14 | TB1→TB3 | D | Redis treo làm gateway treo | Timeout lệnh 2s, kết nối 1s; treo thật (`docker pause`) → 503 trong khoảng timeout (`GatewayRedisIT`) | — |
 | T15 | TB2→TB3 | E | Farm bị chiếm đọc DB identity | DB riêng; vai trò riêng không superuser; `PUBLIC` mất `CONNECT`; ứng dụng chỉ có DML, không đổi được cấu trúc (`DatabaseRolesIT`) | Mật khẩu owner vẫn nằm trong ứng dụng (Flyway lúc khởi động); tách job migration để bỏ |
-| T16 | TB4 | I | Token, mã, cookie lọt vào log | `SecurityAudit` làm sạch; quy tắc cấm | Test lọc log cho gateway/farm (M7) |
-| T17 | TB2 | R | Không truy được ai làm gì | Audit ở identity | Trace id xuyên service (M7) |
+| T16 | TB4 | I | Token, mã, cookie lọt vào log | `SecurityAudit` làm sạch; logger in bí mật ở DEBUG bị ghim ở INFO; gateway không chuyển `Cookie` xuống service; test ở DEBUG cho cả ba service (M7, ADR-0012) | Ai đặt DEBUG cho đúng tên logger đã ghim thì vẫn in được |
+| T17 | TB2 | R | Không truy được ai làm gì | Audit ở identity; trace id W3C xuyên gateway → service, có trong log JSON (M7) | Chưa có collector thật; trace id chưa có trong ProblemDetail |
 | T18 | TB2 | D | Identity sập | Farm vẫn kiểm JWT bằng JWKS cache | — |
 
 ## 4. Rủi ro P0-P3
@@ -90,7 +90,7 @@ flowchart LR
 | P3 | P3-5 | Cookie `XSRF-TOKEN` không đặt `SameSite` riêng (mặc định trình duyệt: Lax). Cố ý không `HttpOnly` để SPA đọc. Chưa sửa: token CSRF vô dụng với trang khác origin nên rủi ro thấp | `SecurityConfiguration#security` | — |
 | P1 | P1-5 | ~~`redirect_uri` sai scheme sau edge TLS~~ **Đã sửa (M5c)**. Đã tái hiện bằng test trước khi sửa (`redirect_uri` = `http://127.0.0.1...`). Chưa thử với load balancer thật | `TrustedProxyForwardedHeaderTransformer`, `ForwardedHeadersTest` | M5c ✅ |
 | P2 | P2-4 | ~~Redis chưa khai TTL, timeout~~ **Đã sửa (M3)** | gateway `application.yml`, `RedisSessionHardeningTest` | M3 ✅ |
-| P2 | P2-5 | Không tracing/metric; log JSON chỉ ở identity prod | các `pom.xml`, `application-prod.yml` | M7 |
+| P2 | P2-5 | ~~Không tracing/metric; log JSON chỉ ở identity prod~~ **Đã sửa (M7)** | các `pom.xml`, `application-prod.yml`, ADR-0012 | M7 ✅ |
 | P2 | P2-6 | ~~2 test gateway cần Redis thật~~ **Đã sửa (M2a, 2026-11-04)** | [`InMemorySessionTestConfiguration`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/InMemorySessionTestConfiguration.java) | M2a ✅ |
 | P2 | P2-7 | ~~Healthcheck `Dockerfile` sai cổng~~ **Đã sửa (M2)**: dùng `MANAGEMENT_SERVER_PORT=9090`. Image build xanh trên CI; chưa chạy container thật | [`Dockerfile`](../../Dockerfile) | M2 ✅ |
 | P2 | P2-8 | Giới hạn IP login chỉ đúng với một instance | `LoginRateLimitFilter` | M8 |

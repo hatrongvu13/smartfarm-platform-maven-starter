@@ -7,3 +7,9 @@ spring:
   flyway:
     user: ${FARM_DB_MIGRATION_USER:farm_owner}
     password: ${FARM_DB_MIGRATION_PASSWORD:farm-owner-dev}
+
+# M7: dev ghi trace cho mọi request (prod mặc định 10%)
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}

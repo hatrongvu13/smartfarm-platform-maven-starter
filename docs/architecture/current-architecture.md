@@ -83,7 +83,7 @@ flowchart TB
 | TOTP | Secret mã hóa `Encryptors.delux` (AES-GCM); chống replay bằng `lastUsedStep`; sai mã tính vào khóa tạm tài khoản; mã khôi phục dùng một lần | [`TotpService`](../../services/identity-service/src/main/java/com/htv/farmverse/identity/mfa/TotpService.java), [`UserTotp`](../../services/identity-service/src/main/java/com/htv/farmverse/identity/mfa/UserTotp.java), `TotpLoginFlowTest`, `RecoveryCodeServiceTest` |
 | Chống dò | Khóa tài khoản theo số lần sai; giới hạn theo IP cho `POST /login` và `POST /login/totp` (10/phút, **trong bộ nhớ một instance**) | [`LoginRateLimitFilter`](../../services/identity-service/src/main/java/com/htv/farmverse/identity/login/LoginRateLimitFilter.java), `LoginRateLimitFilterTest` |
 | Audit | Logger `SECURITY_AUDIT`, làm sạch giá trị, cấm ghi mật khẩu/mã/token | [`SecurityAudit`](../../services/identity-service/src/main/java/com/htv/farmverse/identity/audit/SecurityAudit.java), `SecurityAuditTest`, `AdminAuditTest` |
-| Log có cấu trúc | ECS JSON chỉ ở `application-prod.yml` của identity | [`application-prod.yml`](../../services/identity-service/src/main/resources/application-prod.yml) |
+| Log có cấu trúc | ECS JSON ở `application-prod.yml` của cả ba service, mỗi dòng có `traceId`/`spanId` (M7). Logger in bí mật ở DEBUG bị ghim INFO | `application-prod.yml`, [`IdentityObservabilityTest`](../../services/identity-service/src/test/java/com/htv/farmverse/identity/IdentityObservabilityTest.java) |
 
 ## 5. Farm
 
@@ -125,7 +125,7 @@ Profile `mtls`; `prod` kéo theo `mtls` (`spring.profiles.group.prod: [mtls]` tr
 | Docker | [`Dockerfile`](../../Dockerfile) chung, user không root. Trong container mọi service dùng `SERVER_PORT=8080` và `MANAGEMENT_SERVER_PORT=9090` (loopback); healthcheck gọi `http://127.0.0.1:9090/actuator/health/readiness`; chỉ `EXPOSE 8080` (M2) |
 | CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml): `mvn -B verify` rồi `docker build` cho 3 service (không push), chạy trên mọi nhánh. Lần chạy đầu (2026-11-04, run 41835098123, commit `cc44c18`): **cả 4 job xanh** |
 | CD | Không có |
-| Observability | Actuator health/info. **Không có** Micrometer Tracing, exporter metric |
+| Observability | Micrometer Tracing + OpenTelemetry (W3C `traceparent`, OTLP khi có endpoint), Prometheus ở cổng quản trị, ECS JSON ở prod ([ADR-0012](adr/0012-observability.md)) |
 
 ## 9. Kết quả baseline (2026-11-04)
 

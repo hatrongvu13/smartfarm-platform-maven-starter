@@ -163,7 +163,7 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 | G5 | Rate limit: theo user cho `/api/**`; theo IP cho `/oauth2/authorization/**` và callback | ✅ | `LoginRateLimitFilter` (20/phút/IP, Redis), `GatewayRedisIT` |
 | G6 | Session: test với Redis thật; timeout; đăng xuất xóa sạch | ✅ | `GatewayRedisIT`: TTL, namespace, đổi id phiên, Redis treo → 503, ACL user |
 | G7 | mTLS xuống service | ✅ | Mục 4 |
-| G8 | Quan sát: `traceparent` + request id trong log | ⬜ | Micrometer Tracing |
+| G8 | Quan sát: `traceparent` + request id trong log | ✅ | M7 (ADR-0012): Micrometer Tracing + OpenTelemetry, W3C `traceparent` lan xuống service, trace id trong log (cả luồng Reactor), OTLP khi có endpoint; Prometheus ở cổng quản trị; không chuyển `Cookie` xuống service; `GatewayObservabilityTest` |
 
 ### 5.3 Giao diện
 

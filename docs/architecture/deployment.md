@@ -81,9 +81,9 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 | Health | Actuator `health` + probes trên cổng quản trị loopback ở cả ba (M2) | Kubernetes: probe cần gọi được cổng quản trị. Vì bind loopback, dùng probe kiểu `exec` (`curl` trong container) hoặc đổi `management.server.address` sang IP pod |
 | Log JSON | identity prod (ECS) | Cả ba service ở prod |
 | Audit | `SECURITY_AUDIT` ở identity | Thêm sự kiện ở gateway (login thành công/thất bại, logout) |
-| Trace | Không có | `micrometer-tracing` + OTLP (Boot BOM), lan `traceparent` qua gateway |
-| Metric | Không export | Micrometer registry (Prometheus hoặc OTLP) |
-| Lọc dữ liệu nhạy cảm | Quy ước trong `SecurityAudit` | Test khẳng định không có `Authorization`, `Cookie`, token trong log |
+| Trace | Micrometer Tracing + OpenTelemetry, W3C `traceparent` qua gateway (M7). Lấy mẫu `TRACING_SAMPLING_PROBABILITY` (mặc định 0.1, dev 1.0). Xuất khi đặt `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` (vd `http://otel-collector:4318/v1/traces`) | Collector thật (OpenTelemetry Collector → Tempo/Jaeger) |
+| Metric | `/actuator/prometheus` trên cổng quản trị (gateway luôn có; farm/identity ở profile `mtls`), thẻ `application` (M7) | Cổng quản trị bind loopback: Prometheus ngoài pod không gọi được. Dùng sidecar/agent trong pod, hoặc đổi `management.server.address` sang IP pod có NetworkPolicy |
+| Lọc dữ liệu nhạy cảm | `SecurityAudit`; logger in bí mật ở DEBUG bị ghim INFO; gateway bỏ `Cookie` trước khi chuyển xuống; test ở DEBUG cho cả ba service (ADR-0012) | — |
 
 ## 8. Edge TLS và header forwarded
 

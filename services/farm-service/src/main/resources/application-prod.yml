@@ -12,3 +12,9 @@ spring:
         jwt:
           issuer-uri: ${IDENTITY_ISSUER}
           jwk-set-uri: ${IDENTITY_JWKS_URI}
+
+# Log JSON (ECS), mỗi dòng có traceId / spanId (M7) để nối log giữa gateway, farm, identity.
+logging:
+  structured:
+    format:
+      console: ecs

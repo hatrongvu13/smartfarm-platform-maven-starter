@@ -41,7 +41,7 @@ flowchart LR
 | R14 | Redis có TTL, timeout, access control, fail-closed, không log token | ✅ | — (M3 + `GatewayRedisIT` trên Redis 8 thật: ACL user, TTL, treo → 503). TLS chỉ cấu hình ở prod | — |
 | R15 | Identity và Farm không dùng chung bảng/credential | ✅ | — (M4: DB riêng, vai trò riêng, không vào được DB của nhau; `DatabaseRolesIT`) | — |
 | R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ | Giới hạn IP trong bộ nhớ, sai khi nhiều instance | M8 |
-| R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | 🟡 | Audit có; JSON chỉ ở identity prod; không tracing/metric export | M7 |
+| R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | ✅ | — (M7: trace W3C + OTLP, Prometheus ở cổng quản trị, ECS JSON ở prod cả ba, test lọc log ở DEBUG). Còn: collector, alert, dashboard thật | — |
 | R18 | Actuator không lộ ra cổng công khai | ✅ | — (M2: cổng quản trị loopback ở cả ba service) | — |
 | R19 | Build và test lặp lại được, có CI | ✅ | — (CI xanh lần đầu 2026-11-04). CD chưa có, ngoài phạm vi | — |
 
