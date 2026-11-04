@@ -85,12 +85,16 @@ public class SigningKeyConfiguration {
     /**
      * Dùng cho endpoint /userinfo của SAS và cho REST quản trị của chính identity:
      * kiểm chữ ký theo {@code kid} (khóa đang ký hoặc đã nghỉ), issuer và audience
-     * {@value FarmVerseClaims#API_AUDIENCE}.
+     * {@value FarmVerseClaims#IDENTITY_AUDIENCE} ({@code farmverse.identity.accepted-audiences}; lúc chuyển đổi có thể
+     * tạm thêm {@value FarmVerseClaims#LEGACY_API_AUDIENCE}).
      */
     @Bean
-    JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource, IdentityProperties properties) {
+    JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource, IdentityProperties properties,
+                          @org.springframework.beans.factory.annotation.Value(
+                                  "${farmverse.identity.accepted-audiences:" + FarmVerseClaims.IDENTITY_AUDIENCE + "}")
+                          java.util.List<String> acceptedAudiences) {
         NimbusJwtDecoder decoder = decoder(jwkSource);
-        decoder.setJwtValidator(FarmVerseJwtValidators.issuerAndAudience(properties.issuer(), FarmVerseClaims.API_AUDIENCE));
+        decoder.setJwtValidator(FarmVerseJwtValidators.issuerAndAudience(properties.issuer(), acceptedAudiences));
         return decoder;
     }
 

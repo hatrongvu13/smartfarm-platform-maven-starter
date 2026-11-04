@@ -59,7 +59,7 @@ class TokenLifecycleTest {
         // Token mới vẫn mang tenant và role: customizer chạy lại ở lần refresh
         String claims = payload(JsonPath.read(renewed, "$.access_token"));
         assertThat(claims).contains("\"roles\":[\"SUPER_ADMIN\"]").contains("\"tenant_id\"")
-                .contains("\"aud\":\"farmverse-api\"");
+                .contains("\"aud\":[\"farm-service\",\"identity-service\"]");
 
         // Refresh token cũ đã bị thay: dùng lại bị từ chối
         mvc.perform(post("/oauth2/token").header(HttpHeaders.AUTHORIZATION, BASIC)

@@ -38,6 +38,9 @@ class FarmControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean FarmService farms;
 
+    /** Mọi token gateway gửi xuống đều có scope farmverse.api; thiếu scope thì 403 trước cả @PreAuthorize. */
+    static final GrantedAuthority API = new SimpleGrantedAuthority("SCOPE_farmverse.api");
+
     static GrantedAuthority can(String permission) {
         return new SimpleGrantedAuthority(permission);
     }
@@ -50,7 +53,7 @@ class FarmControllerTest {
         Farm farm = Farm.create("valley", "Valley", null);
         farm.addBarn("B-1", "Chuồng bò", 40);
         given(farms.list()).willReturn(List.of(farm));
-        mvc.perform(get("/farms").with(jwt().authorities(can("farm:farm:read"))))
+        mvc.perform(get("/farms").with(jwt().authorities(API, can("farm:farm:read"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].totalCapacity").value(40))
                 .andExpect(jsonPath("$[0].barns[0].code").value("B-1"));
@@ -68,7 +71,7 @@ class FarmControllerTest {
 
     @Test
     void invalidBodyIsProblemDetail400WithFieldErrors() throws Exception {
-        mvc.perform(post("/farms").with(jwt().authorities(can("farm:farm:write")))
+        mvc.perform(post("/farms").with(jwt().authorities(API, can("farm:farm:write")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"\",\"name\":\"\"}"))
                 .andExpect(status().isBadRequest())
@@ -82,7 +85,7 @@ class FarmControllerTest {
         given(farms.archive(any()))
                 .willThrow(new ObjectOptimisticLockingFailureException("FarmEntity", "f1"));
 
-        mvc.perform(post("/farms/f1/archive").with(jwt().authorities(can("farm:farm:write"))))
+        mvc.perform(post("/farms/f1/archive").with(jwt().authorities(API, can("farm:farm:write"))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SF-FARM-010"));
     }
@@ -92,7 +95,7 @@ class FarmControllerTest {
         given(farms.create(any(), any(), any()))
                 .willThrow(new DataIntegrityViolationException("duplicate key uk_farm_tenant_code"));
 
-        mvc.perform(post("/farms").with(jwt().authorities(can("farm:farm:write")))
+        mvc.perform(post("/farms").with(jwt().authorities(API, can("farm:farm:write")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"valley\",\"name\":\"Valley\"}"))
                 .andExpect(status().isConflict())
@@ -105,7 +108,7 @@ class FarmControllerTest {
         given(farms.addBarn(any(), any(), any(), anyInt()))
                 .willThrow(new FarmRuleViolation("SF-FARM-007", "Mã chuồng B-1 đã có trong farm"));
 
-        mvc.perform(post("/farms/f1/barns").with(jwt().authorities(can("farm:farm:write")))
+        mvc.perform(post("/farms/f1/barns").with(jwt().authorities(API, can("farm:farm:write")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"B-1\",\"name\":\"x\",\"capacity\":1}"))
                 .andExpect(status().isUnprocessableContent())

@@ -72,7 +72,7 @@ class AuthorizationCodeFlowTest {
         String accessToken = JsonPath.read(tokens, "$.access_token");
         String claims = new String(Base64.getUrlDecoder().decode(accessToken.split("\\.")[1]));
         assertThat(claims)
-                .contains("\"aud\":\"farmverse-api\"")
+                .contains("\"aud\":[\"farm-service\",\"identity-service\"]")
                 .contains("\"token_type\":\"user\"")
                 .contains("\"roles\":[\"SUPER_ADMIN\"]")
                 .contains("\"tenant_id\"")

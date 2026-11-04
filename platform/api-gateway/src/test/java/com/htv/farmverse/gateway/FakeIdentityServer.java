@@ -68,9 +68,10 @@ final class FakeIdentityServer implements AutoCloseable {
                     .claim("nonce", nonce).claim("user_id", USER_ID).claim("tenant_id", TENANT_ID)
                     .claim("email", "user@example.test").build());
             String accessToken = sign(new JWTClaimsSet.Builder()
-                    .issuer(issuer()).subject(USER_ID).audience("farmverse-api")
+                    .issuer(issuer()).subject(USER_ID).audience(List.of("farm-service", "identity-service"))
                     .issueTime(Date.from(now)).expirationTime(Date.from(now.plusSeconds(300)))
-                    .claim("tenant_id", TENANT_ID).claim("perms", List.of("farm:farm:read")).build());
+                    .claim("tenant_id", TENANT_ID).claim("perms", List.of("farm:farm:read"))
+                    .claim("scope", "openid profile email farmverse.api").build());
             json(ex, "{\"access_token\":\"" + accessToken + "\",\"token_type\":\"Bearer\",\"expires_in\":300,"
                     + "\"refresh_token\":\"" + UUID.randomUUID() + "\",\"scope\":\"openid profile email farmverse.api\","
                     + "\"id_token\":\"" + idToken + "\"}");

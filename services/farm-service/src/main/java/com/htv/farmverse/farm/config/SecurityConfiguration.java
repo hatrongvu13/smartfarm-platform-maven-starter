@@ -1,5 +1,6 @@
 package com.htv.farmverse.farm.config;
 
+import com.htv.farmverse.service.security.FarmVerseClaims;
 import com.htv.farmverse.service.security.FarmVerseJwtAuthenticationConverter;
 import com.htv.farmverse.service.web.ProblemResponses;
 
@@ -24,7 +25,9 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable()) // chỉ nhận Bearer token
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .anyRequest().authenticated())
+                        // Scope: token phải được cấp để gọi API (client xin farmverse.api). Token chỉ có openid
+                        // (đăng nhập) hoặc của client khác không vào được, kể cả khi có perms. @PreAuthorize kiểm tiếp perms.
+                        .anyRequest().hasAuthority("SCOPE_" + FarmVerseClaims.API_SCOPE))
                 .oauth2ResourceServer(resource -> resource
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(new FarmVerseJwtAuthenticationConverter()))
                         // 401 và 403 trả ProblemDetail có field code, giống lỗi nghiệp vụ

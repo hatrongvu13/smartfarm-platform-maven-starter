@@ -51,7 +51,7 @@ class AuthorizationServerTest {
         String token = JsonPath.read(body, "$.access_token");
         String payload = new String(Base64.getUrlDecoder().decode(token.split("\\.")[1]));
         org.assertj.core.api.Assertions.assertThat(payload)
-                .contains("\"aud\":\"farmverse-api\"")
+                .contains("\"aud\":[\"farm-service\",\"identity-service\"]")
                 .contains("\"token_type\":\"service\"");
 
         // token service không có perms → không vào được REST quản trị

@@ -6,8 +6,21 @@ package com.htv.farmverse.service.security;
  */
 public final class FarmVerseClaims {
 
-    /** Audience duy nhất của access token người dùng; mọi resource server kiểm giá trị này. */
-    public static final String API_AUDIENCE = "farmverse-api";
+    /**
+     * Audience riêng của từng resource server (ADR-0006). Mỗi service chỉ nhận token có audience của mình,
+     * để token đọc được ở một service không tự động dùng được ở service khác ngoài danh sách {@code aud}.
+     */
+    public static final String FARM_AUDIENCE = "farm-service";
+    public static final String IDENTITY_AUDIENCE = "identity-service";
+
+    /**
+     * Audience chung cũ. Không còn được cấp; chỉ còn để một resource server tạm nhận trong lúc chuyển đổi
+     * (cấu hình danh sách audience được nhận), rồi bỏ.
+     */
+    public static final String LEGACY_API_AUDIENCE = "farmverse-api";
+
+    /** Scope mà gateway xin cho mọi lời gọi API; resource server đòi scope này ({@code SCOPE_farmverse.api}). */
+    public static final String API_SCOPE = "farmverse.api";
 
     public static final String TENANT_ID = "tenant_id";
     public static final String MEMBERSHIP_ID = "membership_id";

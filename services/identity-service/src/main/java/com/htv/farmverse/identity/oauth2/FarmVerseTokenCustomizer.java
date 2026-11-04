@@ -6,8 +6,7 @@ import java.util.List;
 import com.htv.farmverse.identity.authorization.AccessService;
 import com.htv.farmverse.service.security.FarmVerseClaims;
 
-import lombok.RequiredArgsConstructor;
-
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -22,7 +21,8 @@ import org.springframework.stereotype.Component;
 /**
  * Thêm claim FarmVerse vào token do SAS cấp.
  *
- * <p>Access token (mọi grant): {@code aud=farmverse-api}, {@code token_type}.
+ * <p>Access token (mọi grant): {@code aud} = danh sách resource server ({@code farmverse.identity.token-audiences},
+ * mặc định {@code farm-service}, {@code identity-service}; ADR-0006), {@code token_type}.
  * Riêng token của người dùng: {@code sub} = id tài khoản, {@code tenant_id}, {@code membership_id},
  * {@code roles}, {@code perms} — tính một lần lúc cấp, resource server không phải hỏi lại.
  *
@@ -30,10 +30,21 @@ import org.springframework.stereotype.Component;
  * thêm {@code user_id}, {@code tenant_id} và email / tên theo scope.
  */
 @Component
-@RequiredArgsConstructor
 public class FarmVerseTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext> {
 
     private final AccessService access;
+    private final List<String> audiences;
+
+    public FarmVerseTokenCustomizer(AccessService access,
+                                    @Value("${farmverse.identity.token-audiences:"
+                                            + FarmVerseClaims.FARM_AUDIENCE + "," + FarmVerseClaims.IDENTITY_AUDIENCE + "}")
+                                    List<String> audiences) {
+        if (audiences.isEmpty()) {
+            throw new IllegalArgumentException("farmverse.identity.token-audiences không được rỗng");
+        }
+        this.access = access;
+        this.audiences = List.copyOf(audiences);
+    }
 
     /** Membership bị tắt / tạm khóa sau khi đăng nhập: từ chối cấp (và refresh) token. */
     private AccessService.TenantAccess grantFor(JwtEncodingContext context) {
@@ -50,7 +61,7 @@ public class FarmVerseTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodi
 
         if (OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
             context.getClaims()
-                    .audience(mutable(List.of(FarmVerseClaims.API_AUDIENCE)))
+                    .audience(mutable(audiences))
                     .claim(FarmVerseClaims.TOKEN_TYPE, clientCredentials ? "service" : "user");
             if (!clientCredentials) {
                 AccessService.TenantAccess grant = grantFor(context);

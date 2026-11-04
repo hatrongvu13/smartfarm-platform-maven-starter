@@ -63,7 +63,7 @@ flowchart LR
 | T7 | TB0→ID | S | Giả mạo redirect, đánh cắp code | redirect URI chính xác, PKCE bắt buộc, `state` | — |
 | T7b | TB0→TB1 | T | Giả `X-Forwarded-Host` để gateway dựng URL theo host của kẻ tấn công | Chỉ tin header từ IP edge đã khai; nguồn khác bị xóa header (`ForwardedHeadersTest`); identity chỉ chấp nhận redirect URI đã đăng ký | Edge phải ghi đè header của trình duyệt |
 | T8 | TB1→TB2 | S | Máy lạ gọi farm/identity | mTLS + allowlist SAN | — |
-| T9 | TB2 | E | Token cấp cho API này dùng ở API khác | `aud=farmverse-api` | Audience riêng (M6) |
+| T9 | TB2 | E | Token cấp cho API này dùng ở API khác | Mỗi service chỉ nhận audience của mình; service ngoài danh sách `aud` không nhận (M6, `TokenValidationTest`, `AudienceTest`) | Token vẫn dùng chéo được giữa farm và identity (ADR-0006 bước 2) |
 | T10 | TB2 | S | Token giả | Kiểm chữ ký bằng JWKS, `iss`, `exp`, `nbf`, `aud` | — |
 | T11 | TB2 | E | Người tenant A đọc dữ liệu tenant B | `@TenantId` từ claim, `TenantIsolationTest` | — |
 | T12 | TB2 | E | Người cùng tenant đọc farm của người khác | Chỉ `perms` | Ownership (chưa có yêu cầu) |
@@ -81,10 +81,10 @@ flowchart LR
 |---|---|---|---|---|
 | P0 | — | **Không tìm thấy P0.** Nghi vấn ban đầu "actuator `gateway` lộ ra ngoài" đã bị loại bằng request thật: endpoint không bật | — | — |
 | P1 | P1-1 | ~~Redis dev không mật khẩu~~ **Đã sửa (M3)**: `compose.yaml` dùng `REDIS_PASSWORD`, cổng chỉ `127.0.0.1` | [`compose.yaml`](../../compose.yaml) | M3 ✅ |
-| P1 | P1-2 | Một audience chung `farmverse-api` cho mọi resource server | `FarmVerseTokenCustomizer`, `FarmVerseClaims.API_AUDIENCE` | M6 |
+| P1 | P1-2 | ~~Một audience chung `farmverse-api`~~ **Đã sửa bước 1 (M6)**: `aud=[farm-service, identity-service]`, mỗi service chỉ nhận của mình | `FarmVerseTokenCustomizer`, ADR-0006 | M6 ✅ |
 | P1 | P1-3 | Dev dùng superuser `postgres` cho cả hai service; chưa có script user riêng | `application-dev.yml` hai service, `infra/postgres-init.sql` | M4 |
 | P1 | P1-4 | ~~Không có CI~~ **Đã sửa (M2)**: lần chạy đầu xanh cả `mvn verify` và 3 image | [`ci.yml`](../../.github/workflows/ci.yml) | M2 ✅ |
-| P2 | P2-1 | Farm không kiểm `scope` | `FarmController` | M6 |
+| P2 | P2-1 | ~~Farm không kiểm `scope`~~ **Đã sửa (M6)** | farm `SecurityConfiguration`, `TokenValidationTest` | M6 ✅ |
 | P2 | P2-2 | ~~Chưa có test session fixation, cookie, `state`/`nonce`~~ **Đã có (M5)** | `LoginSessionSecurityTest`, `SessionCookieAttributesTest` | M5 ✅ |
 | P2 | P2-3 | ~~Không có CSP/HSTS~~ **Đã có (M5b)** | `SecurityConfiguration#securityHeaders`, `SecurityHeadersTest` | M5b ✅ |
 | P3 | P3-5 | Cookie `XSRF-TOKEN` không đặt `SameSite` riêng (mặc định trình duyệt: Lax). Cố ý không `HttpOnly` để SPA đọc. Chưa sửa: token CSRF vô dụng với trang khác origin nên rủi ro thấp | `SecurityConfiguration#security` | — |

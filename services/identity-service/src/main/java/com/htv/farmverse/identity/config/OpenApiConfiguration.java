@@ -39,7 +39,7 @@ public class OpenApiConfiguration {
                         .title("FarmVerse Identity API")
                         .version("v1")
                         .description("REST quản trị tài khoản, role, permission, tenant. "
-                                + "Cần access token do chính identity-service cấp (aud = farmverse-api). "
+                                + "Cần access token do chính identity-service cấp (aud chứa identity-service). "
                                 + "Mọi lỗi trả RFC 9457 ProblemDetail kèm field `code` dạng SF-<MIEN>-<SO>."))
                 .components(new Components()
                         .addSecuritySchemes(BEARER, new SecurityScheme()

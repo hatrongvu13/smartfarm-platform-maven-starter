@@ -51,7 +51,17 @@ flowchart TB
 | Prod | CA thật hoặc cert-manager ghi file PEM vào `FARMVERSE_MTLS_DIR`; service tự nạp lại khi file đổi |
 | Actuator | Cổng quản trị loopback, HTTP: trên máy gateway `9080`, farm `9082`, identity `9092`; trong container cả ba `9090` |
 
-## 5. Secret
+## 5. Audience của token (M6)
+
+| Biến | Service | Mặc định | Ghi chú |
+|---|---|---|---|
+| `farmverse.identity.token-audiences` | identity | `farm-service,identity-service` | Danh sách `aud` cấp vào access token |
+| `farmverse.identity.accepted-audiences` | identity | `identity-service` | Audience REST quản trị của identity nhận |
+| `FARM_ACCEPTED_AUDIENCES` | farm | `farm-service` | Audience farm nhận |
+
+Đổi audience theo đúng thứ tự trong [ADR-0006](adr/0006-per-service-audience.md): mở rộng phía nhận trước, đổi phía cấp sau, đợi hết hạn token (5 phút) rồi thu hẹp.
+
+## 6. Secret
 
 | Secret | Biến | Ghi chú |
 |---|---|---|
@@ -64,7 +74,7 @@ flowchart TB
 
 Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `scripts/generate-secret.sh` sinh giá trị ngẫu nhiên.
 
-## 6. Observability
+## 7. Observability
 
 | Mục | Hiện trạng | Mục tiêu |
 |---|---|---|
@@ -75,7 +85,7 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 | Metric | Không export | Micrometer registry (Prometheus hoặc OTLP) |
 | Lọc dữ liệu nhạy cảm | Quy ước trong `SecurityAudit` | Test khẳng định không có `Authorization`, `Cookie`, token trong log |
 
-## 7. Edge TLS và header forwarded
+## 8. Edge TLS và header forwarded
 
 | Mục | Giá trị |
 |---|---|
@@ -85,7 +95,7 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 | Kiểm sau khi triển khai | Mở `/oauth2/authorization/farmverse`: `redirect_uri` trong `Location` phải là `https://<host công khai>/login/oauth2/code/farmverse`, khớp `GATEWAY_PUBLIC_URL` của identity |
 | Kubernetes | Boot tự bật `native` khi thấy Kubernetes; cấu hình đã đặt `server.forward-headers-strategy: none` để chặn việc đó |
 
-## 8. Header bảo mật
+## 9. Header bảo mật
 
 | Header | dev | prod |
 |---|---|---|
@@ -95,7 +105,7 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 
 Đổi CSP: sửa `farmverse.gateway.headers.content-security-policy`. Thêm thư viện tải từ CDN hoặc dùng `eval` sẽ bị chặn ở prod; chạy thử bản build (`npm run build`) qua gateway trước khi phát hành.
 
-## 9. Container
+## 10. Container
 
 [`Dockerfile`](../../Dockerfile) dùng chung, build theo `SERVICE_PATH` (`platform/api-gateway`, `services/identity-service`, `services/farm-service`), chạy user 1001.
 

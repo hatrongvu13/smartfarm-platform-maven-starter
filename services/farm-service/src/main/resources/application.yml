@@ -17,7 +17,9 @@ spring:
         jwt:
           issuer-uri: ${IDENTITY_ISSUER:http://localhost:8092}
           jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8092/oauth2/jwks}
-          audiences: farmverse-api
+          # Chỉ nhận token có aud chứa farm-service (ADR-0006). Lúc chuyển đổi có thể tạm đặt
+          # FARM_ACCEPTED_AUDIENCES=farm-service,farmverse-api. Profile mtls dùng cùng danh sách (MtlsConfiguration).
+          audiences: ${FARM_ACCEPTED_AUDIENCES:farm-service}
 server:
   port: 8082
   address: ${FARM_BIND_ADDRESS:127.0.0.1}

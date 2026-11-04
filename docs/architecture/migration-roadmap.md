@@ -22,7 +22,7 @@ flowchart LR
 | **M5** ✅ | P2 | Test session fixation, thuộc tính cookie, `state`/`nonce`/PKCE bằng luồng đăng nhập thật với identity giả | M2 | `LoginSessionSecurityTest` (5), `SessionCookieAttributesTest` (3); đối chứng: tắt đổi id phiên → 2 test đỏ | Xóa test (chỉ thêm test, không đổi code chính) | R2, R3, R5 ✅ — xong 2026-11-04 |
 | **M5b** ✅ | P2 | Header CSP (theo profile), HSTS (prod), Referrer/Permissions-Policy ([ADR-0010](adr/0010-security-headers.md)) | M5 | `SecurityHeadersTest` (5; đỏ trước khi sửa); Chrome headless: SPA bản build qua gateway 0 lỗi CSP, đối chứng dương tính bắt được script nhúng; Vite dev qua gateway 0 lỗi | Revert khối `headers` trong `SecurityConfiguration` + yml | Xong 2026-11-04 |
 | **M5c** ✅ | P1 | Gateway chỉ tin `X-Forwarded-*` từ edge đã khai, để `redirect_uri` đúng `https://` (P1-5, [ADR-0011](adr/0011-trusted-proxy-forwarded-headers.md)) | M5b | `ForwardedHeadersTest` (4; 3 đỏ trước khi sửa): `redirect_uri` công khai, đăng nhập trọn vẹn qua edge, header giả bị bỏ, `native` tắt; `TrustedProxyForwardedHeaderTransformerTest` (6): CIDR v4/v6, xóa header, prod thiếu cấu hình thì dừng | Xóa bean `forwardedHeaderTransformer` + 2 thuộc tính | Xong 2026-11-04; còn thử với load balancer thật |
-| M6 | P1 | Audience riêng `farm-service` ([ADR-0006](adr/0006-per-service-audience.md)), giai đoạn chuyển tiếp chấp nhận cả hai; farm kiểm `scope`; test JWKS đổi khóa ở farm | M5 | Token `aud` khác → 401; thiếu scope → 403; khóa mới → vẫn 200 | Farm chấp nhận lại `farmverse-api` (cờ cấu hình) | Không còn token chung |
+| **M6** ✅ (bước 1) | P1 | Audience riêng `farm-service` ([ADR-0006](adr/0006-per-service-audience.md)), giai đoạn chuyển tiếp chấp nhận cả hai; farm kiểm `scope`; test JWKS đổi khóa ở farm | M5 | Token `aud` khác → 401; thiếu scope → 403; khóa mới → vẫn 200 | Farm chấp nhận lại `farmverse-api` (cờ cấu hình) | Không còn token chung |
 | M7 | P2 | Micrometer Tracing + OTLP, log JSON cả ba service, test log không chứa token/cookie | M2 | Test trace id lan qua gateway → farm; test lọc log | Tắt bằng cấu hình | Trace xuyên service |
 | M8 | P2 | Rate limit login ở identity dùng bộ đếm chung (Redis) hoặc đẩy lên gateway | M3 | Hai instance chia chung giới hạn | Quay lại bộ đếm bộ nhớ | Test nhiều instance |
 
@@ -47,4 +47,5 @@ flowchart LR
 | 2026-11-04 | M2 | CI lần đầu trên GitHub: `mvn verify` + 3 `docker build` xanh |
 | 2026-11-04 | IT Docker | Failsafe ở pom gốc; IT PostgreSQL (identity, farm) và Redis (gateway). IT bắt được 2 lỗi thật: Redis treo trả 500 (Lettuce reactive ném lỗi gốc), ACL thiếu `+time` làm bộ giới hạn âm thầm tắt |
 | 2026-11-04 | G5 | Giới hạn đăng nhập theo IP. 110 unit + 19 IT xanh |
+| 2026-11-04 | M6 | `aud` theo service, farm đòi scope, test token ký thật + JWKS cache/xoay khóa. 122 unit + 19 IT xanh |
 | 2026-11-04 | G2 + G3 (timeout) | Lỗi gateway thành ProblemDetail, timeout mọi profile. 105 test xanh. Circuit breaker để sau |

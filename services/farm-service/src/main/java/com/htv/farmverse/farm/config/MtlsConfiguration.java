@@ -4,7 +4,6 @@ import java.util.Set;
 
 import com.htv.farmverse.service.mtls.MtlsClients;
 import com.htv.farmverse.service.mtls.ServiceIdentityFilter;
-import com.htv.farmverse.service.security.FarmVerseClaims;
 import com.htv.farmverse.service.security.FarmVerseJwtValidators;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -35,8 +34,9 @@ public class MtlsConfiguration {
     @Bean
     JwtDecoder jwtDecoder(SslBundles bundles,
                           @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
-                          @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer) {
+                          @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
+                          @Value("${spring.security.oauth2.resourceserver.jwt.audiences}") java.util.List<String> audiences) {
         return MtlsClients.jwtDecoder(jwkSetUri, bundles.getBundle("farmverse"),
-                FarmVerseJwtValidators.issuerAndAudience(issuer, FarmVerseClaims.API_AUDIENCE));
+                FarmVerseJwtValidators.issuerAndAudience(issuer, audiences));
     }
 }
