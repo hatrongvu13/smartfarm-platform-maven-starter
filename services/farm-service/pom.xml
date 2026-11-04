@@ -19,6 +19,21 @@
             <groupId>com.htv.farmverse</groupId>
             <artifactId>farmverse-starter-service</artifactId>
         </dependency>
+        <!-- P3: client gRPC gọi identity IdentityDirectory -->
+        <dependency>
+            <groupId>com.htv.farmverse</groupId>
+            <artifactId>farmverse-contracts</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-grpc-client</artifactId>
+        </dependency>
+        <!-- Test P3: server gRPC in-process đóng vai identity -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-inprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>

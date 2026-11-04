@@ -13,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class FarmService {
 
     private final FarmRepository farms;
+    private final MemberDirectory members;
 
-    public FarmService(FarmRepository farms) {
+    public FarmService(FarmRepository farms, MemberDirectory members) {
         this.farms = farms;
+        this.members = members;
     }
 
     @Transactional(readOnly = true)
@@ -61,6 +63,28 @@ public class FarmService {
     public Farm archive(String id) {
         Farm farm = get(id);
         farm.archive();
+        return farms.save(farm);
+    }
+
+    /**
+     * Gán người phụ trách (P3). Hỏi identity "người này có phải thành viên ACTIVE cùng tenant" qua {@link MemberDirectory}
+     * TRƯỚC khi mở transaction lưu, để không giữ kết nối DB trong lúc chờ mạng (thiết kế mục 6.6).
+     * Identity lỗi thì ném {@link MemberDirectory.DirectoryUnavailable}: ghi phải đúng, không đoán, nên từ chối (503).
+     */
+    public Farm assignManager(String farmId, String userId) {
+        MemberDirectory.Member member = members.find(userId)
+                .orElseThrow(() -> new FarmRuleViolation("SF-FARM-012", "Người dùng không phải thành viên của tổ chức này"));
+        if (member.status() != MemberDirectory.Status.ACTIVE) {
+            throw new FarmRuleViolation("SF-FARM-012", "Người dùng không phải thành viên đang hoạt động");
+        }
+        // Transaction mở ở đây, SAU lời gọi gRPC ở trên
+        Farm farm = get(farmId);
+        farm.assignManager(userId);
+        return update(farm);
+    }
+
+    @Transactional
+    public Farm update(Farm farm) {
         return farms.save(farm);
     }
 

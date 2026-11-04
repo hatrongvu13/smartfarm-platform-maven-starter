@@ -62,6 +62,9 @@ class FarmEntity {
     @Column(nullable = false, length = 20)
     private FarmStatus status;
 
+    @Column(name = "manager_user_id", length = 36)
+    private String managerUserId;
+
     @ElementCollection
     @CollectionTable(name = "barn", joinColumns = @JoinColumn(name = "farm_id"))
     @OrderColumn(name = "position")

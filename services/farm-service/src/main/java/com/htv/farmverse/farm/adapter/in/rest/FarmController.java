@@ -71,6 +71,13 @@ public class FarmController {
         return FarmView.of(farms.archive(id));
     }
 
+    /** Gán người phụ trách: farm hỏi identity qua gRPC (P3). */
+    @PutMapping("/{id}/manager")
+    @PreAuthorize(CAN_WRITE)
+    public FarmView assignManager(@PathVariable String id, @Valid @RequestBody ManagerAssignment body) {
+        return FarmView.of(farms.assignManager(id, body.userId()));
+    }
+
     @PostMapping("/{id}/barns")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize(CAN_WRITE)
@@ -94,6 +101,13 @@ public class FarmController {
         return ApiProblem.notFound("SF-FARM-404", e.getMessage());
     }
 
+    /** Identity không trả lời khi gán người phụ trách: ghi phải đúng nên từ chối, không đoán (P3, thiết kế 6.2). */
+    @ExceptionHandler(com.htv.farmverse.farm.application.MemberDirectory.DirectoryUnavailable.class)
+    ApiProblem directoryUnavailable() {
+        return new ApiProblem(HttpStatus.SERVICE_UNAVAILABLE, "SF-FARM-503",
+                "Dịch vụ danh bạ thành viên tạm thời không gọi được, hãy thử lại");
+    }
+
     public record NewFarm(@NotBlank @Size(max = 50) String code, @NotBlank @Size(max = 200) String name,
                           @Size(max = 500) String address) {
     }
@@ -105,10 +119,14 @@ public class FarmController {
                           @Positive int capacity) {
     }
 
+    public record ManagerAssignment(@NotBlank @Size(max = 36) String userId) {
+    }
+
     public record FarmView(String id, String code, String name, String address, String status,
-                           int totalCapacity, List<Barn> barns) {
+                           String managerUserId, int totalCapacity, List<Barn> barns) {
         static FarmView of(Farm f) {
-            return new FarmView(f.id(), f.code(), f.name(), f.address(), f.status().name(), f.totalCapacity(), f.barns());
+            return new FarmView(f.id(), f.code(), f.name(), f.address(), f.status().name(), f.managerUserId(),
+                    f.totalCapacity(), f.barns());
         }
     }
 }

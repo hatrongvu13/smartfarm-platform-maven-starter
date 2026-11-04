@@ -8,6 +8,9 @@ CREATE TABLE farm (
     name        varchar(200) NOT NULL,
     address     varchar(500),
     status      varchar(20)  NOT NULL,
+    -- Người phụ trách: id người dùng (của identity). Kiểm là thành viên ACTIVE cùng tenant qua gRPC lúc gán (P3).
+    -- nullable: farm có thể chưa có người phụ trách. Không có FK (người dùng ở database khác).
+    manager_user_id varchar(36),
     created_at  timestamptz  NOT NULL,
     updated_at  timestamptz  NOT NULL,
     version     bigint       NOT NULL DEFAULT 0,

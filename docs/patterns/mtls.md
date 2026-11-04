@@ -18,6 +18,8 @@ Hai lớp kiểm:
 
 1. **TLS** (Tomcat / Reactor Netty): cert phải do CA của FarmVerse ký. farm `need` → không cert là đứt bắt tay.
 2. **Danh tính** (`ServiceIdentityFilter`): SAN `spiffe://farmverse/<service>` phải nằm trong danh sách cho phép.
+
+gRPC dùng lại đúng hai lớp này (`ServiceIdentityInterceptor` đọc cùng SAN), thêm lớp token người dùng. Xem [`docs/patterns/grpc.md`](grpc.md).
    identity chỉ áp dụng cho đường máy-gọi-máy, nên trình duyệt vẫn vào trang login.
 
 JWT vẫn quyết định *người dùng* được làm gì; mTLS quyết định *service nào* được nói chuyện.

@@ -21,15 +21,18 @@ public final class Farm {
     private String name;
     private String address;
     private FarmStatus status;
+    private String managerUserId;
     private final List<Barn> barns;
     private final long version;
 
-    private Farm(String id, String code, String name, String address, FarmStatus status, List<Barn> barns, long version) {
+    private Farm(String id, String code, String name, String address, FarmStatus status, String managerUserId,
+                 List<Barn> barns, long version) {
         this.id = id;
         this.code = code;
         this.name = name;
         this.address = address;
         this.status = status;
+        this.managerUserId = managerUserId;
         this.barns = new ArrayList<>(barns);
         this.version = version;
     }
@@ -40,13 +43,13 @@ public final class Farm {
             throw new FarmRuleViolation("SF-FARM-001", "Mã farm viết thường, 2-50 ký tự (a-z, 0-9, -)");
         }
         requireName(name);
-        return new Farm(UUID.randomUUID().toString(), code, name, address, FarmStatus.ACTIVE, List.of(), 0);
+        return new Farm(UUID.randomUUID().toString(), code, name, address, FarmStatus.ACTIVE, null, List.of(), 0);
     }
 
     /** Dựng lại từ dữ liệu đã lưu (adapter dùng). */
     public static Farm restore(String id, String code, String name, String address, FarmStatus status,
-                               List<Barn> barns, long version) {
-        return new Farm(id, code, name, address, status, barns, version);
+                               String managerUserId, List<Barn> barns, long version) {
+        return new Farm(id, code, name, address, status, managerUserId, barns, version);
     }
 
     public void rename(String name, String address) {
@@ -77,6 +80,20 @@ public final class Farm {
         status = FarmStatus.ARCHIVED;
     }
 
+    /**
+     * Gán người phụ trách. Việc "người này có phải thành viên ACTIVE cùng tenant" do use case kiểm trước
+     * (hỏi identity qua gRPC), không phải luật trong domain: domain chỉ ghi id. Farm đã ngừng hoạt động thì không gán.
+     */
+    public void assignManager(String userId) {
+        if (status == FarmStatus.ARCHIVED) {
+            throw new FarmRuleViolation("SF-FARM-013", "Farm đã ngừng hoạt động");
+        }
+        if (userId == null || userId.isBlank()) {
+            throw new FarmRuleViolation("SF-FARM-014", "Thiếu id người phụ trách");
+        }
+        this.managerUserId = userId;
+    }
+
     public int totalCapacity() {
         return barns.stream().mapToInt(Barn::capacity).sum();
     }
@@ -92,6 +109,7 @@ public final class Farm {
     public String name() { return name; }
     public String address() { return address; }
     public FarmStatus status() { return status; }
+    public String managerUserId() { return managerUserId; }
     public List<Barn> barns() { return Collections.unmodifiableList(barns); }
     public long version() { return version; }
 }

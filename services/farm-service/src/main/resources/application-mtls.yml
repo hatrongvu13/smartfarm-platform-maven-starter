@@ -5,6 +5,14 @@ farmverse:
     allowed-callers: gateway                         # danh sách cách nhau bằng dấu phẩy
 
 spring:
+  # P3: gRPC tới identity bắt buộc mTLS (cert farm, cùng bundle với REST)
+  grpc:
+    client:
+      channel:
+        identity:
+          ssl:
+            enabled: true
+            bundle: farmverse
   ssl:
     bundle:
       pem:

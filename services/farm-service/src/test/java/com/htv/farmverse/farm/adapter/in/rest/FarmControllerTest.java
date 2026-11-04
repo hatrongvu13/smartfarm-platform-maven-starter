@@ -114,4 +114,38 @@ class FarmControllerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("SF-FARM-007"));
     }
+
+    @Test
+    void assignManagerCallsTheUseCaseAndReturnsTheManagerId() throws Exception {
+        Farm farm = Farm.create("valley", "Valley", null);
+        farm.assignManager("u1");
+        given(farms.assignManager("f1", "u1")).willReturn(farm);
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/farms/f1/manager")
+                        .with(jwt().authorities(API, can("farm:farm:write")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"userId\":\"u1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managerUserId").value("u1"));
+    }
+
+    /** P3: identity không gọi được khi gán → 503 SF-FARM-503, ghi không được thực hiện. */
+    @Test
+    void assignManagerWhenDirectoryUnavailableIsProblemDetail503() throws Exception {
+        given(farms.assignManager(any(), any()))
+                .willThrow(new com.htv.farmverse.farm.application.MemberDirectory.DirectoryUnavailable(new RuntimeException()));
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/farms/f1/manager")
+                        .with(jwt().authorities(API, can("farm:farm:write")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"userId\":\"u1\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SF-FARM-503"));
+    }
+
+    @Test
+    void assignManagerNeedsWritePermission() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/farms/f1/manager")
+                        .with(jwt().authorities(API, can("farm:farm:read")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"userId\":\"u1\"}"))
+                .andExpect(status().isForbidden());
+    }
 }

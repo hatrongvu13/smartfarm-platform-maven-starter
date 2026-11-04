@@ -1,6 +1,15 @@
 spring:
   application:
     name: farm-service
+  # P3: client gRPC tới identity. target dạng static:// (không service discovery). Dev plaintext;
+  # profile mtls thêm bundle + bắt buộc TLS (application-mtls.yml). Deadline 2s cho mọi lời gọi (thiết kế 6.7.2).
+  grpc:
+    client:
+      channel:
+        identity:
+          target: ${IDENTITY_GRPC_TARGET:static://127.0.0.1:9093}
+          default:
+            deadline: ${IDENTITY_GRPC_DEADLINE:2s}
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
     # mTLS: prod luôn bật. Dev mặc định TẮT; bật bằng SPRING_PROFILES_ACTIVE=dev,mtls

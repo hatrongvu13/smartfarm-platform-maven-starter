@@ -407,8 +407,8 @@ Test thường chạy trên H2/in-process; test trên PostgreSQL thật là `*IT
 |---|---|---|---|
 | P1 ✅ | Probe build (xong 2026-11-04): `libs/farmverse-contracts`, proto mẫu, sinh stub bằng plugin do BOM quản; xác minh thuộc tính `spring.grpc.*` và API bảo mật bằng build thật | Build xanh, stub sinh ra; bảng đầu mục 6 được cập nhật | Xóa module |
 | P2 ✅ | Identity (xong 2026-11-04): `directory/MemberDirectoryService`, `grpc/IdentityDirectoryGrpcService`, `MemberMapper`, mTLS + SAN (`ServiceIdentityInterceptor`) + JWT người dùng (`GrpcSecurityConfiguration`), health, reflection chỉ dev, `GrpcProductionGuard` | T1 `IdentityDirectoryGrpcTest` (8), T2 `IdentityGrpcMtlsTest` (5), T5 + T7 `GrpcConfigurationTest` (3) xanh | `spring.grpc.server.enabled=false` hoặc xóa package `grpc` |
-| P3 | Farm: cột `manager_user_id`, `Farm.assignManager`, port `MemberDirectory`, adapter gRPC client, 2 REST, ánh xạ lỗi, giảm cấp | T3, T4, T8 xanh; test cũ vẫn xanh | Xóa adapter, giữ cột nullable |
-| P4 | Tài liệu: `docs/patterns/grpc.md`, cập nhật `docs/patterns/mtls.md` và `docs/operations/local-development.md` (cổng 9093) | Link không gãy | Revert |
+| P3 ✅ (một phần) | Farm (xong 2026-11-04): cột `manager_user_id` (V1, D1), `Farm.assignManager`, port `MemberDirectory`, adapter gRPC client (chuyển tiếp token người dùng, deadline 2s, gọi ngoài transaction), REST `PUT /farms/{id}/manager`, ánh xạ lỗi 422 `SF-FARM-012` / 503 `SF-FARM-503` | `FarmServiceAssignManagerTest` (4), `GrpcMemberDirectoryTest` (5), `FarmControllerTest` (mới 3); test cũ vẫn xanh | Xóa adapter, giữ cột nullable |
+| P4 ✅ | Tài liệu: [`docs/patterns/grpc.md`](../docs/patterns/grpc.md), cập nhật `docs/patterns/mtls.md` và `docs/operations/local-development.md` (cổng 9093) | Link không gãy | Revert |
 
 ## 7. Lộ trình và thứ tự làm
 
@@ -419,7 +419,7 @@ Mỗi bước: build xanh, test xanh, hoàn tác bằng `git revert`. Commit do 
 | 1 | Chốt S2 (Redis mật khẩu) và S1 (`.env.production.example`); đồng bộ `local-development.md` | Bạn duyệt |
 | 2 | CI (GitHub Actions) chạy build + test — **đã có** `.github/workflows/ci.yml`, xanh lần đầu 2026-11-04 (run 41835098123). Thêm test khóa hợp đồng gRPC khi có | Xanh trên nhánh |
 | 3 | Gateway G2, G3, G4, G5(IP), G8 | Test từng mục |
-| 4 | gRPC P1-P4 (mục 6.8), **nếu** D7 được duyệt | Theo bảng 6.8 |
+| 4 | gRPC P1-P4 (mục 6.8) | **Xong 2026-11-04** (P3 còn thiếu phần hiện tên người phụ trách khi đọc) |
 | 5 | Giao diện W1-W7 (rà trạng thái ❓ trước) | `npm run build` + Vitest xanh |
 | 6 | Test cần Docker: I8, G6, F3 (chạy ở CI hoặc máy có Docker) | Xanh |
 | 7 | ~~Viết lại README identity theo hiện trạng~~ Đã xong (2026-11-04) | Không còn câu sai |
@@ -445,7 +445,7 @@ Bài học thiết kế nên nắm theo từng bước: cô lập tenant (F1), P
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
-| D1 | Cột `manager_user_id` cho farm: sửa thẳng `V1` hay thêm `V2`? (đổi schema) | `V1`, theo quy ước gom baseline |
+| D1 | Cột `manager_user_id` cho farm: sửa thẳng `V1` hay thêm `V2`? (đổi schema) | **Đã chốt: sửa thẳng `V1`** (2026-11-04), theo quy ước gom baseline |
 | D2 | Tạo `libs/farmverse-contracts` (chỉ proto) hay để proto trong từng service? | **Đã chọn (P1): module riêng**, một nguồn sự thật, có test khóa hợp đồng |
 | D3 | Ngữ cảnh tenant trong gRPC: A mTLS + `tenant_id` do farm gửi / B chuyển tiếp JWT người dùng / C token `client_credentials` | **Đã chốt B (2026-11-04)**, mục 6.5, ADR-0014 |
 | D4 | Ca dùng gRPC đầu tiên là "farm gán người phụ trách"? | Có |

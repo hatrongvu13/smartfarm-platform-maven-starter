@@ -20,6 +20,7 @@ JDK 17+, Maven 3.9+, Docker (cho PostgreSQL + Redis), Node 20+.
 5. Mở `http://127.0.0.1:8080`.
 
 Health (không TLS, chỉ loopback): gateway `:9080` (luôn), identity `:9092`, farm `:9082` (khi bật `mtls`) — `/actuator/health`.
+gRPC: identity ở `:9093` (farm gọi `IdentityDirectory`; mTLS khi bật `mtls`, plaintext loopback khi tắt). `IDENTITY_GRPC_PORT` đổi cổng; **không** dùng 9090 (trùng cổng quản trị trong container). Xem [`docs/patterns/grpc.md`](../patterns/grpc.md).
 Cổng công khai `:8080` của gateway không có `/actuator/**`.
 
 ## Biến môi trường hay dùng

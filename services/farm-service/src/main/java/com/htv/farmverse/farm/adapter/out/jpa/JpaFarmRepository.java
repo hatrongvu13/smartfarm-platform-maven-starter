@@ -41,6 +41,7 @@ class JpaFarmRepository implements FarmRepository {
         entity.setName(farm.name());
         entity.setAddress(farm.address());
         entity.setStatus(farm.status());
+        entity.setManagerUserId(farm.managerUserId());
         entity.getBarns().clear();
         farm.barns().forEach(b -> entity.getBarns().add(new BarnEmbeddable(b.code(), b.name(), b.capacity())));
         return toDomain(jpa.saveAndFlush(entity));
@@ -48,6 +49,7 @@ class JpaFarmRepository implements FarmRepository {
 
     private static Farm toDomain(FarmEntity e) {
         List<Barn> barns = e.getBarns().stream().map(b -> new Barn(b.getCode(), b.getName(), b.getCapacity())).toList();
-        return Farm.restore(e.getId(), e.getCode(), e.getName(), e.getAddress(), e.getStatus(), barns, e.getVersion());
+        return Farm.restore(e.getId(), e.getCode(), e.getName(), e.getAddress(), e.getStatus(), e.getManagerUserId(),
+                barns, e.getVersion());
     }
 }
