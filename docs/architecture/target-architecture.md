@@ -56,12 +56,13 @@ flowchart LR
 | Database per service | Tách sở hữu dữ liệu; đổi schema không ảnh hưởng service khác | [0005](adr/0005-database-per-service.md) |
 | Audience riêng cho từng resource server (**đề xuất**) | Token cho farm không dùng được ở service khác | [0006](adr/0006-per-service-audience.md) |
 | Test gateway dùng kho session trong bộ nhớ | Build lặp lại được trên mọi máy; Redis thật để cho test tích hợp | [0007](adr/0007-hermetic-gateway-tests.md) |
+| Chỉ tin header forwarded từ edge đã khai | `redirect_uri` đúng `https://` sau edge; người gọi thẳng không giả được host | [0011](adr/0011-trusted-proxy-forwarded-headers.md) |
 | Redis lỗi thì 503, fail-closed | Không cho request không có token đi tiếp; SPA phân biệt lỗi tạm với chưa đăng nhập | [0009](adr/0009-redis-fail-closed.md) |
 | Actuator gateway trên cổng quản trị loopback | Endpoint vận hành không bao giờ ở cổng công khai | [0008](adr/0008-gateway-management-port.md) |
 
 ## 4. Giả định
 
-1. TLS từ trình duyệt kết thúc ở edge (load balancer/ingress) phía trước gateway. Gateway không tự cấp cert công khai. **Hệ quả chưa xử lý (P1-5):** gateway chưa tin header `X-Forwarded-*`, nên ở sau edge nó thấy `http://` và dựng `redirect_uri` sai scheme.
+1. TLS từ trình duyệt kết thúc ở edge (load balancer/ingress) phía trước gateway. Gateway không tự cấp cert công khai. Gateway lấy URL công khai từ `X-Forwarded-*` của edge, và chỉ tin edge có IP nằm trong `GATEWAY_TRUSTED_PROXIES` (M5c, [ADR-0011](adr/0011-trusted-proxy-forwarded-headers.md)). Giả định thêm: edge **ghi đè** chứ không nối thêm `X-Forwarded-Host`/`-Proto` mà trình duyệt gửi.
 2. Mạng nội bộ không tin cậy hoàn toàn: đó là lý do dùng mTLS chứ không chỉ dựa vào firewall.
 3. Một tenant là ranh giới cô lập dữ liệu chính. Ownership trong tenant là yêu cầu nghiệp vụ chưa định nghĩa.
 4. Redis và PostgreSQL production do hạ tầng quản lý (managed hoặc cluster riêng), có TLS.

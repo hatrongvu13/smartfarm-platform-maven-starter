@@ -150,6 +150,23 @@ public class SecurityConfiguration {
         return resolver;
     }
 
+    /**
+     * Tên bean phải đúng {@code forwardedHeaderTransformer}: {@code WebHttpHandlerBuilder} tìm theo tên này.
+     * Danh sách rỗng (mặc định, dev) = không tin header forwarded của ai.
+     */
+    @Bean(name = "forwardedHeaderTransformer")
+    TrustedProxyForwardedHeaderTransformer forwardedHeaderTransformer(
+            @Value("${farmverse.gateway.trusted-proxies:}") java.util.List<String> trustedProxies,
+            org.springframework.core.env.Environment environment) {
+        // Gateway không tự kết thúc TLS: ở prod luôn có edge phía trước. Thiếu danh sách thì redirect_uri thành
+        // http://<máy nội bộ> và identity từ chối đăng nhập với lỗi khó lần ra; dừng ngay khi khởi động thì rõ hơn.
+        if (trustedProxies.stream().allMatch(String::isBlank)
+                && environment.acceptsProfiles(org.springframework.core.env.Profiles.of("prod"))) {
+            throw new IllegalStateException("Profile prod cần GATEWAY_TRUSTED_PROXIES (IP/CIDR của edge TLS)");
+        }
+        return new TrustedProxyForwardedHeaderTransformer(trustedProxies);
+    }
+
     /** Giới hạn tốc độ theo người dùng đã đăng nhập (filter RequestRateLimiter). */
     @Bean
     KeyResolver principalKeyResolver() {

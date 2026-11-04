@@ -75,7 +75,17 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 | Metric | Không export | Micrometer registry (Prometheus hoặc OTLP) |
 | Lọc dữ liệu nhạy cảm | Quy ước trong `SecurityAudit` | Test khẳng định không có `Authorization`, `Cookie`, token trong log |
 
-## 7. Header bảo mật
+## 7. Edge TLS và header forwarded
+
+| Mục | Giá trị |
+|---|---|
+| `GATEWAY_TRUSTED_PROXIES` | IP/CIDR của edge (bắt buộc ở prod; thiếu thì gateway dừng khi khởi động) |
+| Edge phải gửi | `X-Forwarded-Proto: https`, `X-Forwarded-Host: <host công khai>`, `X-Forwarded-Port` (hoặc `Forwarded`). **Ghi đè** giá trị trình duyệt gửi, không nối thêm |
+| Không dùng | `X-Forwarded-Prefix` (gateway luôn ở `/`) |
+| Kiểm sau khi triển khai | Mở `/oauth2/authorization/farmverse`: `redirect_uri` trong `Location` phải là `https://<host công khai>/login/oauth2/code/farmverse`, khớp `GATEWAY_PUBLIC_URL` của identity |
+| Kubernetes | Boot tự bật `native` khi thấy Kubernetes; cấu hình đã đặt `server.forward-headers-strategy: none` để chặn việc đó |
+
+## 8. Header bảo mật
 
 | Header | dev | prod |
 |---|---|---|
@@ -85,7 +95,7 @@ Giá trị dev nằm trong `application-dev.yml` và chỉ dùng cho máy dev. `
 
 Đổi CSP: sửa `farmverse.gateway.headers.content-security-policy`. Thêm thư viện tải từ CDN hoặc dùng `eval` sẽ bị chặn ở prod; chạy thử bản build (`npm run build`) qua gateway trước khi phát hành.
 
-## 8. Container
+## 9. Container
 
 [`Dockerfile`](../../Dockerfile) dùng chung, build theo `SERVICE_PATH` (`platform/api-gateway`, `services/identity-service`, `services/farm-service`), chạy user 1001.
 

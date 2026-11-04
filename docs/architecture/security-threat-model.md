@@ -60,6 +60,7 @@ flowchart LR
 | T5 | TB0→TB1 | I | Dò thông tin vận hành qua `/actuator/**` ẩn danh | Cổng quản trị loopback (M2); endpoint `gateway` không bật; `GatewayActuatorExposureTest` | — |
 | T6 | TB0→ID | S | Dò mật khẩu / mã TOTP | Khóa tài khoản, giới hạn IP, chống replay TOTP | Giới hạn IP phân tán (M8) |
 | T7 | TB0→ID | S | Giả mạo redirect, đánh cắp code | redirect URI chính xác, PKCE bắt buộc, `state` | — |
+| T7b | TB0→TB1 | T | Giả `X-Forwarded-Host` để gateway dựng URL theo host của kẻ tấn công | Chỉ tin header từ IP edge đã khai; nguồn khác bị xóa header (`ForwardedHeadersTest`); identity chỉ chấp nhận redirect URI đã đăng ký | Edge phải ghi đè header của trình duyệt |
 | T8 | TB1→TB2 | S | Máy lạ gọi farm/identity | mTLS + allowlist SAN | — |
 | T9 | TB2 | E | Token cấp cho API này dùng ở API khác | `aud=farmverse-api` | Audience riêng (M6) |
 | T10 | TB2 | S | Token giả | Kiểm chữ ký bằng JWKS, `iss`, `exp`, `nbf`, `aud` | — |
@@ -85,7 +86,7 @@ flowchart LR
 | P2 | P2-2 | ~~Chưa có test session fixation, cookie, `state`/`nonce`~~ **Đã có (M5)** | `LoginSessionSecurityTest`, `SessionCookieAttributesTest` | M5 ✅ |
 | P2 | P2-3 | ~~Không có CSP/HSTS~~ **Đã có (M5b)** | `SecurityConfiguration#securityHeaders`, `SecurityHeadersTest` | M5b ✅ |
 | P3 | P3-5 | Cookie `XSRF-TOKEN` không đặt `SameSite` riêng (mặc định trình duyệt: Lax). Cố ý không `HttpOnly` để SPA đọc. Chưa sửa: token CSRF vô dụng với trang khác origin nên rủi ro thấp | `SecurityConfiguration#security` | — |
-| P1 | P1-5 | **Mới, chưa kiểm trên hạ tầng thật.** Gateway không bật `server.forward-headers-strategy`. Ở sau edge TLS, `{baseUrl}` thành `http://...`, nên `redirect_uri` lệch với URI `https://` đã đăng ký ở identity → đăng nhập prod có thể hỏng. Bật thì phải bảo đảm chỉ edge gửi được `X-Forwarded-*` | gateway `application-prod.yml`, `OidcClientConfiguration` (`{baseUrl}/login/oauth2/code/...`), identity `application-prod.yml` (`${GATEWAY_PUBLIC_URL}`) | M5c |
+| P1 | P1-5 | ~~`redirect_uri` sai scheme sau edge TLS~~ **Đã sửa (M5c)**. Đã tái hiện bằng test trước khi sửa (`redirect_uri` = `http://127.0.0.1...`). Chưa thử với load balancer thật | `TrustedProxyForwardedHeaderTransformer`, `ForwardedHeadersTest` | M5c ✅ |
 | P2 | P2-4 | ~~Redis chưa khai TTL, timeout~~ **Đã sửa (M3)** | gateway `application.yml`, `RedisSessionHardeningTest` | M3 ✅ |
 | P2 | P2-5 | Không tracing/metric; log JSON chỉ ở identity prod | các `pom.xml`, `application-prod.yml` | M7 |
 | P2 | P2-6 | ~~2 test gateway cần Redis thật~~ **Đã sửa (M2a, 2026-11-04)** | [`InMemorySessionTestConfiguration`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/InMemorySessionTestConfiguration.java) | M2a ✅ |

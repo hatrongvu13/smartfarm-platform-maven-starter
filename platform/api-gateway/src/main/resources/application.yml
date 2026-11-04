@@ -62,6 +62,9 @@ farmverse:
     # Header bảo mật (SecurityConfiguration#securityHeaders). CSP này dành cho bản build của SPA: chỉ tài nguyên
     # cùng origin, không script/style nhúng. {identity-origin} được thay bằng origin của issuer (đích redirect
     # khi đăng xuất). Dev ghi đè trong application-dev.yml cho Vite.
+    # IP/CIDR của edge TLS (load balancer, ingress) được tin header X-Forwarded-*/Forwarded, cách nhau bằng dấu phẩy.
+    # Rỗng = không tin ai. Prod phải đặt, nếu không redirect_uri OIDC thành http://<máy nội bộ> và đăng nhập hỏng.
+    trusted-proxies: ${GATEWAY_TRUSTED_PROXIES:}
     headers:
       content-security-policy: >-
         default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:;
@@ -80,6 +83,9 @@ farmverse:
 server:
   port: 8080
   address: ${GATEWAY_BIND_ADDRESS:127.0.0.1}
+  # Không để Reactor Netty tự đọc X-Forwarded-* (chế độ native tin mọi nguồn; Boot tự bật nó trên Kubernetes).
+  # Header forwarded chỉ được dùng khi đến từ farmverse.gateway.trusted-proxies (TrustedProxyForwardedHeaderTransformer).
+  forward-headers-strategy: none
 
 # Actuator ở cổng quản trị riêng, chỉ loopback, không TLS (giống identity :9092, farm :9082).
 # Cổng công khai 8080 không có /actuator/** (ADR-0008). Probe: /actuator/health/{liveness,readiness}.
