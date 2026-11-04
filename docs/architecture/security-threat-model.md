@@ -67,6 +67,7 @@ flowchart LR
 | T11 | TB2 | E | Người tenant A đọc dữ liệu tenant B | `@TenantId` từ claim, `TenantIsolationTest` | — |
 | T12 | TB2 | E | Người cùng tenant đọc farm của người khác | Chỉ `perms` | Ownership (chưa có yêu cầu) |
 | T13 | TB1→TB3 | I | Đọc session (token) trong Redis | Mật khẩu bắt buộc (dev + prod), cổng dev chỉ `127.0.0.1`, TLS prod, namespace riêng | ACL user riêng (hướng dẫn ở [deployment.md](deployment.md)) |
+| T14b | TB1→TB2 | D | Service phía sau treo giữ request của gateway | Timeout response 10s, connect 3s ở mọi profile → 504/502 (`GatewayErrorProblemsTest`) | Circuit breaker để trả lỗi ngay khi service sập kéo dài |
 | T14 | TB1→TB3 | D | Redis treo làm gateway treo | Timeout lệnh 2s, kết nối 1s; lỗi → 503 nhanh (`RedisSessionHardeningTest`) | Test Redis treo thật (không chỉ từ chối kết nối) cần Testcontainers |
 | T15 | TB2→TB3 | E | Farm bị chiếm đọc DB identity | DB riêng | User riêng, không superuser (M4) |
 | T16 | TB4 | I | Token, mã, cookie lọt vào log | `SecurityAudit` làm sạch; quy tắc cấm | Test lọc log cho gateway/farm (M7) |
@@ -81,7 +82,7 @@ flowchart LR
 | P1 | P1-1 | ~~Redis dev không mật khẩu~~ **Đã sửa (M3)**: `compose.yaml` dùng `REDIS_PASSWORD`, cổng chỉ `127.0.0.1` | [`compose.yaml`](../../compose.yaml) | M3 ✅ |
 | P1 | P1-2 | Một audience chung `farmverse-api` cho mọi resource server | `FarmVerseTokenCustomizer`, `FarmVerseClaims.API_AUDIENCE` | M6 |
 | P1 | P1-3 | Dev dùng superuser `postgres` cho cả hai service; chưa có script user riêng | `application-dev.yml` hai service, `infra/postgres-init.sql` | M4 |
-| P1 | P1-4 | ~~Không có CI~~ **Đã có workflow (M2)**; còn chờ lần chạy đầu trên GitHub | [`ci.yml`](../../.github/workflows/ci.yml) | M2 ✅ (chờ xác nhận) |
+| P1 | P1-4 | ~~Không có CI~~ **Đã sửa (M2)**: lần chạy đầu xanh cả `mvn verify` và 3 image | [`ci.yml`](../../.github/workflows/ci.yml) | M2 ✅ |
 | P2 | P2-1 | Farm không kiểm `scope` | `FarmController` | M6 |
 | P2 | P2-2 | ~~Chưa có test session fixation, cookie, `state`/`nonce`~~ **Đã có (M5)** | `LoginSessionSecurityTest`, `SessionCookieAttributesTest` | M5 ✅ |
 | P2 | P2-3 | ~~Không có CSP/HSTS~~ **Đã có (M5b)** | `SecurityConfiguration#securityHeaders`, `SecurityHeadersTest` | M5b ✅ |
@@ -90,7 +91,7 @@ flowchart LR
 | P2 | P2-4 | ~~Redis chưa khai TTL, timeout~~ **Đã sửa (M3)** | gateway `application.yml`, `RedisSessionHardeningTest` | M3 ✅ |
 | P2 | P2-5 | Không tracing/metric; log JSON chỉ ở identity prod | các `pom.xml`, `application-prod.yml` | M7 |
 | P2 | P2-6 | ~~2 test gateway cần Redis thật~~ **Đã sửa (M2a, 2026-11-04)** | [`InMemorySessionTestConfiguration`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/InMemorySessionTestConfiguration.java) | M2a ✅ |
-| P2 | P2-7 | ~~Healthcheck `Dockerfile` sai cổng~~ **Đã sửa (M2)**: dùng `MANAGEMENT_SERVER_PORT=9090`. Đã kiểm bằng chạy jar với biến của container; chưa build image thật (máy không có Docker) | [`Dockerfile`](../../Dockerfile) | M2 ✅ |
+| P2 | P2-7 | ~~Healthcheck `Dockerfile` sai cổng~~ **Đã sửa (M2)**: dùng `MANAGEMENT_SERVER_PORT=9090`. Image build xanh trên CI; chưa chạy container thật | [`Dockerfile`](../../Dockerfile) | M2 ✅ |
 | P2 | P2-8 | Giới hạn IP login chỉ đúng với một instance | `LoginRateLimitFilter` | M8 |
 | P3 | P3-1 | ~~`.env.production.example`, `EXPOSE` lỗi thời~~ **Đã sửa (M2)** | [`.env.production.example`](../../.env.production.example), `Dockerfile` | M2 ✅ |
 | P3 | P3-2 | README identity là bản cũ | [`services/identity-service/README.md`](../../services/identity-service/README.md) | M2 |

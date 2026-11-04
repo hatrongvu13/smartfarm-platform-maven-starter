@@ -43,7 +43,7 @@ flowchart LR
 | R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ | Giới hạn IP trong bộ nhớ, sai khi nhiều instance | M8 |
 | R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | 🟡 | Audit có; JSON chỉ ở identity prod; không tracing/metric export | M7 |
 | R18 | Actuator không lộ ra cổng công khai | ✅ | — (M2: cổng quản trị loopback ở cả ba service) | — |
-| R19 | Build và test lặp lại được, có CI | 🟡 | Có workflow CI (M2) nhưng chưa chạy trên GitHub; chưa có CD | M2 xác nhận khi push |
+| R19 | Build và test lặp lại được, có CI | ✅ | — (CI xanh lần đầu 2026-11-04). CD chưa có, ngoài phạm vi | — |
 
 ## 3. Quyết định thiết kế
 
@@ -86,5 +86,6 @@ flowchart LR
 - User PostgreSQL riêng cho từng service và phân quyền owner/app.
 - Tracing, metric export, log JSON ở gateway và farm.
 - Rate limit phân tán cho login.
-- CD (deploy). CI đã có nhưng chưa chạy trên GitHub.
+- CD (deploy).
+- Circuit breaker ở gateway.
 - gRPC (đang chờ duyệt trong [`content/thiet-ke-farmverse.md`](../../content/thiet-ke-farmverse.md) mục 6).

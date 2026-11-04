@@ -26,7 +26,6 @@ import org.springframework.security.oauth2.client.web.server.DefaultServerOAuth2
 import org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.web.server.WebSessionServerOAuth2AuthorizedClientRepository;
 import org.springframework.security.web.server.SecurityWebFilterChain;
-import org.springframework.security.web.server.authentication.HttpStatusServerEntryPoint;
 import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository;
 import org.springframework.security.web.server.csrf.CsrfToken;
 import org.springframework.security.web.server.csrf.ServerCsrfTokenRequestAttributeHandler;
@@ -77,10 +76,15 @@ public class SecurityConfiguration {
                         .authenticationManager(oidcLogin))   // đổi code + kiểm id_token qua mTLS
                 .oauth2Client(Customizer.withDefaults())
                 .logout(out -> out.logoutSuccessHandler(logout))
-                .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED)))
+                // 401/403 cùng dạng ProblemDetail với service phía sau (SF-AUTH-001/002). CSRF có handler riêng,
+                // nên phải gắn lại ở csrf(...), nếu không lỗi thiếu token CSRF vẫn là text/plain "Access Denied".
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(SecurityConfiguration::unauthorized)
+                        .accessDeniedHandler(SecurityConfiguration::forbidden))
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler()))
+                        .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler())
+                        .accessDeniedHandler(SecurityConfiguration::forbidden))
                 .headers(headers -> securityHeaders(headers, csp.replace(IDENTITY_ORIGIN, origin(oidc.issuer())), hsts));
         return http.build();
     }
@@ -105,6 +109,17 @@ public class SecurityConfiguration {
         if (hsts) {
             headers.writer(StaticServerHttpHeadersWriter.builder().header("Strict-Transport-Security", HSTS).build());
         }
+    }
+
+    private static Mono<Void> unauthorized(org.springframework.web.server.ServerWebExchange exchange,
+                                           org.springframework.security.core.AuthenticationException error) {
+        return GatewayProblems.write(exchange, HttpStatus.UNAUTHORIZED, GatewayProblems.UNAUTHORIZED, "Cần đăng nhập");
+    }
+
+    private static Mono<Void> forbidden(org.springframework.web.server.ServerWebExchange exchange,
+                                        org.springframework.security.access.AccessDeniedException error) {
+        return GatewayProblems.write(exchange, HttpStatus.FORBIDDEN, GatewayProblems.FORBIDDEN,
+                "Không được phép thực hiện thao tác này");
     }
 
     /** {@code https://id.example.com/idp} → {@code https://id.example.com}: CSP so khớp theo origin. */

@@ -1,17 +1,14 @@
 package com.htv.farmverse.gateway.config;
 
-import java.nio.charset.StandardCharsets;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
@@ -32,17 +29,12 @@ import reactor.core.publisher.Mono;
  * an toàn vì route {@code /api/**} đòi đăng nhập, và phiên được nạp từ Redis trước bước giới hạn tốc độ.
  */
 @Component
-@Order(-2)
+@Order(-3)   // trước DownstreamErrorHandler (-2): lỗi Redis cũng mang ConnectException trong cause
 public class RedisUnavailableHandler implements WebExceptionHandler {
 
-    public static final String CODE = "SF-GATEWAY-503";
+    public static final String CODE = GatewayProblems.UNAVAILABLE;
 
     private static final Logger log = LoggerFactory.getLogger(RedisUnavailableHandler.class);
-
-    private static final byte[] BODY = ("{\"type\":\"urn:farmverse:problem:" + CODE + "\","
-            + "\"title\":\"Service Unavailable\",\"status\":503,"
-            + "\"detail\":\"Hệ thống phiên đăng nhập tạm thời không sẵn sàng, hãy thử lại sau ít phút\","
-            + "\"code\":\"" + CODE + "\"}").getBytes(StandardCharsets.UTF_8);
 
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable error) {
@@ -50,13 +42,9 @@ public class RedisUnavailableHandler implements WebExceptionHandler {
             return Mono.error(error);
         }
         log.warn("Redis không sẵn sàng ({}), trả 503 cho {}", rootType(error), exchange.getRequest().getPath());
-        var response = exchange.getResponse();
-        response.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-        response.getHeaders().setContentType(MediaType.APPLICATION_PROBLEM_JSON);
-        response.getHeaders().set(HttpHeaders.RETRY_AFTER, "5");
-        response.getHeaders().setCacheControl("no-store");
-        DataBuffer buffer = response.bufferFactory().wrap(BODY);
-        return response.writeWith(Mono.just(buffer));
+        exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "5");
+        return GatewayProblems.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, CODE,
+                "Hệ thống phiên đăng nhập tạm thời không sẵn sàng, hãy thử lại sau ít phút");
     }
 
     static boolean isRedisFailure(Throwable error) {

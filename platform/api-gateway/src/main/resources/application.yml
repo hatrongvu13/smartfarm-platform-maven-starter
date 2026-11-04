@@ -32,6 +32,11 @@ spring:
     gateway:
       server:
         webflux:
+          # Mọi route, mọi profile: không chờ service phía sau vô hạn. Quá hạn → 504, không kết nối được → 502
+          # (DownstreamErrorHandler). Trước đây chỉ có ở profile mtls.
+          httpclient:
+            connect-timeout: ${GATEWAY_CONNECT_TIMEOUT:3000}     # mili giây
+            response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:10s}
           default-filters:
             - SaveSession   # lưu session (có token mới refresh) trước khi chuyển request xuống service
           routes:

@@ -28,5 +28,4 @@ spring:
           httpclient:
             ssl:
               ssl-bundle: farmverse        # route xuống service dùng cert gateway
-            connect-timeout: 3000
-            response-timeout: 10s
+            # connect-timeout / response-timeout: khai ở application.yml cho mọi profile
