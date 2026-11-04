@@ -1,0 +1,47 @@
+// Danh bạ thành viên của identity, cho service khác (ca dùng đầu: farm gán người phụ trách).
+// Quy tắc tương thích (content/thiet-ke-farmverse.md mục 6.4, khóa bằng ContractCompatibilityTest):
+//  - chỉ THÊM field/rpc; không đổi, không dùng lại số field; field bỏ thì khai reserved;
+//  - thay đổi phá vỡ thì tạo farmverse/identity/v2 và chạy song song;
+//  - enum có ..._UNSPECIFIED = 0, bên nhận phải chịu được giá trị lạ;
+//  - không trả email, hash, secret; batch tối đa 100 user_ids.
+syntax = "proto3";
+
+package farmverse.identity.v1;
+
+option java_multiple_files = true;
+option java_package = "com.htv.farmverse.contracts.identity.v1";
+option java_outer_classname = "IdentityDirectoryProto";
+
+service IdentityDirectory {
+  // NOT_FOUND nếu user không phải thành viên của tenant đó.
+  rpc GetMember(GetMemberRequest) returns (Member);
+  // Bỏ qua id không tìm thấy. Quá 100 id thì INVALID_ARGUMENT.
+  rpc BatchGetMembers(BatchGetMembersRequest) returns (BatchGetMembersResponse);
+}
+
+message GetMemberRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message BatchGetMembersRequest {
+  string tenant_id = 1;
+  repeated string user_ids = 2;
+}
+
+message BatchGetMembersResponse {
+  repeated Member members = 1;
+}
+
+message Member {
+  string user_id = 1;
+  string display_name = 2;
+  MemberStatus status = 3;
+}
+
+enum MemberStatus {
+  MEMBER_STATUS_UNSPECIFIED = 0;
+  MEMBER_STATUS_ACTIVE = 1;
+  MEMBER_STATUS_SUSPENDED = 2;
+  MEMBER_STATUS_DISABLED = 3;
+}

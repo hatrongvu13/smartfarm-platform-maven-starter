@@ -1,0 +1,15 @@
+# Bản chuẩn của farmverse.identity.v1 (ContractCompatibilityTest). Chỉ THÊM dòng, không sửa, không xóa.
+enum farmverse.identity.v1.MemberStatus.MEMBER_STATUS_ACTIVE = 1
+enum farmverse.identity.v1.MemberStatus.MEMBER_STATUS_DISABLED = 3
+enum farmverse.identity.v1.MemberStatus.MEMBER_STATUS_SUSPENDED = 2
+enum farmverse.identity.v1.MemberStatus.MEMBER_STATUS_UNSPECIFIED = 0
+field farmverse.identity.v1.BatchGetMembersRequest.tenant_id = 1 string
+field farmverse.identity.v1.BatchGetMembersRequest.user_ids = 2 repeated string
+field farmverse.identity.v1.BatchGetMembersResponse.members = 1 repeated farmverse.identity.v1.Member
+field farmverse.identity.v1.GetMemberRequest.tenant_id = 1 string
+field farmverse.identity.v1.GetMemberRequest.user_id = 2 string
+field farmverse.identity.v1.Member.display_name = 2 string
+field farmverse.identity.v1.Member.status = 3 farmverse.identity.v1.MemberStatus
+field farmverse.identity.v1.Member.user_id = 1 string
+rpc farmverse.identity.v1.IdentityDirectory.BatchGetMembers(farmverse.identity.v1.BatchGetMembersRequest) returns (farmverse.identity.v1.BatchGetMembersResponse)
+rpc farmverse.identity.v1.IdentityDirectory.GetMember(farmverse.identity.v1.GetMemberRequest) returns (farmverse.identity.v1.Member)

@@ -19,6 +19,7 @@
 
     <modules>
         <module>libs/farmverse-starter-service</module>
+        <module>libs/farmverse-contracts</module>
         <module>services/identity-service</module>
         <module>services/farm-service</module>
         <module>platform/api-gateway</module>
@@ -52,6 +53,11 @@
             <dependency>
                 <groupId>com.htv.farmverse</groupId>
                 <artifactId>farmverse-starter-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.htv.farmverse</groupId>
+                <artifactId>farmverse-contracts</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

@@ -12,7 +12,7 @@
 3. Kiến trúc và luồng đăng nhập
 4. mTLS giữa service
 5. Tiêu chí 10/10 và tiến độ
-6. gRPC giữa các service **[CHỜ DUYỆT]**
+6. gRPC giữa các service **[D7 đã duyệt · P1 xong]**
 7. Lộ trình và thứ tự làm
 8. Quyết định đã chốt và việc cần chốt
 9. Ngoài phạm vi (đã bỏ)
@@ -187,15 +187,18 @@ Cột trạng thái dựa trên code và test hiện có ngày 2026-11-04; cần
 
 **Cổng chất lượng:** tự chấm lại bảng 5.1-5.4; đủ 10/10 mới mở miền nghiệp vụ tiếp theo (trừ ngoại lệ được duyệt ở D7).
 
-## 6. gRPC giữa các service **[CHỜ DUYỆT]**
+## 6. gRPC giữa các service **[D7 đã duyệt 2026-11-04 · P1 xong]**
 
-Chưa có dòng code gRPC nào. Mức tin cậy các điều kiện kỹ thuật:
+P1 (probe build) đã xong: module `libs/farmverse-contracts` có proto `farmverse/identity/v1`, stub sinh lúc build, test khóa hợp đồng. Chưa có server hay client gRPC trong service nào (P2, P3).
 
 | Mục | Trạng thái | Bằng chứng |
 |---|---|---|
-| Boot 4.1.2 có sẵn starter gRPC | Đã kiểm | `~/.m2` có `spring-boot-starter-grpc-server`, `-client`, `-server-test`, `-client-test`, `spring-grpc-core` |
-| Plugin sinh code proto | Đã kiểm một phần | `io.github.ascopes:protobuf-maven-plugin` 5.1.8, 5.1.9 có trong `~/.m2`; bản do Boot BOM quản **chưa kiểm** |
-| Tên thuộc tính `spring.grpc.*`, API `GrpcSecurity` | Chưa kiểm lại | Xác minh bằng probe build ở bước P1 |
+| Boot 4.1.2 có sẵn starter gRPC | Đã kiểm | `spring-boot-starter-grpc-server`, `-client`, `-server-test` 4.1.2; `spring-grpc-core` 1.1.2 |
+| Plugin sinh code proto | **Đã kiểm (P1)** | Boot BOM quản `io.github.ascopes:protobuf-maven-plugin` **5.1.11**. `spring-boot-starter-parent` cấu hình sẵn `protoc` 4.36.2, `protoc-gen-grpc-java` 1.84.1 (`@generated=omit`) và execution `generate`. Module chỉ cần khai plugin, không ghi version (`libs/farmverse-contracts/pom.xml`) |
+| Tên thuộc tính `spring.grpc.*` | **Đã kiểm (P1)**, đọc metadata của jar | Server: `spring.grpc.server.{port,address}`, `.ssl.{bundle,enabled,client-auth}` (`NONE`/`OPTIONAL`/`REQUIRE`, mặc định `none`), `.reflection.enabled` (**mặc định true**), `.health.enabled`, `.observation.enabled`. Client: `spring.grpc.client.channel.<tên>.{target, ssl.bundle, ssl.enabled, default.deadline, health.*}` |
+| Cổng mặc định của server gRPC | **Đã kiểm (P1): 9090** | **Trùng** `MANAGEMENT_SERVER_PORT=9090` trong container (Dockerfile). P2 phải đặt `spring.grpc.server.port=9093` |
+| API `GrpcSecurity` + mTLS | **Đã kiểm (P1) bằng probe chạy thật** (project tạm, không commit) | `authenticationExtractor(new SslContextPreAuthenticationExtractor(x509 → tên))` + `preauth(p -> p.userDetailsService(...))` + `authorizeRequests(r -> r.methods("farmverse.identity.v1.IdentityDirectory/*").hasAuthority("SERVICE_FARM").allRequests().denyAll())`, trả `AuthenticationProcessInterceptor` gắn `@GlobalServerInterceptor`. Kết quả với cert của `generate-dev-mtls.sh`: cert farm → OK; cert gateway → `PERMISSION_DENIED`; không cert → `UNAVAILABLE` (TLS từ chối) |
+| Chi tiết dễ sai | Đã gặp ở probe | (1) Bean không được tên `grpcSecurity`: trùng bean của auto-config, context không khởi động. (2) Extractor mặc định lấy CN của subject; ta truyền extractor đọc SAN `spiffe://farmverse/<service>` để giống `ServiceIdentityFilter` của REST. (3) Cổng thật lấy từ `GrpcServerLifecycle#getPort()` (thuộc tính `local.grpc.server.port` không có khi không dùng module test của Boot) |
 | Trộn mTLS và JWT trong một chuỗi bảo mật gRPC | Chưa kiểm | Chỉ cần nếu chọn D3-B |
 
 Hiện chỉ có một lời gọi service → service là farm → identity lấy JWKS (HTTP, mTLS).
@@ -402,7 +405,7 @@ Test thường chạy trên H2/in-process; test trên PostgreSQL thật là `*IT
 
 | Bước | Việc | Điều kiện qua | Hoàn tác |
 |---|---|---|---|
-| P1 | Probe build: `libs/farmverse-contracts`, proto mẫu, sinh stub bằng plugin do BOM quản; xác minh thuộc tính `spring.grpc.*` và API bảo mật bằng build thật | Build xanh, stub sinh ra; bảng đầu mục 6 được cập nhật | Xóa module |
+| P1 ✅ | Probe build (xong 2026-11-04): `libs/farmverse-contracts`, proto mẫu, sinh stub bằng plugin do BOM quản; xác minh thuộc tính `spring.grpc.*` và API bảo mật bằng build thật | Build xanh, stub sinh ra; bảng đầu mục 6 được cập nhật | Xóa module |
 | P2 | Identity: `MemberDirectoryService`, `adapter/in/grpc`, mapper, mTLS + authority theo rpc, health, reflection theo profile | T1, T2, T5, T7 xanh | Tắt `spring.grpc.server`, xóa adapter |
 | P3 | Farm: cột `manager_user_id`, `Farm.assignManager`, port `MemberDirectory`, adapter gRPC client, 2 REST, ánh xạ lỗi, giảm cấp | T3, T4, T8 xanh; test cũ vẫn xanh | Xóa adapter, giữ cột nullable |
 | P4 | Tài liệu: `docs/patterns/grpc.md`, cập nhật `docs/patterns/mtls.md` và `docs/operations/local-development.md` (cổng 9093) | Link không gãy | Revert |
@@ -443,12 +446,12 @@ Bài học thiết kế nên nắm theo từng bước: cô lập tenant (F1), P
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
 | D1 | Cột `manager_user_id` cho farm: sửa thẳng `V1` hay thêm `V2`? (đổi schema) | `V1`, theo quy ước gom baseline |
-| D2 | Tạo `libs/farmverse-contracts` (chỉ proto) hay để proto trong từng service? | Module riêng: một nguồn sự thật, có test khóa hợp đồng |
+| D2 | Tạo `libs/farmverse-contracts` (chỉ proto) hay để proto trong từng service? | **Đã chọn (P1): module riêng**, một nguồn sự thật, có test khóa hợp đồng |
 | D3 | Ngữ cảnh tenant trong gRPC: A mTLS + `tenant_id` do farm gửi / B chuyển tiếp JWT người dùng / C token `client_credentials` | A trước, ghi rõ mô hình đe dọa (mục 6.5) |
 | D4 | Ca dùng gRPC đầu tiên là "farm gán người phụ trách"? | Có |
 | D5 | Gateway → service giữ REST, chỉ service ↔ service dùng gRPC? | Có |
 | D6 | "Một cổng công khai `/idp`" (từng nằm trong tài liệu cũ đã xóa): làm không, và khi nào? | Tách thành thiết kế riêng khi cần. gRPC không phụ thuộc nó vì đi mạng nội bộ |
-| D7 | gRPC là mở rộng, nhưng cổng chất lượng chưa đạt. Cho làm trước (một ca dùng) không? | Xin ngoại lệ có giới hạn |
+| D7 | gRPC là mở rộng, nhưng cổng chất lượng chưa đạt. Cho làm trước (một ca dùng) không? | **Đã duyệt (2026-11-04)**: làm một ca dùng, theo bảng 6.8 |
 | D8 | Redis dev có mật khẩu không (S2)? | **Đã chốt: có** (M3) |
 
 ## 9. Ngoài phạm vi (đã bỏ)
