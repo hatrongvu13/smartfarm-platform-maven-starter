@@ -50,8 +50,11 @@ public class RedisUnavailableHandler implements WebExceptionHandler {
     static boolean isRedisFailure(Throwable error) {
         for (Throwable t = error; t != null; t = t.getCause()) {
             if (t instanceof DataAccessResourceFailureException   // gồm RedisConnectionFailureException
-                    || t instanceof QueryTimeoutException          // Lettuce hết thời gian chờ lệnh
-                    || t instanceof RedisSystemException) {
+                    || t instanceof QueryTimeoutException          // hết thời gian chờ (khi Spring đã dịch lỗi)
+                    || t instanceof RedisSystemException
+                    // Kênh reactive của Lettuce ném thẳng lỗi gốc, không qua bộ dịch của Spring
+                    // (vd RedisCommandTimeoutException khi Redis treo). Đã thấy bằng GatewayRedisIT.
+                    || t instanceof io.lettuce.core.RedisException) {
                 return true;
             }
             if (t.getCause() == t) {

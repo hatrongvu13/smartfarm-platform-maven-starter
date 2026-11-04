@@ -18,6 +18,9 @@ class RedisUnavailableHandlerTest {
     void recognisesRedisFailuresAnywhereInTheCauseChain() {
         assertThat(RedisUnavailableHandler.isRedisFailure(new RedisConnectionFailureException("x"))).isTrue();
         assertThat(RedisUnavailableHandler.isRedisFailure(new QueryTimeoutException("x"))).isTrue();
+        // Redis treo, kênh reactive: Lettuce ném thẳng, không qua bộ dịch DAO của Spring (thấy ở GatewayRedisIT)
+        assertThat(RedisUnavailableHandler.isRedisFailure(
+                new io.lettuce.core.RedisCommandTimeoutException("HGETALL. Command timed out"))).isTrue();
         assertThat(RedisUnavailableHandler.isRedisFailure(
                 new IllegalStateException("wrap", new RedisConnectionFailureException("x")))).isTrue();
     }
