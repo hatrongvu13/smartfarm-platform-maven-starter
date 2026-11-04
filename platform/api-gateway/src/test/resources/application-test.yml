@@ -1,0 +1,3 @@
+# Profile test của gateway. Cổng quản trị ngẫu nhiên để test chạy song song không giẫm cổng 9080.
+# Đặt qua biến (không đặt thẳng management.server.port) để test kiểm luôn cách application.yml nối biến.
+GATEWAY_MANAGEMENT_PORT: 0

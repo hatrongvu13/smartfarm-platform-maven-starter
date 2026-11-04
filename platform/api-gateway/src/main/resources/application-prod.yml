@@ -7,3 +7,5 @@ spring:
 farmverse:
   gateway:
     secure-cookie: true
+    headers:
+      hsts: true          # TLS kết thúc ở edge; gateway vẫn gửi HSTS (max-age 1 năm, không includeSubDomains)

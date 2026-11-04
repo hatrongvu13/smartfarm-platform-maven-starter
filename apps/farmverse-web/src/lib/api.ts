@@ -97,14 +97,26 @@ export function startLogin() {
     window.location.href = '/oauth2/authorization/farmverse'
 }
 
-/** Đăng xuất: POST /logout (có CSRF) → gateway xóa session rồi đăng xuất ở identity. */
-export async function logout() {
+/**
+ * Đăng xuất: gửi form POST /logout (kèm CSRF) bằng điều hướng THẬT của trình duyệt.
+ *
+ * Gateway xóa session rồi trả 302 tới identity (/connect/logout) để xóa cả phiên SSO của identity.
+ * Không dùng fetch(): fetch không đưa trình duyệt sang identity (redirect 'manual' nuốt 302; 'follow' thì
+ * request sang identity không mang cookie phiên của nó), nên phiên của identity còn nguyên và bấm
+ * "Đăng nhập" lần sau vào thẳng mà không hỏi mật khẩu.
+ */
+export function logout() {
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = '/logout'
     const xsrf = readCookie('XSRF-TOKEN')
-    await fetch('/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: xsrf ? {'X-XSRF-TOKEN': xsrf} : {},
-        redirect: 'manual',
-    })
-    window.location.href = '/';
+    if (xsrf) {
+        const field = document.createElement('input')
+        field.type = 'hidden'
+        field.name = '_csrf'
+        field.value = xsrf
+        form.appendChild(field)
+    }
+    document.body.appendChild(form)
+    form.submit()
 }

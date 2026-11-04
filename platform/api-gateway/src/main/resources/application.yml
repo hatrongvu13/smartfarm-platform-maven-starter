@@ -8,11 +8,25 @@ spring:
     group:
       prod: [ mtls ]
 
+  # Redis giữ session (có access/refresh token) và bộ đếm rate limit: tài sản nhạy cảm.
+  # Timeout ngắn để Redis treo không giữ request vô hạn; Redis lỗi thì request có phiên nhận 503
+  # (RedisUnavailableHandler), không bao giờ được cho qua.
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
+      # ACL user (prod): đặt SPRING_DATA_REDIS_USERNAME. Không khai ở đây vì chuỗi rỗng có thể bị gửi
+      # thành "AUTH '' <mật khẩu>" và Redis từ chối.
       password: ${REDIS_PASSWORD}
+      timeout: ${REDIS_TIMEOUT:2s}          # thời gian chờ một lệnh
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:1s}
+
+  # Phiên BFF: hết hạn sau thời gian không hoạt động; key riêng để không lẫn với ứng dụng khác dùng chung Redis.
+  session:
+    timeout: ${GATEWAY_SESSION_TIMEOUT:30m}
+    data:
+      redis:
+        namespace: farmverse:gateway:session
 
   cloud:
     gateway:
@@ -45,6 +59,18 @@ spring:
 # ---- Gateway là OIDC client của identity (xem GatewayOidcProperties) ----
 farmverse:
   gateway:
+    # Header bảo mật (SecurityConfiguration#securityHeaders). CSP này dành cho bản build của SPA: chỉ tài nguyên
+    # cùng origin, không script/style nhúng. {identity-origin} được thay bằng origin của issuer (đích redirect
+    # khi đăng xuất). Dev ghi đè trong application-dev.yml cho Vite.
+    # IP/CIDR của edge TLS (load balancer, ingress) được tin header X-Forwarded-*/Forwarded, cách nhau bằng dấu phẩy.
+    # Rỗng = không tin ai. Prod phải đặt, nếu không redirect_uri OIDC thành http://<máy nội bộ> và đăng nhập hỏng.
+    trusted-proxies: ${GATEWAY_TRUSTED_PROXIES:}
+    headers:
+      content-security-policy: >-
+        default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:;
+        font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self';
+        frame-ancestors 'none'; form-action 'self' {identity-origin}
+      hsts: false
     oidc:
       issuer: ${IDENTITY_ISSUER:http://localhost:8092}
       client-id: farmverse-gateway
@@ -57,12 +83,21 @@ farmverse:
 server:
   port: 8080
   address: ${GATEWAY_BIND_ADDRESS:127.0.0.1}
+  # Không để Reactor Netty tự đọc X-Forwarded-* (chế độ native tin mọi nguồn; Boot tự bật nó trên Kubernetes).
+  # Header forwarded chỉ được dùng khi đến từ farmverse.gateway.trusted-proxies (TrustedProxyForwardedHeaderTransformer).
+  forward-headers-strategy: none
 
+# Actuator ở cổng quản trị riêng, chỉ loopback, không TLS (giống identity :9092, farm :9082).
+# Cổng công khai 8080 không có /actuator/** (ADR-0008). Probe: /actuator/health/{liveness,readiness}.
+# Endpoint "gateway" (liệt kê route + URI nội bộ) cố ý không bật; debug cục bộ thì tự thêm vào exposure.
 management:
+  server:
+    port: ${GATEWAY_MANAGEMENT_PORT:9080}
+    address: 127.0.0.1
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        include: health,info
   endpoint:
     health:
       probes:
