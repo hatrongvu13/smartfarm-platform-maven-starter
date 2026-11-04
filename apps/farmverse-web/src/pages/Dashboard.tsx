@@ -13,9 +13,9 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Phiên đăng nhập">
           <dl className="grid grid-cols-[8rem_1fr] gap-y-1 text-sm">
-            <dt className="text-stone-500">Email</dt><dd>{me?.email}</dd>
-            <dt className="text-stone-500">Tổ chức</dt><dd>{me?.tenantCode ?? me?.tenantId}</dd>
-            <dt className="text-stone-500">Role</dt>
+            <dt className="text-stone-600">Email</dt><dd>{me?.email}</dd>
+            <dt className="text-stone-600">Tổ chức</dt><dd>{me?.tenantCode ?? me?.tenantId}</dd>
+            <dt className="text-stone-600">Role</dt>
             <dd className="flex flex-wrap gap-1">{me?.roles.map(r => <Badge key={r} tone={r === 'SUPER_ADMIN' ? 'warn' : 'info'}>{r}</Badge>)}</dd>
           </dl>
         </Card>
@@ -23,7 +23,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap gap-1.5">
             {permissions.length
               ? permissions.map(p => <Badge key={p} tone="info">{p}</Badge>)
-              : <span className="text-sm text-stone-500">Chưa có quyền nào. Super admin vẫn vào được mọi trang.</span>}
+              : <span className="text-sm text-stone-600">Chưa có quyền nào. Super admin vẫn vào được mọi trang.</span>}
           </div>
         </Card>
         <Card title="Đi tới">

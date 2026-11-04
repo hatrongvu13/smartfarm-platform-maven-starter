@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity } from '../lib/api'
 import { Badge, Button, Card, ErrorMsg, Field, Input, Loading } from './ui'
+import { useConfirm } from './dialog'
 
 type Enrollment = { secret: string; otpauthUri: string }
 type MfaStatus = { totpEnabled: boolean; recoveryCodesRemaining: number }
@@ -11,6 +12,7 @@ type RecoveryCodes = { codes: string[] }
 // (hoặc một mã khôi phục nếu mất điện thoại). Mã khôi phục chỉ hiện đúng một lần.
 export default function TotpSettings() {
   const qc = useQueryClient()
+  const ask = useConfirm()
   const status = useQuery({ queryKey: ['mfa'], queryFn: () => api<MfaStatus>(identity('/me/mfa')) })
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
   const [recovery, setRecovery] = useState<string[] | null>(null)
@@ -77,13 +79,18 @@ export default function TotpSettings() {
       )}
 
       {status.data?.totpEnabled && (
-        <form className="space-y-3 text-sm" onSubmit={(e: FormEvent) => { e.preventDefault(); disable.mutate() }}>
+        <form className="space-y-3 text-sm" onSubmit={async (e: FormEvent) => {
+          e.preventDefault()
+          if (await ask({ title: 'Tắt xác thực hai bước?', body: 'Đăng nhập sẽ chỉ còn mật khẩu. Các mã khôi phục hiện tại mất hiệu lực.', confirmLabel: 'Tắt', danger: true })) disable.mutate()
+        }}>
           <p>Còn {status.data.recoveryCodesRemaining} mã khôi phục chưa dùng.</p>
           <p>Nhập mã hiện tại để sinh lại mã khôi phục (bộ cũ mất hiệu lực) hoặc để tắt xác thực hai bước.</p>
           {codeInput}
           <div className="flex gap-2">
             <Button type="button" variant="ghost" disabled={regenerate.isPending || code.length !== 6}
-              onClick={() => regenerate.mutate()}>Sinh lại mã khôi phục</Button>
+              onClick={async () => {
+                if (await ask({ title: 'Sinh lại mã khôi phục?', body: 'Bộ mã cũ mất hiệu lực ngay. Hãy lưu bộ mã mới.', confirmLabel: 'Sinh lại', danger: true })) regenerate.mutate()
+              }}>Sinh lại mã khôi phục</Button>
             <Button variant="danger" disabled={disable.isPending}>Tắt xác thực hai bước</Button>
           </div>
         </form>

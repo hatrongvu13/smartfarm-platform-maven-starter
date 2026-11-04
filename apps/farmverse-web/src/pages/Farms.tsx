@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, farm as farmApi } from '../lib/api'
 import { hasPermission, useAuth } from '../lib/auth'
 import { useFarm } from '../lib/farm'
+import { useConfirm } from '../components/dialog'
 import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState, Empty, statusTone } from '../components/ui'
 
 type Barn = { code: string; name: string; capacity: number }
@@ -14,6 +15,7 @@ export default function Farms() {
   const canWrite = hasPermission(me, 'farm:farm:write')
   const { farmId, setFarmId } = useFarm()
   const qc = useQueryClient()
+  const confirm = useConfirm()
   const [draft, setDraft] = useState({ code: '', name: '', address: '' })
   const [barn, setBarn] = useState({ code: '', name: '', capacity: 10 })
 
@@ -46,8 +48,8 @@ export default function Farms() {
             {list.map(f => (
               <li key={f.id} className="flex items-center justify-between gap-3 py-2">
                 <div>
-                  <div className="font-medium">{f.name} <span className="text-stone-500">({f.code})</span></div>
-                  <div className="text-stone-500">{f.barns.length} chuồng · sức chứa {f.totalCapacity}</div>
+                  <div className="font-medium">{f.name} <span className="text-stone-600">({f.code})</span></div>
+                  <div className="text-stone-600">{f.barns.length} chuồng · sức chứa {f.totalCapacity}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone={statusTone(f.status)}>{f.status}</Badge>
@@ -82,12 +84,14 @@ export default function Farms() {
             {selected.barns.length === 0
               ? <Empty>{canWrite && selected.status === 'ACTIVE' ? 'Chưa có chuồng nào. Thêm chuồng ở khung bên cạnh.' : 'Chưa có chuồng nào.'}</Empty>
               : <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase text-stone-500"><tr><th className="py-2">Mã</th><th>Tên</th><th>Sức chứa</th><th /></tr></thead>
+              <thead className="border-b text-xs uppercase text-stone-600"><tr><th scope="col" className="py-2">Mã</th><th scope="col">Tên</th><th scope="col">Sức chứa</th><th scope="col"><span className="sr-only">Thao tác</span></th></tr></thead>
               <tbody>
                 {selected.barns.map(b => (
                   <tr key={b.code} className="border-b last:border-0">
                     <td className="py-2">{b.code}</td><td>{b.name}</td><td>{b.capacity}</td>
-                    <td className="text-right">{canWrite && <Button variant="ghost" onClick={() => removeBarn.mutate(b.code)}>Xóa</Button>}</td>
+                    <td className="text-right">{canWrite && <Button variant="ghost" aria-label={`Xóa chuồng ${b.code}`} onClick={async () => {
+                      if (await confirm({ title: `Xóa chuồng ${b.code}?`, body: `Chuồng "${b.name}" sẽ bị gỡ khỏi ${selected.name}.`, confirmLabel: 'Xóa chuồng', danger: true })) removeBarn.mutate(b.code)
+                    }}>Xóa</Button>}</td>
                   </tr>
                 ))}
               </tbody>

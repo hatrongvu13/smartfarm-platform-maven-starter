@@ -12,7 +12,7 @@ import { Button } from './components/ui'
 
 export default function App() {
   const { status, login } = useAuth()
-  if (status === 'loading') return <div className="p-10 text-stone-500">Đang tải…</div>
+  if (status === 'loading') return <div className="p-10 text-stone-600">Đang tải…</div>
 
   // Chưa có session ở gateway: đăng nhập diễn ra trên trang của identity-service (OIDC).
   if (status === 'anonymous') {

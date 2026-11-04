@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, identity, type Page } from '../../lib/api'
 import { hasPermission, useAuth } from '../../lib/auth'
+import { useConfirm } from '../../components/dialog'
 import { Badge, Button, Card, ErrorMsg, Field, Input, PageHeader, QueryState, Select, statusTone } from '../../components/ui'
 
 type User = { userId: string; email: string; displayName: string; status: 'ACTIVE' | 'SUSPENDED' | 'DISABLED'; roles: string[]; locked: boolean; lastLoginAt?: string }
@@ -12,6 +13,7 @@ export default function Users() {
   const { me } = useAuth()
   const canManage = hasPermission(me, 'identity:user:manage')
   const qc = useQueryClient()
+  const confirm = useConfirm()
   const [page, setPage] = useState(0)
   const [draft, setDraft] = useState({ email: '', displayName: '', password: '', role: '' })
 
@@ -61,13 +63,13 @@ export default function Users() {
             {() => (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase text-stone-500">
-                <tr><th className="py-2 pr-3">Người dùng</th><th className="py-2 pr-3">Trạng thái</th><th className="py-2 pr-3">Role</th><th className="py-2" /></tr>
+              <thead className="border-b text-xs uppercase text-stone-600">
+                <tr><th scope="col" className="py-2 pr-3">Người dùng</th><th scope="col" className="py-2 pr-3">Trạng thái</th><th scope="col" className="py-2 pr-3">Role</th><th scope="col" className="py-2"><span className="sr-only">Thao tác</span></th></tr>
               </thead>
               <tbody>
                 {rows.map(u => (
                   <tr key={u.userId} className="border-b align-top last:border-0">
-                    <td className="py-2 pr-3"><div className="font-medium">{u.displayName}</div><div className="text-stone-500">{u.email}</div></td>
+                    <td className="py-2 pr-3"><div className="font-medium">{u.displayName}</div><div className="text-stone-600">{u.email}</div></td>
                     <td className="py-2 pr-3"><Badge tone={statusTone(u.status)}>{u.status}</Badge>{u.locked && <Badge tone="bad">khóa tạm</Badge>}</td>
                     <td className="py-2 pr-3">
                       {canManage ? (
@@ -80,10 +82,14 @@ export default function Users() {
                     </td>
                     <td className="space-x-1 whitespace-nowrap py-2 text-right">
                       {canManage && u.userId !== me?.userId && (u.status === 'ACTIVE'
-                        ? <Button variant="ghost" onClick={() => setStatus.mutate({ userId: u.userId, status: 'SUSPENDED' })}>Tạm khóa</Button>
+                        ? <Button variant="ghost" aria-label={`Tạm khóa ${u.email}`} onClick={async () => {
+                            if (await confirm({ title: `Tạm khóa ${u.email}?`, body: 'Người này không đăng nhập được và không làm mới được token cho tới khi được mở lại.', confirmLabel: 'Tạm khóa', danger: true })) setStatus.mutate({ userId: u.userId, status: 'SUSPENDED' })
+                          }}>Tạm khóa</Button>
                         : <Button variant="ghost" onClick={() => setStatus.mutate({ userId: u.userId, status: 'ACTIVE' })}>Mở lại</Button>)}
                       {canManage && u.locked && <Button variant="ghost" onClick={() => unlock.mutate(u.userId)}>Mở khóa</Button>}
-                      {canManage && u.userId !== me?.userId && <Button variant="ghost" title="Người dùng mất thiết bị authenticator" onClick={() => resetMfa.mutate(u.userId)}>Reset 2FA</Button>}
+                      {canManage && u.userId !== me?.userId && <Button variant="ghost" aria-label={`Reset 2FA của ${u.email}`} onClick={async () => {
+                        if (await confirm({ title: `Reset 2FA của ${u.email}?`, body: 'Dùng khi người dùng mất thiết bị authenticator. Mã TOTP và mọi mã khôi phục hiện tại mất hiệu lực; họ phải đăng ký lại.', confirmLabel: 'Reset 2FA', danger: true })) resetMfa.mutate(u.userId)
+                      }}>Reset 2FA</Button>}
                     </td>
                   </tr>
                 ))}

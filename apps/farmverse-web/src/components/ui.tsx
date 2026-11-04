@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import { cloneElement, useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { describeError } from '../lib/errors'
 
@@ -6,20 +6,30 @@ const cx = (...a: (string | false | undefined)[]) => a.filter(Boolean).join(' ')
 
 export function Button({ variant = 'primary', className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'danger' }) {
   const v = {
-    primary: 'bg-brand-600 text-white hover:bg-brand-700',
+    // brand-700: chữ trắng ~6,5:1 (brand-600 chỉ ~4,3:1, dưới mức AA 4,5:1 — axe báo)
+    primary: 'bg-brand-700 text-white hover:bg-brand-900',
     ghost: 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-100',
     danger: 'bg-red-600 text-white hover:bg-red-700',
   }[variant]
-  return <button {...p} className={cx('inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50', v, className)} />
+  return <button {...p} className={cx('inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50', focusRing, v, className)} />
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+/** Viền focus thấy rõ khi dùng bàn phím (không hiện khi bấm chuột). */
+export const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700'
+
+/**
+ * Nhãn + gợi ý cho một ô nhập. Nhãn nối bằng htmlFor/id; gợi ý nối bằng aria-describedby, để trình đọc màn hình
+ * đọc tên ô ngắn gọn ("Mã") rồi mới đọc gợi ý, thay vì gộp gợi ý vào tên ô.
+ */
+export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactElement<{ id?: string; 'aria-describedby'?: string }> }) {
+  const id = useId()
+  const hintId = `${id}-hint`
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-stone-700">{label}</span>
-      {children}
-      {hint && <span className="mt-1 block text-xs text-stone-500">{hint}</span>}
-    </label>
+    <div>
+      <label htmlFor={id} className="mb-1 block text-sm font-medium text-stone-700">{label}</label>
+      {cloneElement(children, { id, 'aria-describedby': hint ? hintId : undefined })}
+      {hint && <p id={hintId} className="mt-1 text-xs text-stone-600">{hint}</p>}
+    </div>
   )
 }
 
@@ -73,9 +83,9 @@ export function ErrorMsg({ error, onRetry }: { error: unknown; onRetry?: () => v
       )}
       <div className="mt-1 flex items-center gap-3">
         {onRetry && view.retryable && (
-          <button type="button" onClick={onRetry} className="font-medium text-red-900 underline underline-offset-2">Thử lại</button>
+          <button type="button" onClick={onRetry} className={cx('font-medium text-red-900 underline underline-offset-2', focusRing)}>Thử lại</button>
         )}
-        {view.code && <span className="text-xs text-red-800/80">Mã lỗi: {view.code}</span>}
+        {view.code && <span className="text-xs text-red-800">Mã lỗi: {view.code}</span>}
       </div>
     </div>
   )
@@ -119,12 +129,14 @@ export function Json({ data }: { data: unknown }) {
   return <pre className="max-h-80 overflow-auto rounded-lg bg-stone-900 p-3 text-xs text-stone-100">{JSON.stringify(data, null, 2)}</pre>
 }
 
+/** Tiêu đề trang; đồng thời đặt tiêu đề tab trình duyệt (WCAG 2.4.2), để người dùng nhiều tab và trình đọc màn hình biết đang ở đâu. */
 export function PageHeader({ title, sub, right }: { title: string; sub?: ReactNode; right?: ReactNode }) {
+  useEffect(() => { document.title = `${title} · FarmVerse` }, [title])
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {sub && <p className="mt-1 text-sm text-stone-500">{sub}</p>}
+        {sub && <p className="mt-1 text-sm text-stone-600">{sub}</p>}
       </div>
       {right}
     </div>
