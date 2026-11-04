@@ -46,7 +46,7 @@ jobs:
           retention-days: 7
 
   web:
-    name: web (typecheck, chuỗi, build)
+    name: web (typecheck, chuỗi, test, build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -67,6 +67,8 @@ jobs:
       - run: npm run typecheck
       # W5: mọi chữ hiển thị nằm ở src/i18n/vi.ts
       - run: npm run check:i18n
+      # W6: Vitest + Testing Library trên jsdom; fetch giả lập, không cần gateway
+      - run: npm test
       - run: npm run build
 
   image:

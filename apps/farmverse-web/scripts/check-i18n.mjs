@@ -23,7 +23,8 @@ const stripComments = source => source
 let found = 0
 for (const file of files(ROOT)) {
   const rel = relative(ROOT, file)
-  if (ALLOWED.has(rel) || rel.startsWith('generated/')) continue
+  // Test (W6) không hiển thị cho người dùng: tên test và dữ liệu giả được viết tiếng Việt
+  if (ALLOWED.has(rel) || rel.startsWith('generated/') || rel.startsWith('test/') || /\.test\.tsx?$/.test(rel)) continue
   stripComments(readFileSync(file, 'utf8')).split('\n').forEach((line, i) => {
     if (VIETNAMESE.test(line)) {
       found++

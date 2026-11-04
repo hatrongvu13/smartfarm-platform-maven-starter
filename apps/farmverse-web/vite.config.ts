@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -12,5 +13,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     hmr: { clientPort: 8080 },
+  },
+  // W6: npm test (vitest run). jsdom thay trình duyệt; fetch được giả lập trong từng test.
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['src/test/setup.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
+    css: false,
   },
 })
