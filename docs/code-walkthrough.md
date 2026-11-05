@@ -288,6 +288,69 @@ classDiagram
 | `IdentityDirectoryGrpcService` | `IdentityDirectoryImplBase` (sinh từ proto) | Cài đặt rpc |
 | `Jdbc`/`InMemoryLoginAttemptCounter` | `LoginAttemptCounter` (port) | Đếm ở PostgreSQL / bộ nhớ |
 
+### 4.3 Tầng token của identity (SAS)
+
+Identity dựng máy cấp token của Spring Authorization Server (SAS) bằng ba bean cấu hình: đăng ký client, khóa ký, và nhúng claim. SAS là khung có sẵn; code của dự án chỉ cắm vào ba chỗ: `RegisteredClientRepository` (client nào được cấp token), `OAuth2TokenCustomizer` (token mang gì), và nguồn khóa (`JwtEncoder`/`JWKSource`).
+
+```mermaid
+classDiagram
+    class SecurityConfiguration
+    class OAuth2AuthorizationServerConfigurer {
+        <<Spring SAS>>
+    }
+    class OAuthClientProvisioner {
+        <<ApplicationRunner>>
+    }
+    class RegisteredClientRepository {
+        <<Spring JDBC>>
+    }
+    class FarmVerseTokenCustomizer {
+        <<OAuth2TokenCustomizer>>
+    }
+    class AccessService
+    class MembershipRepository {
+        <<Spring Data>>
+    }
+    class SigningKeyConfiguration
+    class JwtEncoder {
+        <<Spring>>
+    }
+    class JwtDecoder {
+        <<Spring>>
+    }
+    class JWKSource {
+        <<nguồn khóa>>
+    }
+    class RefreshTokenReuseDetection
+    class JdbcOAuth2AuthorizationService {
+        <<Spring>>
+    }
+
+    SecurityConfiguration --> OAuth2AuthorizationServerConfigurer : dựng chuỗi
+    OAuth2AuthorizationServerConfigurer --> JwtEncoder : ký access/id token
+    OAuth2AuthorizationServerConfigurer --> FarmVerseTokenCustomizer : gọi khi tạo token
+    OAuth2AuthorizationServerConfigurer --> RegisteredClientRepository : tra client
+    OAuth2AuthorizationServerConfigurer --> RefreshTokenReuseDetection : đọc/ghi authorization
+    OAuthClientProvisioner --> RegisteredClientRepository : nạp từ YAML
+    FarmVerseTokenCustomizer --> AccessService : lấy quyền hiệu lực
+    AccessService --> MembershipRepository : đọc membership
+    SigningKeyConfiguration --> JWKSource : tạo
+    SigningKeyConfiguration --> JwtEncoder : tạo (chỉ khóa đang ký)
+    SigningKeyConfiguration --> JwtDecoder : tạo (mọi khóa + validator)
+    JwtDecoder --> JWKSource : chọn khóa theo kid
+    RefreshTokenReuseDetection --> JdbcOAuth2AuthorizationService : bọc
+```
+
+Đọc theo ba câu hỏi:
+
+| Câu hỏi | Bean | Việc |
+|---|---|---|
+| Client nào được cấp token? | `OAuthClientProvisioner` → `RegisteredClientRepository` | Nạp `farmverse.identity.clients` (gateway, service nội bộ) vào bảng SAS lúc khởi động; PKCE bắt buộc cho `authorization_code`; refresh token xoay vòng |
+| Token mang gì? | `FarmVerseTokenCustomizer` ← `AccessService` ← `MembershipRepository` | Access token: `aud`, `token_type`, và với người dùng thì `tenant_id`, `membership_id`, `roles`, `perms`. ID token: `user_id`, email/tên theo scope |
+| Ký và kiểm bằng khóa nào? | `SigningKeyConfiguration` | Một khóa đang ký (`RSAKey` từ PEM); `JWKSource` công bố cả khóa đã nghỉ; `JwtEncoder` chỉ dùng khóa đang ký; `JwtDecoder` (cho `/userinfo` và REST của identity) chọn khóa theo `kid`, kiểm issuer + audience bằng `FarmVerseJwtValidators` |
+
+`RefreshTokenReuseDetection` bọc `JdbcOAuth2AuthorizationService`: khi refresh token xoay, nó nhớ hash token cũ; dùng lại token cũ (quá khoảng cho phép) thì thu hồi cả nhóm (RFC 9700). Resource server (gateway, farm) **không** nằm trong sơ đồ này: chúng tự kiểm JWT bằng JWKS nhớ đệm, không gọi `JwtDecoder` của identity.
+
 ## 5. Bảng class và vai trò
 
 ### Gateway — `platform/api-gateway`
