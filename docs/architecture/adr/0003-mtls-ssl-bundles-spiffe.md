@@ -16,4 +16,4 @@
 
 **Hệ quả.** Prod bắt buộc (`prod` kéo theo `mtls`). Dev mặc định tắt cho dễ chạy; ba service phải cùng bật hoặc cùng tắt.
 
-**Bằng chứng.** [`ServiceIdentityFilter`](../../../libs/farmverse-starter-service/src/main/java/com/htv/farmverse/service/mtls/ServiceIdentityFilter.java), [`MtlsClients`](../../../libs/farmverse-starter-service/src/main/java/com/htv/farmverse/service/mtls/MtlsClients.java), `MtlsIntegrationTest` ở farm và identity, [`docs/patterns/mtls.md`](../../patterns/mtls.md).
+**Bằng chứng.** [`ServiceIdentityFilter`](../../../libs/farmverse-starter-service/src/main/java/com/htv/farmverse/service/mtls/ServiceIdentityFilter.java), [`MtlsClients`](../../../libs/farmverse-starter-service/src/main/java/com/htv/farmverse/service/mtls/MtlsClients.java), `MtlsIntegrationTest` ở farm và identity, [`docs/code-walkthrough.md` mục 7.4](../../code-walkthrough.md#74-mtls-giữa-service-bằng-ssl-bundle).

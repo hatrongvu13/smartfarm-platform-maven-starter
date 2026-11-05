@@ -11,4 +11,4 @@
 - Quyền nhúng trong token: đổi quyền có hiệu lực ở token kế tiếp (tối đa 5 phút).
 - TOTP tự viết phải giữ test chống replay và mã hóa secret.
 
-**Bằng chứng.** [`OAuthClientProvisioner`](../../../services/identity-service/src/main/java/com/htv/farmverse/identity/oauth2/OAuthClientProvisioner.java), [`FarmVerseTokenCustomizer`](../../../services/identity-service/src/main/java/com/htv/farmverse/identity/oauth2/FarmVerseTokenCustomizer.java), [`TotpService`](../../../services/identity-service/src/main/java/com/htv/farmverse/identity/mfa/TotpService.java), [`docs/patterns/oidc-sas.md`](../../patterns/oidc-sas.md).
+**Bằng chứng.** [`OAuthClientProvisioner`](../../../services/identity-service/src/main/java/com/htv/farmverse/identity/oauth2/OAuthClientProvisioner.java), [`FarmVerseTokenCustomizer`](../../../services/identity-service/src/main/java/com/htv/farmverse/identity/oauth2/FarmVerseTokenCustomizer.java), [`TotpService`](../../../services/identity-service/src/main/java/com/htv/farmverse/identity/mfa/TotpService.java), [`docs/code-walkthrough.md` mục 7.2](../../code-walkthrough.md#72-oidc-với-spring-authorization-server-quyền-nằm-trong-jwt).

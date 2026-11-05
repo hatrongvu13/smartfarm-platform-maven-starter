@@ -34,6 +34,6 @@ Khi bật `mtls`, trang login của identity ở `https://localhost:8092` dùng 
 
 ## Tài liệu
 
-- Pattern: [`docs/patterns/`](docs/patterns) — BFF, OIDC với SAS, hexagonal + multi-tenant, mTLS
+- Đọc mã theo luồng, có cả pattern: [`docs/code-walkthrough.md`](docs/code-walkthrough.md)
 - Chạy dev: [`docs/operations/local-development.md`](docs/operations/local-development.md)
 - Bảo mật: [`SECURITY.md`](SECURITY.md)

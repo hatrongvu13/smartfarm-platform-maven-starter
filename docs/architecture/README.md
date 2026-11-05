@@ -34,5 +34,5 @@ mTLS chỉ bật với profile `mtls` (prod luôn bật). Xem [current-architect
 
 - Đọc mã theo luồng (cho người mới): [`docs/code-walkthrough.md`](../code-walkthrough.md).
 - Thiết kế: [`content/thiet-ke-farmverse.md`](../../content/thiet-ke-farmverse.md).
-- Pattern chi tiết: [`docs/patterns/`](../patterns/) (BFF, OIDC/SAS, hexagonal + multi-tenant, mTLS).
+- Pattern chi tiết (BFF, OIDC/SAS, hexagonal + multi-tenant, mTLS, gRPC): [`docs/code-walkthrough.md` mục 7](../code-walkthrough.md#7-các-pattern-trong-dự-án).
 - Vận hành: [`docs/operations/`](../operations/).

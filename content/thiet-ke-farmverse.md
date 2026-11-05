@@ -66,7 +66,7 @@ flowchart LR
 - **Database per service**; tenant tách bằng claim `tenant_id` trong JWT + Hibernate `@TenantId`.
 - **Phân quyền**: quyền nằm trong JWT, kiểm bằng `@PreAuthorize` theo permission.
 - **Trình duyệt không giữ token**: gateway giữ token trong Redis, trình duyệt chỉ có cookie HttpOnly.
-- Chi tiết pattern: `docs/patterns/bff.md`, `oidc-sas.md`, `hexagonal-multitenant.md`.
+- Chi tiết pattern và luồng kèm class: [docs/code-walkthrough.md](../docs/code-walkthrough.md).
 
 ### 3.1 Đăng nhập qua BFF
 
@@ -114,7 +114,7 @@ Mọi gọi **giữa service** đều mã hóa và hai bên chứng minh danh t�
 | Bật/tắt | prod luôn bật (`prod` kéo theo `mtls`). Dev mặc định tắt; bật bằng `SPRING_PROFILES_ACTIVE=dev,mtls` trên cả ba service |
 | Prod | CA thật hoặc cert-manager cấp file PEM; service chỉ đọc file |
 
-Chi tiết và bằng chứng test: `docs/patterns/mtls.md`.
+Chi tiết và bằng chứng test: [docs/code-walkthrough.md](../docs/code-walkthrough.md) mục 7.4.
 
 ## 5. gRPC giữa service
 
@@ -143,7 +143,7 @@ Bảo mật ba lớp:
 
 Nguyên tắc biên proto: proto **không** là domain. Mỗi bên có một `MemberMapper` đổi proto ↔ record; chỉ mapper import lớp sinh ra. Deadline 2s mỗi lời gọi; gọi gRPC **ngoài** transaction DB. Identity lỗi khi ghi thì từ chối (503), không đoán; khi đọc thì giảm cấp.
 
-Chi tiết, quy ước tương thích và test: `docs/patterns/grpc.md`. Luồng kèm class: [docs/code-walkthrough.md](../docs/code-walkthrough.md) mục 3.3.
+Chi tiết, quy ước tương thích và test: [docs/code-walkthrough.md](../docs/code-walkthrough.md) mục 7.5. Luồng kèm class: mục 3.3.
 
 ## 6. Quyết định đã chốt
 

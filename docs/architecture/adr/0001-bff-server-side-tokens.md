@@ -11,4 +11,4 @@
 - Redis thành tài sản nhạy cảm: phải có mật khẩu/ACL, TLS, timeout (M3).
 - Gateway có trạng thái; scale ngang nhờ session chung ở Redis.
 
-**Bằng chứng.** [`SecurityConfiguration`](../../../platform/api-gateway/src/main/java/com/htv/farmverse/gateway/config/SecurityConfiguration.java), [`BffController`](../../../platform/api-gateway/src/main/java/com/htv/farmverse/gateway/bff/BffController.java), [`docs/patterns/bff.md`](../../patterns/bff.md).
+**Bằng chứng.** [`SecurityConfiguration`](../../../platform/api-gateway/src/main/java/com/htv/farmverse/gateway/config/SecurityConfiguration.java), [`BffController`](../../../platform/api-gateway/src/main/java/com/htv/farmverse/gateway/bff/BffController.java), [`docs/code-walkthrough.md` mục 7.1](../../code-walkthrough.md#71-bff--token-relay-gateway).

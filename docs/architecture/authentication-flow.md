@@ -63,7 +63,7 @@ sequenceDiagram
     opt kid lạ (khóa mới)
         F->>I: GET /oauth2/jwks [mTLS] (tải lại JWKS)
     end
-    F->>F: @PreAuthorize perms farm:farm:write; @TenantId = tenant_id
+    F->>F: @PreAuthorize perms farm:farm:write, @TenantId = tenant_id
     F-->>G: 201 FarmView / ProblemDetail
     G-->>U: 201
 ```

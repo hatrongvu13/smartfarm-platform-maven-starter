@@ -72,7 +72,7 @@ Access token không thu hồi tức thì được: service kiểm JWT tại ch�
 | `bootstrap` | Seed danh mục quyền và super admin đầu tiên |
 | `directory`, `grpc` | Danh bạ thành viên chỉ-đọc và server gRPC của nó (mapper, bảo mật, guard prod) |
 
-Thiết kế chung: [`docs/patterns/oidc-sas.md`](../../docs/patterns/oidc-sas.md). Kiến trúc hiện tại: [`docs/architecture/current-architecture.md`](../../docs/architecture/current-architecture.md).
+Thiết kế chung: [`docs/code-walkthrough.md` mục 7.2](../../docs/code-walkthrough.md#72-oidc-với-spring-authorization-server-quyền-nằm-trong-jwt). Kiến trúc hiện tại: [`docs/architecture/current-architecture.md`](../../docs/architecture/current-architecture.md).
 
 ## Test
 

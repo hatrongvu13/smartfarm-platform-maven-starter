@@ -68,7 +68,7 @@ sequenceDiagram
     G-->>U: 302 tới identity /oauth2/authorize + cookie FV_SESSION
     U->>I: GET /oauth2/authorize → 302 /login
     U->>I: POST /login (tổ chức, email, mật khẩu, CSRF)
-    Note over I: LoginRateLimitFilter đếm theo IP; sai nhiều thì khóa tài khoản
+    Note over I: LoginRateLimitFilter đếm theo IP, sai nhiều thì khóa tài khoản
     alt tài khoản bật TOTP
         I-->>U: 302 /login/totp
         U->>I: POST /login/totp (mã 6 số hoặc mã khôi phục)
@@ -119,7 +119,7 @@ sequenceDiagram
     G->>F: POST /farms + Bearer [mTLS, cert gateway]
     F->>F: ServiceIdentityFilter: cert là gateway?
     F->>F: JwtDecoder: chữ ký, iss, aud, hạn, scope
-    F->>F: @PreAuthorize quyền; @TenantId lọc theo tổ chức
+    F->>F: @PreAuthorize quyền, @TenantId lọc theo tổ chức
     F-->>G: 201 FarmView hoặc ProblemDetail
     G-->>U: 201
 ```
@@ -156,7 +156,7 @@ sequenceDiagram
     F->>F: FarmService.assignManager: hỏi identity TRƯỚC khi mở transaction
     F->>I: gRPC GetMember(userId) [mTLS + chuyển tiếp token người dùng]
     I->>I: ServiceIdentityInterceptor: cert là farm?
-    I->>I: kiểm token (aud identity-service, scope); tenant lấy từ token
+    I->>I: kiểm token (aud identity-service, scope), tenant lấy từ token
     alt thành viên đang hoạt động
         I-->>F: Member{status=ACTIVE}
         F->>F: Farm.assignManager, mở transaction lưu
@@ -217,7 +217,78 @@ flowchart TD
 
 `AuthProvider` (`lib/auth.tsx`) gọi `GET /bff/me` khi mở trang. Có phiên thì hiện trang; 401 thì chuyển sang đăng nhập. `RequirePermission` ẩn trang khi thiếu quyền. `lib/api.ts` là client gọi gateway (gắn CSRF, bắt lỗi). `lib/errors.ts` đổi ProblemDetail thành câu tiếng Việt. Mọi chữ hiển thị nằm ở `i18n/vi.ts`.
 
-## 4. Bảng class và vai trò
+## 4. Sơ đồ class
+
+### 4.1 Cổng và bộ chuyển (port–adapter) ở farm
+
+Lõi (`domain`, `application`) không biết Spring/JPA/gRPC. Hai port là interface; bộ chuyển cài đặt chúng.
+
+```mermaid
+classDiagram
+    class FarmController
+    class FarmService
+    class Farm
+    class FarmRepository {
+        <<interface>> port ra
+    }
+    class MemberDirectory {
+        <<interface>> port ra
+    }
+    class JpaFarmRepository
+    class GrpcMemberDirectory
+    class FarmJpaRepository {
+        <<interface>> Spring Data
+    }
+
+    FarmController --> FarmService : gọi use case
+    FarmService --> Farm : áp luật
+    FarmService --> FarmRepository : lưu / đọc
+    FarmService --> MemberDirectory : hỏi thành viên
+    JpaFarmRepository ..|> FarmRepository : cài đặt
+    GrpcMemberDirectory ..|> MemberDirectory : cài đặt
+    JpaFarmRepository --> FarmJpaRepository : dùng
+```
+
+Đọc: mũi tên liền = "gọi/dùng"; `..|>` = "cài đặt interface". `FarmService` chỉ thấy hai port; đổi JPA sang thứ khác chỉ cần một lớp cài đặt mới, lõi không đổi. Đây là chỗ hiếm trong dự án interface chỉ một cài đặt cũng có lý do: ranh giới hexagonal là thứ đang học.
+
+### 4.2 Kế thừa từ Spring (những lớp mở rộng khung sẵn)
+
+Nhiều class là bản mở rộng của lớp Spring. Biết lớp cha thì đoán được hành vi mặc định.
+
+```mermaid
+classDiagram
+    OncePerRequestFilter <|-- ServiceIdentityFilter
+    OncePerRequestFilter <|-- TotpEnforcementFilter
+    OncePerRequestFilter <|-- LoginRateLimitFilter_idp
+    DaoAuthenticationProvider <|-- TenantAuthenticationProvider
+    ForwardedHeaderTransformer <|-- TrustedProxyForwardedHeaderTransformer
+    ResponseEntityExceptionHandler <|-- ProblemExceptionHandler
+    ProblemExceptionHandler <|-- FarmExceptionHandler
+    ProblemExceptionHandler <|-- IdentityExceptionHandler
+    ErrorResponseException <|-- ApiProblem
+    OAuth2TokenCustomizer <|.. FarmVerseTokenCustomizer
+    IdentityDirectoryImplBase <|-- IdentityDirectoryGrpcService
+    WebExceptionHandler <|.. DownstreamErrorHandler
+    WebExceptionHandler <|.. RedisUnavailableHandler
+    ServerLogoutHandler <|.. RevokeTokensOnLogoutHandler
+    LoginAttemptCounter <|.. JdbcLoginAttemptCounter
+    LoginAttemptCounter <|.. InMemoryLoginAttemptCounter
+```
+
+`<|--` = kế thừa lớp; `<|..` = cài đặt interface. `LoginRateLimitFilter_idp` là `LoginRateLimitFilter` của identity (gateway có một lớp cùng tên nhưng là `WebFilter` của WebFlux).
+
+| Lớp con | Lớp cha Spring | Thêm gì |
+|---|---|---|
+| `ServiceIdentityFilter` | `OncePerRequestFilter` | Kiểm SAN chứng chỉ mỗi request |
+| `TenantAuthenticationProvider` | `DaoAuthenticationProvider` | Chọn tổ chức sau khi kiểm mật khẩu |
+| `TrustedProxyForwardedHeaderTransformer` | `ForwardedHeaderTransformer` | Chỉ tin header từ IP edge đã khai |
+| `ProblemExceptionHandler` | `ResponseEntityExceptionHandler` | Lỗi MVC thành ProblemDetail có `code` |
+| `FarmExceptionHandler`, `IdentityExceptionHandler` | `ProblemExceptionHandler` | Lỗi nghiệp vụ của từng service |
+| `FarmVerseTokenCustomizer` | `OAuth2TokenCustomizer` | Nhúng claim FarmVerse vào token |
+| `IdentityDirectoryGrpcService` | `IdentityDirectoryImplBase` (sinh từ proto) | Cài đặt rpc |
+| `Jdbc`/`InMemoryLoginAttemptCounter` | `LoginAttemptCounter` (port) | Đếm ở PostgreSQL / bộ nhớ |
+
+## 5. Bảng class và vai trò
 
 ### Gateway — `platform/api-gateway`
 
@@ -310,7 +381,7 @@ flowchart TD
 | `pages/*` | Dashboard, Farms, Profile, admin/Users, admin/Authorization |
 | `i18n/vi.ts` | Mọi chữ hiển thị |
 
-## 5. Cây thư mục và vai trò
+## 6. Cây thư mục và vai trò
 
 ```text
 smartfarm-platform-maven-starter/
@@ -330,8 +401,80 @@ smartfarm-platform-maven-starter/
 
 Mỗi service theo khung Maven: `src/main/java` (mã), `src/main/resources` (`application*.yml`, `db/migration`), `src/test/java` (test). Farm còn thêm `src/main/java/.../domain|application|adapter` theo hexagonal.
 
+## 7. Các pattern trong dự án
+
+Năm cơ chế lặp lại ở nhiều nơi. Mỗi cái: vấn đề, cách làm bằng thành phần Spring, và test chứng minh.
+
+### 7.1 BFF + Token Relay (gateway)
+
+**Vấn đề:** nếu SPA giữ token trong trình duyệt thì một lỗi XSS là mất token.
+**Cách làm:** gateway đăng nhập thay trình duyệt, giữ token trong phiên Redis, trình duyệt chỉ có cookie.
+
+| Việc | Thành phần Spring |
+|---|---|
+| Đăng nhập thay trình duyệt | `oauth2Login()` + `OAuth2AuthorizationRequestCustomizers.withPkce()` |
+| Giữ token phía server | `WebSessionServerOAuth2AuthorizedClientRepository` + Spring Session Redis |
+| Gắn token xuống service, tự refresh | filter `TokenRelay=` + `ReactiveOAuth2AuthorizedClientManager` |
+| Chống CSRF cho cookie | `CookieServerCsrfTokenRepository.withHttpOnlyFalse()`; SPA gửi `X-XSRF-TOKEN` |
+| Đăng xuất cả IdP | `OidcClientInitiatedServerLogoutSuccessHandler` |
+| Giới hạn tốc độ | `RequestRateLimiter` + Redis, theo người dùng |
+
+Đánh đổi: gateway có trạng thái (phiên) nên cần Redis chung khi chạy nhiều bản; gateway phải khởi động sau identity. Test: `GatewaySecurityTest`. Luồng: mục 3.1.
+
+### 7.2 OIDC với Spring Authorization Server, quyền nằm trong JWT
+
+**Vấn đề:** nhiều service cần biết "ai, tổ chức nào, được làm gì" mà không hỏi identity mỗi request.
+**Cách làm:** identity nhúng vai trò và quyền vào access token; service tự kiểm chữ ký.
+
+| Việc | Thành phần |
+|---|---|
+| Endpoint OAuth2/OIDC chuẩn | `OAuth2AuthorizationServerConfigurer` + `oidc()` |
+| Lưu client, authorization, consent | `JdbcRegisteredClientRepository`, `JdbcOAuth2AuthorizationService` |
+| Đăng nhập có chọn tổ chức | `TenantAuthenticationProvider` (mở rộng `DaoAuthenticationProvider`), principal = membership id |
+| Nhúng claim | `FarmVerseTokenCustomizer` (`OAuth2TokenCustomizer`) ← `AccessService` |
+| Phía nhận | `spring.security.oauth2.resourceserver.jwt.*` + `FarmVerseJwtAuthenticationConverter` |
+
+Đánh đổi: quyền đổi có hiệu lực sau tối đa 5 phút (hạn access token); membership bị khóa thì lần refresh kế tiếp bị từ chối. Redirect URI không dùng host `localhost` (RFC 8252), nên gateway chạy ở `127.0.0.1`. Test: `AuthorizationCodeFlowTest`, `FarmControllerTest`.
+
+### 7.3 Hexagonal + aggregate + multi-tenant (farm)
+
+**Vấn đề:** giữ luật nghiệp vụ không dính Spring/JPA, và mỗi tổ chức chỉ thấy dữ liệu của mình.
+**Cách làm:** lõi `domain`/`application` thuần Java; adapter nối ra ngoài; Hibernate `@TenantId` lọc theo tổ chức.
+
+| Luật | Ở đâu |
+|---|---|
+| Mã chuồng không trùng trong một farm | `Farm.addBarn` |
+| Farm đã ngừng thì không thêm chuồng | `Farm.addBarn` |
+| Mỗi tổ chức chỉ thấy dữ liệu của mình | `@TenantId` + `TenantFromTokenResolver` đọc `tenant_id` trong token |
+
+Sơ đồ port–adapter: mục 4.1. Test: `FarmTest` (luật), `TenantIsolationTest` (tổ chức B không đọc được farm của A), `FarmControllerTest` (lỗi thành ProblemDetail).
+
+### 7.4 mTLS giữa service bằng SSL bundle
+
+**Vấn đề:** mạng nội bộ không tin tuyệt đối; cần biết chắc máy nào đang gọi.
+**Cách làm:** hai lớp. Lớp TLS đòi chứng chỉ do CA của mình ký. Lớp danh tính đọc SAN `spiffe://farmverse/<service>` và chỉ cho service trong danh sách.
+
+| Việc | Cấu hình |
+|---|---|
+| Khai cert | `spring.ssl.bundle.pem.farmverse.*`, `reload-on-update: true` |
+| Server | `server.ssl.bundle`, `server.ssl.client-auth` (farm `need`, identity `want`) |
+| Danh tính | `ServiceIdentityFilter` (REST) / `ServiceIdentityInterceptor` (gRPC) kiểm SAN |
+| Gateway → service | `WebClient`/httpclient gắn bundle |
+| Service → identity | `MtlsClients.jwtDecoder(...)` |
+| Cert dev | `scripts/generate-dev-mtls.sh` |
+
+mTLS trả lời "service nào"; JWT trả lời "người dùng nào được làm gì". Bật/tắt: prod luôn bật; dev `SPRING_PROFILES_ACTIVE=dev,mtls` trên cả ba. Test: `MtlsIntegrationTest` (farm và identity), `MtlsClientTest` (gateway).
+
+### 7.5 gRPC giữa service
+
+**Vấn đề:** một service gọi service khác, cần hợp đồng chặt và cùng mức bảo mật như REST.
+**Cách làm:** hợp đồng `.proto` ở module riêng (sinh mã lúc build); ba lớp mTLS + SAN + token người dùng.
+
+Biên proto: proto không phải domain; mỗi bên một `MemberMapper` đổi proto ↔ record (chỉ mapper import lớp sinh ra). Deadline 2s; gọi gRPC ngoài transaction DB; identity lỗi khi ghi thì từ chối (503), khi đọc thì giảm cấp. Luồng và bảng class: mục 3.3. Test: `IdentityDirectoryGrpcTest`, `IdentityGrpcMtlsTest`, `GrpcMemberDirectoryTest`, `ContractCompatibilityTest`.
+
 ## Đọc tiếp
 
-- Luồng xác thực chi tiết: [authentication-flow.md](architecture/authentication-flow.md)
-- Pattern: [BFF](patterns/bff.md), [OIDC với SAS](patterns/oidc-sas.md), [hexagonal + tenant](patterns/hexagonal-multitenant.md), [mTLS](patterns/mtls.md), [gRPC](patterns/grpc.md)
-- Chạy trên máy: [local-development.md](operations/local-development.md)
+- Thiết kế tổng: [../content/thiet-ke-farmverse.md](../content/thiet-ke-farmverse.md)
+- Luồng xác thực chi tiết hơn: [architecture/authentication-flow.md](architecture/authentication-flow.md)
+- Lý do từng quyết định bảo mật: [architecture/adr/](architecture/adr/)
+- Chạy trên máy: [operations/local-development.md](operations/local-development.md)
