@@ -23,27 +23,27 @@ flowchart LR
 
 ## 2. Yêu cầu và trạng thái
 
-| # | Yêu cầu | Hiện trạng | Chênh lệch | Milestone |
-|---|---|:-:|---|---|
-| R1 | Trình duyệt chỉ giữ cookie phiên opaque; token chỉ ở server | ✅ | — (`/bff/me` không trả token) | — |
-| R2 | Cookie `Secure`, `HttpOnly`, `SameSite`, `Path=/` | ✅ | — (M5; `Secure` theo profile prod, có test khóa) | — |
-| R3 | Chống session fixation | ✅ | — (M5, có đối chứng) | — |
-| R4 | CSRF | ✅ | — | — |
-| R5 | Authorization Code + PKCE, `state`, `nonce` | ✅ | — (M5) | — |
-| R6 | BFF gọi Farm bằng mTLS | ✅ (profile `mtls`) | — | — |
-| R7 | Access token gửi Farm có `aud=farm-service` | ✅ | Bước 1 của ADR-0006: token mang `[farm-service, identity-service]`; token riêng từng route là bước 2 | — |
-| R8 | Farm kiểm chữ ký, `iss`, `aud`, `exp`, `nbf` | ✅ | — | — |
-| R9 | Farm kiểm `scope` | ✅ | — (`SCOPE_farmverse.api`) | — |
-| R10 | Farm kiểm tenant | ✅ | — | — |
-| R11 | Farm kiểm ownership | ⬜ | Chưa có khái niệm chủ sở hữu; cần thiết kế nghiệp vụ trước | ngoài roadmap ngắn |
-| R12 | Phân biệt mTLS (máy nào), JWT/JWKS (ai, token thật không), authorization (được làm gì) | ✅ trong code, 🟡 tài liệu | Ghi rõ ở [ADR-0003](adr/0003-mtls-ssl-bundles-spiffe.md), [ADR-0004](adr/0004-local-jwt-validation-cached-jwks.md) | — |
-| R13 | Farm không gọi Identity mỗi request; JWKS cache và chịu đổi khóa | ✅ | — (`TokenValidationTest`: 5 request không gọi JWKS; `kid` mới thì tải lại) | — |
-| R14 | Redis có TTL, timeout, access control, fail-closed, không log token | ✅ | — (M3 + `GatewayRedisIT` trên Redis 8 thật: ACL user, TTL, treo → 503). TLS chỉ cấu hình ở prod | — |
-| R15 | Identity và Farm không dùng chung bảng/credential | ✅ | — (M4: DB riêng, vai trò riêng, không vào được DB của nhau; `DatabaseRolesIT`) | — |
-| R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ | — (M8: giới hạn IP dùng chung mọi instance, `LoginRateLimitPostgresIT`) | — |
-| R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | ✅ | — (M7: trace W3C + OTLP, Prometheus ở cổng quản trị, ECS JSON ở prod cả ba, test lọc log ở DEBUG). Còn: collector, alert, dashboard thật | — |
-| R18 | Actuator không lộ ra cổng công khai | ✅ | — (M2: cổng quản trị loopback ở cả ba service) | — |
-| R19 | Build và test lặp lại được, có CI | ✅ | — (CI xanh lần đầu 2026-11-04). CD chưa có, ngoài phạm vi | — |
+| # | Yêu cầu | Hiện trạng |
+|---|---|:-:|
+| R1 | Trình duyệt chỉ giữ cookie phiên opaque; token chỉ ở server | ✅ |
+| R2 | Cookie `Secure`, `HttpOnly`, `SameSite`, `Path=/` | ✅ |
+| R3 | Chống session fixation | ✅ |
+| R4 | CSRF | ✅ |
+| R5 | Authorization Code + PKCE, `state`, `nonce` | ✅ |
+| R6 | BFF gọi Farm bằng mTLS | ✅ (profile `mtls`) |
+| R7 | Access token gửi Farm có `aud=farm-service` | ✅ |
+| R8 | Farm kiểm chữ ký, `iss`, `aud`, `exp`, `nbf` | ✅ |
+| R9 | Farm kiểm `scope` | ✅ |
+| R10 | Farm kiểm tenant | ✅ |
+| R11 | Farm kiểm ownership | ⬜ |
+| R12 | Phân biệt mTLS (máy nào), JWT/JWKS (ai, token thật không), authorization (được làm gì) | ✅ trong code, 🟡 tài liệu |
+| R13 | Farm không gọi Identity mỗi request; JWKS cache và chịu đổi khóa | ✅ |
+| R14 | Redis có TTL, timeout, access control, fail-closed, không log token | ✅ |
+| R15 | Identity và Farm không dùng chung bảng/credential | ✅ |
+| R16 | TOTP: rate limit, chống brute force, chống replay, mã hóa secret | ✅ |
+| R17 | Structured logging, tracing, metrics, audit, không log dữ liệu nhạy cảm | ✅ |
+| R18 | Actuator không lộ ra cổng công khai | ✅ |
+| R19 | Build và test lặp lại được, có CI | ✅ |
 
 ## 3. Quyết định thiết kế
 
@@ -78,14 +78,3 @@ flowchart LR
 | Redis fail-closed | Không bao giờ cho qua khi mất phiên | Redis sập = mọi người dùng nhận 503 tới khi Redis về |
 | Rate limit fail-open (mặc định SCG) | Redis chập chờn không chặn người đã có phiên hợp lệ | Lúc Redis lỗi, không còn giới hạn tốc độ; chỉ chấp nhận được vì phiên được nạp trước và cũng cần Redis |
 | Rate limit login ở PostgreSQL (identity, M8) | Không thêm Redis cho identity; chung mọi instance; database lỗi thì 503 (fail-closed) | Mỗi lần thử đăng nhập thêm một câu `UPSERT`; ổn ở mức 10 lần/phút/IP |
-
-## 6. Chưa triển khai (không được coi là đã có)
-
-Rà lại 2026-11-04. Các mục cũ đã làm (Redis thật + ACL ở `GatewayRedisIT`, tracing/metric/log JSON ở M7, rate limit login phân tán ở M8, circuit breaker ở G3) đã bỏ khỏi danh sách.
-
-- Ownership trong tenant (R11): cần thiết kế nghiệp vụ trước.
-- Token exchange / token riêng từng service (ADR-0006 bước 2).
-- gRPC: identity đã có server (P2); farm gọi identity (P3) và tài liệu pattern (P4) chưa làm.
-- CD (deploy) và chạy container thật; collector trace, Prometheus, alert thật.
-- Tách Flyway thành job riêng (bỏ mật khẩu owner khỏi ứng dụng).
-- Thu hồi access token tức thì (hiện sống tới hết hạn, tối đa 5 phút).

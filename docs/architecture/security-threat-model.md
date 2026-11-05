@@ -1,6 +1,6 @@
 # Mô hình đe dọa
 
-Phương pháp: STRIDE theo từng ranh giới tin cậy. Trạng thái biện pháp dựa trên code ngày 2026-11-04.
+Phương pháp: STRIDE theo từng ranh giới tin cậy. Cột "Biện pháp" là cơ chế đang có trong code; cột "Còn thiếu" là hạn chế còn lại.
 
 ## 1. Ranh giới tin cậy và luồng dữ liệu
 
@@ -74,27 +74,3 @@ flowchart LR
 | T16 | TB4 | I | Token, mã, cookie lọt vào log | `SecurityAudit` làm sạch; logger in bí mật ở DEBUG bị ghim ở INFO; gateway không chuyển `Cookie` xuống service; test ở DEBUG cho cả ba service (M7, ADR-0012) | Ai đặt DEBUG cho đúng tên logger đã ghim thì vẫn in được |
 | T17 | TB2 | R | Không truy được ai làm gì | Audit ở identity; trace id W3C xuyên gateway → service, có trong log JSON (M7) | Chưa có collector thật; trace id chưa có trong ProblemDetail |
 | T18 | TB2 | D | Identity sập | Farm vẫn kiểm JWT bằng JWKS cache | — |
-
-## 4. Rủi ro P0-P3
-
-| Mức | # | Vấn đề | Bằng chứng | Milestone |
-|---|---|---|---|---|
-| P0 | — | **Không tìm thấy P0.** Nghi vấn ban đầu "actuator `gateway` lộ ra ngoài" đã bị loại bằng request thật: endpoint không bật | — | — |
-| P1 | P1-1 | ~~Redis dev không mật khẩu~~ **Đã sửa (M3)**: `compose.yaml` dùng `REDIS_PASSWORD`, cổng chỉ `127.0.0.1` | [`compose.yaml`](../../compose.yaml) | M3 ✅ |
-| P1 | P1-2 | ~~Một audience chung `farmverse-api`~~ **Đã sửa bước 1 (M6)**: `aud=[farm-service, identity-service]`, mỗi service chỉ nhận của mình | `FarmVerseTokenCustomizer`, ADR-0006 | M6 ✅ |
-| P1 | P1-3 | ~~Dev dùng superuser `postgres` cho cả hai service~~ **Đã sửa (M4)** | [`infra/postgres-init.sh`](../../infra/postgres-init.sh), [`DatabaseRolesIT`](../../services/farm-service/src/test/java/com/htv/farmverse/farm/DatabaseRolesIT.java) | M4 ✅ |
-| P1 | P1-4 | ~~Không có CI~~ **Đã sửa (M2)**: lần chạy đầu xanh cả `mvn verify` và 3 image | [`ci.yml`](../../.github/workflows/ci.yml) | M2 ✅ |
-| P2 | P2-1 | ~~Farm không kiểm `scope`~~ **Đã sửa (M6)** | farm `SecurityConfiguration`, `TokenValidationTest` | M6 ✅ |
-| P2 | P2-2 | ~~Chưa có test session fixation, cookie, `state`/`nonce`~~ **Đã có (M5)** | `LoginSessionSecurityTest`, `SessionCookieAttributesTest` | M5 ✅ |
-| P2 | P2-3 | ~~Không có CSP/HSTS~~ **Đã có (M5b)** | `SecurityConfiguration#securityHeaders`, `SecurityHeadersTest` | M5b ✅ |
-| P3 | P3-5 | Cookie `XSRF-TOKEN` không đặt `SameSite` riêng (mặc định trình duyệt: Lax). Cố ý không `HttpOnly` để SPA đọc. Chưa sửa: token CSRF vô dụng với trang khác origin nên rủi ro thấp | `SecurityConfiguration#security` | — |
-| P1 | P1-5 | ~~`redirect_uri` sai scheme sau edge TLS~~ **Đã sửa (M5c)**. Đã tái hiện bằng test trước khi sửa (`redirect_uri` = `http://127.0.0.1...`). Chưa thử với load balancer thật | `TrustedProxyForwardedHeaderTransformer`, `ForwardedHeadersTest` | M5c ✅ |
-| P2 | P2-4 | ~~Redis chưa khai TTL, timeout~~ **Đã sửa (M3)** | gateway `application.yml`, `RedisSessionHardeningTest` | M3 ✅ |
-| P2 | P2-5 | ~~Không tracing/metric; log JSON chỉ ở identity prod~~ **Đã sửa (M7)** | các `pom.xml`, `application-prod.yml`, ADR-0012 | M7 ✅ |
-| P2 | P2-6 | ~~2 test gateway cần Redis thật~~ **Đã sửa (M2a, 2026-11-04)** | [`InMemorySessionTestConfiguration`](../../platform/api-gateway/src/test/java/com/htv/farmverse/gateway/InMemorySessionTestConfiguration.java) | M2a ✅ |
-| P2 | P2-7 | ~~Healthcheck `Dockerfile` sai cổng~~ **Đã sửa (M2)**: dùng `MANAGEMENT_SERVER_PORT=9090`. Image build xanh trên CI; chưa chạy container thật | [`Dockerfile`](../../Dockerfile) | M2 ✅ |
-| P2 | P2-8 | ~~Giới hạn IP login chỉ đúng với một instance~~ **Đã sửa (M8)**: bộ đếm ở PostgreSQL | `JdbcLoginAttemptCounter`, `LoginRateLimitPostgresIT` | M8 ✅ |
-| P3 | P3-1 | ~~`.env.production.example`, `EXPOSE` lỗi thời~~ **Đã sửa (M2)** | [`.env.production.example`](../../.env.production.example), `Dockerfile` | M2 ✅ |
-| P3 | P3-2 | README identity là bản cũ | [`services/identity-service/README.md`](../../services/identity-service/README.md) | M2 |
-| P3 | P3-3 | Cảnh báo `@Valid` trên List khi gateway khởi động | log test gateway | — |
-| P3 | P3-4 | ~~Actuator mở trên cổng công khai 8080~~ **Đã sửa (M2)** | [`application.yml`](../../platform/api-gateway/src/main/resources/application.yml), `GatewayActuatorExposureTest` | M2 ✅ |

@@ -1,6 +1,6 @@
 # Triển khai
 
-Phần **Hiện trạng** là thứ có trong repo. Phần **Mục tiêu** là việc của roadmap, chưa có.
+Phần **Hiện trạng** là thứ có trong repo. Phần **Mục tiêu** là hướng cho production, chưa làm.
 
 ## 1. Sơ đồ triển khai mục tiêu
 
